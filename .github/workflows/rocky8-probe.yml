@@ -40,8 +40,8 @@ jobs:
           dnf config-manager --set-enabled powertools
           dnf install -y https://pkgs.sysadmins.ws/el8/base/x86_64/raven-release.el8.noarch.rpm
 
-          # Reuse the release RPM's signing configuration. Enable only the three
-          # package trees needed for this probe, excluding testing/multimedia.
+          # Reuse the release RPM's signing configuration. WebEngine's codec
+          # dependencies also require multimedia; keep testing disabled.
           /usr/libexec/platform-python - <<'PY'
           import configparser
           from pathlib import Path
@@ -63,7 +63,7 @@ jobs:
                   with path.open('w') as stream:
                       config.write(stream)
           probe = configparser.ConfigParser(interpolation=None)
-          for tree in ('base', 'extras', 'rx-devel'):
+          for tree in ('base', 'extras', 'rx-devel', 'multimedia'):
               settings = dict(template)
               for key in ('mirrorlist', 'metalink'):
                   settings.pop(key, None)

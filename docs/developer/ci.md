@@ -84,6 +84,8 @@ Ubuntu 24.04 runner上のRocky Linux 8.10 x86_64コンテナ
 （`rockylinux/rockylinux:8.10`）内で、Rocky・EPEL・Ravenの
 RPMを導入し、GCC Toolset 12によるRelease build、CLI確認、full CTest 17群を実行します。
 QtとQt WebEngineはRavenのRPMを使い、ソースからのビルドは行いません。
+Ravenはbase・extras・rx-devel・multimediaを有効にします。multimediaは
+Qt WebEngineが要求するFFmpeg・OpenH264・libvpx等の依存を解決するために必要です。
 Popplerは必要な22.0以上を満たすため`rx-poppler-glib-devel`を使い、別prefixの
 pkg-configファイルを探索します。Pythonは3.11を明示します。
 
