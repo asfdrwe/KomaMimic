@@ -1,5 +1,8 @@
 site_name: KomaMimicガイド
 site_description: KomaMimicの利用者・スクリプト開発者向けガイド
+site_url: https://asfdrwe.github.io/KomaMimic/
+repo_url: https://github.com/asfdrwe/KomaMimic
+repo_name: GitHub
 docs_dir: docs/site
 site_dir: site
 use_directory_urls: true

@@ -78,10 +78,13 @@ def check(root):
         raise ValueError('CLI version must use the CMake project version')
     if f'v{version}' not in (root / 'README.md').read_text(encoding='utf-8'):
         raise ValueError('README version differs from CMake')
-    workflow = (root / '.github/workflows/build.yml').read_text(encoding='utf-8')
-    for action in re.findall(r'uses:\s*(\S+)', workflow):
-        if not re.fullmatch(r'actions/[a-z-]+@[0-9a-f]{40}', action):
-            raise ValueError(f'Unpinned action: {action}')
+    workflows = sorted((root / '.github/workflows').glob('*.yml')) + sorted((root / '.github/workflows').glob('*.yaml'))
+    if not workflows:
+        raise ValueError('No public workflows found')
+    for path in workflows:
+        for action in re.findall(r'uses:\s*(\S+)', path.read_text(encoding='utf-8')):
+            if not re.fullmatch(r'actions/[a-z-]+@[0-9a-f]{40}', action):
+                raise ValueError(f'Unpinned action in {path.name}: {action}')
     print(f'Public source: {len(selected)} files ({len(binary_assets)} reviewed binary assets); links, hashes, versions and action pins OK')
 
 
