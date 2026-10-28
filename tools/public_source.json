@@ -229,6 +229,16 @@
       "path": "docs/site/assets/screenshots/views-spread-ja.png",
       "license": "GPL-3.0-only",
       "sha256": "688777955de7e4e3f1ae025b7395e2dd020351b6975182e5fc4f520e45b76622"
+    },
+    {
+      "path": "docs/site/assets/screenshots/mac-menu-ja.png",
+      "license": "GPL-3.0-only",
+      "sha256": "b1a0d692a9c2f865c4d62c2251cdd806304d3d2119d8f1fe8755131e44b38b3e"
+    },
+    {
+      "path": "docs/site/assets/screenshots/mac-keys-ja.png",
+      "license": "GPL-3.0-only",
+      "sha256": "07dad518fe2281dbd9c7da858458f86785870c70e0090f0f547891c2b9f2aa74"
     }
   ]
 }

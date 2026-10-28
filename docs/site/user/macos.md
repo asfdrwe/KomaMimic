@@ -12,9 +12,9 @@
 Windows/Linuxの説明のCtrlが、macOSではCommandとして表示・動作する操作があります。
 一律に読み替えず、メニューとショートカット設定に表示される割当を確認してください。
 
-![mac-menu-ja.png(../assets/screenshots/mac-menu-ja.png)
+![macOSのアプリメニュー](../assets/screenshots/mac-menu-ja.png)
 
-![mac-key-ja.png(../assets/screenshots/mac-key-ja.png)
+![macOSのキーボードショートカット設定](../assets/screenshots/mac-keys-ja.png)
 
 ## 入力機器と電源
 
