@@ -25,7 +25,7 @@ PDF・TXT・Markdown・EPUBと、JavaScriptによる画像reader・filterにも�
 - [同梱readerとfilter](scripts/bundled.md)
 
 ## 開発リポジトリ
-- [GitHub]()
+- [GitHub](https://github.com/asfdrwe/KomaMimic)
 
 ## 更新履歴
 - [更新履歴](changelog.md)
