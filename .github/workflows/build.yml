@@ -196,6 +196,20 @@ jobs:
             stage-windows/SHA256SUMS
           if-no-files-found: error
           retention-days: 14
+      - name: Collect external vcpkg logs
+        if: always()
+        shell: python
+        run: |
+          from pathlib import Path
+          import shutil
+
+          buildtrees = Path('D:/kfb')
+          destination = Path('results/vcpkg-build-logs')
+          for source in buildtrees.glob('*/*.log'):
+              if source.is_file():
+                  target = destination / source.relative_to(buildtrees)
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(source, target)
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -203,9 +217,9 @@ jobs:
           name: diagnostics-windows-msvc-x64
           path: |
             results/windows-ci/
+            results/vcpkg-build-logs/
             stage-windows/STAGE_MANIFEST.json
             stage-windows/*.log
             build-windows-fast/CMakeFiles/CMakeConfigureLog.yaml
-            D:/kfb/*/*.log
           if-no-files-found: warn
           retention-days: 14

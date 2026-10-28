@@ -59,6 +59,8 @@ MkDocs設定・依存指定・文書workflow・公開選別関連ツールの変
 CTest全体の成功と、Qtのpass/fail/skip、Pythonの件数を区別して確認してください。
 Linux/macOSはCTestのLastTest.logとctest.xml、Windowsはdiagnostics内のctest.log・
 LastTest.log・ctest.xml・automatic.jsonを確認します。Windowsのplatform成功をfull成功と扱いません。
+Windowsの短い作業パス`D:/kfb`にあるvcpkgログは、`results/vcpkg-build-logs/`へportごとの
+構成を保ってコピーしてから保存します。artifactへ渡すパスはリポジトリ内へ揃えます。
 ログにはCI上のパスや自作fixtureを使用し、個人の読書データは使用しません。
 
 ソース配布候補とWindows検証ZIPはActionsのartifactとして保存します。WindowsのZIPには本体とworker、
