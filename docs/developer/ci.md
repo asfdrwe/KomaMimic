@@ -86,8 +86,10 @@ RPMを導入し、GCC Toolset 12によるRelease build、CLI確認、full CTest 
 QtとQt WebEngineはRavenのRPMを使い、ソースからのビルドは行いません。
 Ravenはbase・extras・rx-devel・multimediaを有効にします。multimediaは
 Qt WebEngineが要求するFFmpeg・OpenH264・libvpx等の依存を解決するために必要です。
-Popplerは必要な22.0以上を満たすため`rx-poppler-glib-devel`を使い、別prefixの
-pkg-configファイルを探索します。Pythonは3.11を明示します。
+Popplerは必要な22.0以上を満たすため`rx-poppler-glib-devel`を使い、その依存にも
+`rx-glib2-devel`・`rx-cairo-devel`を導入します。これらのRPMに含まれるpkg-configファイルの
+配置先を取得して標準版より優先し、選択された版・配置先を構成ログへ記録します。
+Pythonは3.11を明示します。
 
 依存導入・構成・ビルド・試験のログと導入RPM一覧を
 `diagnostics-rocky8-raven-x64` artifactへ14日間保存します。

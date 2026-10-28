@@ -80,7 +80,7 @@ jobs:
             qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools-devel qt6-linguist \
             qt6-qttranslations qt6-qtwebengine-devel qt6-qtimageformats \
             libarchive-devel libicu-devel zlib-devel SDL2-devel \
-            rx-poppler-glib-devel cairo-devel dbus-daemon
+            rx-poppler-glib-devel rx-glib2-devel rx-cairo-devel dbus-daemon
       - name: Record dependencies and configure search paths
         run: |
           exec > >(tee "$PROBE_DIR/environment.log") 2>&1
@@ -96,9 +96,14 @@ jobs:
           from pathlib import Path
           import subprocess
 
-          installed = subprocess.check_output(['rpm', '-qal'], text=True).splitlines()
+          installed = subprocess.check_output(
+              ['rpm', '-ql', 'rx-poppler-glib-devel', 'rx-glib2-devel', 'rx-cairo-devel'],
+              text=True).splitlines()
           pc_dirs = sorted({str(Path(p).parent) for p in installed
-                            if p.startswith('/opt/') and p.endswith('.pc')})
+                            if p.endswith('.pc')})
+          if not pc_dirs:
+              raise SystemExit('No pkg-config directories found in the RX development RPMs')
+          print('RX pkg-config directories: ' + ':'.join(pc_dirs))
           qt = subprocess.check_output(['rpm', '-ql', 'qt6-qtbase-devel'], text=True).splitlines()
           configs = [str(Path(p).parent) for p in qt if p.endswith('/Qt6Config.cmake')]
           if len(configs) != 1:
@@ -120,8 +125,13 @@ jobs:
         run: |
           exec > >(tee "$PROBE_DIR/configure.log") 2>&1
           export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
-          pkg-config --modversion poppler-glib cairo
-          pkg-config --atleast-version=22.0 poppler-glib
+          pkg-config --modversion poppler-glib glib-2.0 gobject-2.0 cairo
+          pkg-config --print-errors --exists 'poppler-glib >= 22.0' \
+            'glib-2.0 >= 2.64' 'gobject-2.0 >= 2.64' 'cairo >= 1.16.0'
+          for module in poppler-glib glib-2.0 gobject-2.0 cairo; do
+            printf '%s pkg-config directory: ' "$module"
+            pkg-config --variable=pcfiledir "$module"
+          done
           rx_libs=$(pkg-config --variable=libdir poppler-glib):$(pkg-config --variable=libdir glib-2.0):$(pkg-config --variable=libdir cairo)
           export LD_LIBRARY_PATH="$rx_libs:${LD_LIBRARY_PATH:-}"
           printf 'LD_LIBRARY_PATH=%s\n' "$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
