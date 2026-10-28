@@ -80,7 +80,8 @@ Fedoraのroot containerでのWebEngine sandbox無効化は試験プロセスに�
 
 `.github/workflows/rocky8-probe.yml`は、AppImageのビルド基準環境を検討するための
 手動実行専用workflowです。Actionsの **Rocky 8 build probe → Run workflow** から起動します。
-Ubuntu 24.04 runner上のRocky Linux 8.10 x86_64コンテナ内で、Rocky・EPEL・Ravenの
+Ubuntu 24.04 runner上のRocky Linux 8.10 x86_64コンテナ
+（`rockylinux/rockylinux:8.10`）内で、Rocky・EPEL・Ravenの
 RPMを導入し、GCC Toolset 12によるRelease build、CLI確認、full CTest 17群を実行します。
 QtとQt WebEngineはRavenのRPMを使い、ソースからのビルドは行いません。
 Popplerは必要な22.0以上を満たすため`rx-poppler-glib-devel`を使い、別prefixの
