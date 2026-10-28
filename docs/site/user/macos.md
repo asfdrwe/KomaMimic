@@ -12,9 +12,9 @@
 Windows/Linuxの説明のCtrlが、macOSではCommandとして表示・動作する操作があります。
 一律に読み替えず、メニューとショートカット設定に表示される割当を確認してください。
 
-> SHOT MAC-MENU：macOS、日本語UIのKomaMimicメニュー。
-> 環境設定と終了、および⌘表記を見せます。予定画像名 `mac-menu-ja.png`。
-> 必要に応じて表示メニューの全画面⌃⌘Fを別画像 `mac-fullscreen-ja.png` で補います。
+![mac-menu-ja.png(../assets/screenshots/mac-menu-ja.png)
+
+![mac-key-ja.png(../assets/screenshots/mac-key-ja.png)
 
 ## 入力機器と電源
 
