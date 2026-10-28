@@ -1,0 +1,163 @@
+name: Rocky 8 build probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rocky8-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rocky8:
+    name: Rocky 8.10 x64 / Raven / full tests
+    runs-on: ubuntu-24.04
+    container: rockylinux:8.10
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      PROBE_DIR: ${{ github.workspace }}/tmp/rocky8-probe
+      QT_QPA_PLATFORM: offscreen
+      # Only test processes in this root-owned CI container disable the sandbox.
+      QTWEBENGINE_DISABLE_SANDBOX: '1'
+      QTWEBENGINE_CHROMIUM_FLAGS: --disable-gpu
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - name: Bootstrap container
+        run: dnf install -y git ca-certificates
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Install Rocky and Raven dependencies
+        run: |
+          mkdir -p "$PROBE_DIR/temp" "$PROBE_DIR/cache"
+          exec > >(tee "$PROBE_DIR/dependencies.log") 2>&1
+          dnf install -y dnf-plugins-core epel-release python3.11
+          dnf config-manager --set-enabled powertools
+          dnf install -y https://pkgs.sysadmins.ws/el8/base/x86_64/raven-release.el8.noarch.rpm
+
+          # Reuse the release RPM's signing configuration. Enable only the three
+          # package trees needed for this probe, excluding testing/multimedia.
+          /usr/libexec/platform-python - <<'PY'
+          import configparser
+          from pathlib import Path
+
+          repos = configparser.ConfigParser(interpolation=None)
+          repos.read([str(p) for p in Path('/etc/yum.repos.d').glob('*.repo')])
+          if 'raven' not in repos:
+              raise SystemExit('The Raven release RPM did not define the raven repository')
+          template = dict(repos['raven'])
+          for path in Path('/etc/yum.repos.d').glob('*.repo'):
+              config = configparser.ConfigParser(interpolation=None)
+              config.read(str(path))
+              changed = False
+              for section in config.sections():
+                  if section.startswith('raven'):
+                      config[section]['enabled'] = '0'
+                      changed = True
+              if changed:
+                  with path.open('w') as stream:
+                      config.write(stream)
+          probe = configparser.ConfigParser(interpolation=None)
+          for tree in ('base', 'extras', 'rx-devel'):
+              settings = dict(template)
+              for key in ('mirrorlist', 'metalink'):
+                  settings.pop(key, None)
+              settings.update(name='Raven EL8 probe ' + tree,
+                              baseurl='https://pkgs.sysadmins.ws/el8/' + tree + '/x86_64/',
+                              enabled='1', skip_if_unavailable='0')
+              probe['komamimic-raven-' + tree] = settings
+          with open('/etc/yum.repos.d/komamimic-raven-probe.repo', 'w') as stream:
+              probe.write(stream)
+          PY
+
+          dnf repolist -v
+          dnf install -y gcc-toolset-12-gcc-c++ cmake ninja-build pkgconf-pkg-config \
+            qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools-devel qt6-linguist \
+            qt6-qttranslations qt6-qtwebengine-devel qt6-qtimageformats \
+            libarchive-devel libicu-devel zlib-devel SDL2-devel \
+            rx-poppler-glib-devel cairo-devel dbus-daemon
+      - name: Record dependencies and configure search paths
+        run: |
+          exec > >(tee "$PROBE_DIR/environment.log") 2>&1
+          cat /etc/os-release
+          getconf GNU_LIBC_VERSION
+          rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort > "$PROBE_DIR/packages.txt"
+          cp /etc/yum.repos.d/komamimic-raven-probe.repo "$PROBE_DIR/"
+
+          # RX packages may use a separate prefix. Discover installed paths
+          # rather than assuming /usr or replacing the system libraries.
+          python3.11 - <<'PY'
+          import os
+          from pathlib import Path
+          import subprocess
+
+          installed = subprocess.check_output(['rpm', '-qal'], text=True).splitlines()
+          pc_dirs = sorted({str(Path(p).parent) for p in installed
+                            if p.startswith('/opt/') and p.endswith('.pc')})
+          qt = subprocess.check_output(['rpm', '-ql', 'qt6-qtbase-devel'], text=True).splitlines()
+          configs = [str(Path(p).parent) for p in qt if p.endswith('/Qt6Config.cmake')]
+          if len(configs) != 1:
+              raise SystemExit('Expected one Qt6Config.cmake: ' + repr(configs))
+          with open(os.environ['GITHUB_ENV'], 'a') as stream:
+              stream.write('PKG_CONFIG_PATH=' + ':'.join(pc_dirs) + '\n')
+              stream.write('KOMA_PROBE_QT_DIR=' + configs[0] + '\n')
+          PY
+          # GCC Toolset's enable script also sets its runtime library path.
+          set +u
+          source /opt/rh/gcc-toolset-12/enable
+          set -u
+          printf '%s\n' "$PATH" >> "$GITHUB_PATH"
+          printf 'LD_LIBRARY_PATH=%s\n' "${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+          g++ --version
+          cmake --version
+          python3.11 --version
+      - name: Configure Release and full tests
+        run: |
+          exec > >(tee "$PROBE_DIR/configure.log") 2>&1
+          export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
+          pkg-config --modversion poppler-glib cairo
+          pkg-config --atleast-version=22.0 poppler-glib
+          rx_libs=$(pkg-config --variable=libdir poppler-glib):$(pkg-config --variable=libdir glib-2.0):$(pkg-config --variable=libdir cairo)
+          export LD_LIBRARY_PATH="$rx_libs:${LD_LIBRARY_PATH:-}"
+          printf 'LD_LIBRARY_PATH=%s\n' "$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
+          cmake -S . -B "$PROBE_DIR/build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
+            -DKOMAMIMIC_TEST_SCOPE=full -DPython3_EXECUTABLE=/usr/bin/python3.11 \
+            -DQt6_DIR="$KOMA_PROBE_QT_DIR"
+      - name: Build
+        run: |
+          export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
+          cmake --build "$PROBE_DIR/build" --parallel 4 2>&1 | tee "$PROBE_DIR/build.log"
+      - name: CLI smoke checks
+        run: |
+          exec > >(tee "$PROBE_DIR/cli.log") 2>&1
+          export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
+          "$PROBE_DIR/build/komamimic" --version
+          "$PROBE_DIR/build/komamimic" --formats
+          ldd "$PROBE_DIR/build/komamimic"
+          ldd "$PROBE_DIR/build/komamimic-script-worker"
+      - name: Run full tests
+        run: |
+          export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
+          ctest --test-dir "$PROBE_DIR/build" --output-on-failure --parallel 2 \
+            --no-tests=error --output-junit "$PROBE_DIR/ctest.xml" 2>&1 | tee "$PROBE_DIR/ctest.log"
+      - name: Upload probe diagnostics
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: diagnostics-rocky8-raven-x64
+          path: |
+            tmp/rocky8-probe/*.log
+            tmp/rocky8-probe/*.txt
+            tmp/rocky8-probe/*.repo
+            tmp/rocky8-probe/ctest.xml
+            tmp/rocky8-probe/build/CMakeCache.txt
+            tmp/rocky8-probe/build/CMakeFiles/CMakeConfigureLog.yaml
+            tmp/rocky8-probe/build/Testing/Temporary/*.log
+          if-no-files-found: warn
+          retention-days: 14

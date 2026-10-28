@@ -76,6 +76,22 @@ GitHub Actionsはcommit SHAで固定しています。WindowsはQt SDKとvcpkg�
 Fedoraのroot containerでのWebEngine sandbox無効化は試験プロセスに限った設定です。
 通常の利用環境への設定方法として案内しません。
 
+## Rocky 8での試験ビルド
+
+`.github/workflows/rocky8-probe.yml`は、AppImageのビルド基準環境を検討するための
+手動実行専用workflowです。Actionsの **Rocky 8 build probe → Run workflow** から起動します。
+Ubuntu 24.04 runner上のRocky Linux 8.10 x86_64コンテナ内で、Rocky・EPEL・Ravenの
+RPMを導入し、GCC Toolset 12によるRelease build、CLI確認、full CTest 17群を実行します。
+QtとQt WebEngineはRavenのRPMを使い、ソースからのビルドは行いません。
+Popplerは必要な22.0以上を満たすため`rx-poppler-glib-devel`を使い、別prefixの
+pkg-configファイルを探索します。Pythonは3.11を明示します。
+
+依存導入・構成・ビルド・試験のログと導入RPM一覧を
+`diagnostics-rocky8-raven-x64` artifactへ14日間保存します。
+この試験は既存3OSのBuildとは独立し、pushでは起動しません。AppImageの生成や公開は行いません。
+依存の同時導入と全テストの成功はGitHub上の実行結果で確認します。
+Rocky上でのビルド成功だけでは、同梱依存を含むAppImageの他OSでの互換性は確定しません。
+
 ## GitHub上で確立する順序
 
 1. 利用者が公開フォルダを確認し、手動でrepository作成・commit・pushを行います。
