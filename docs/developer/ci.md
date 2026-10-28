@@ -2,7 +2,7 @@
 
 ## 文書サイトとGitHub Pages
 
-`.github/workflows/pages.yml`は、mainへの`docs/**`の変更、MkDocs設定・依存指定・
+`.github/workflows/pages.yml`は、mainへの`docs/site/**`の変更、MkDocs設定・依存指定・
 文書workflow・公開選別関連ツールの変更で起動します。PRでは検査とbuildだけを実行し、
 mainへのpushとmainを選んだ手動実行では成功後にGitHub Pagesへ公開します。
 生成対象は`docs/site/`で、`docs/developer/`はサイトへ含めません。
@@ -42,7 +42,18 @@ GitHubで実際に各jobが成功した段階を区別して確認します。
 
 共通検査の成功後、3OSのjobを並列実行します。OSごとは独立したjobなので、
 あるOSの失敗を理由に他のOSのjobをキャンセルしません。同じブランチ・PRに新しいcommitが
-来た場合は古い実行を取り消します。文書だけの変更も現段階ではこのworkflowの対象です。
+来た場合は古い実行を取り消します。push・PRとも変更が`docs/**`だけなら本体workflowを起動しません。
+コード等を同時に変更した場合は本体workflowも起動します。手動実行は変更パスに関係なく使用できます。
+
+| 変更内容 | 本体ビルド・テスト | MkDocs・Pages |
+|---|---|---|
+| `docs/developer/**`だけ | 省略 | 省略 |
+| `docs/site/**`だけ（画像を含む） | 省略 | 実行（PRでは公開しない） |
+| 本体コードだけ | 実行 | 省略 |
+| 本体コードと`docs/site/**` | 実行 | 実行 |
+
+MkDocs設定・依存指定・文書workflow・公開選別関連ツールの変更もサイトworkflowの対象です。
+これらは`docs/**`外なので本体workflowも起動します。
 
 失敗はjobの失敗として扱い、診断artifactは成功・失敗にかかわらず14日間保存します。
 CTest全体の成功と、Qtのpass/fail/skip、Pythonの件数を区別して確認してください。
