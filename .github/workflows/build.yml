@@ -1,0 +1,207 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  QT_QPA_PLATFORM: offscreen
+
+jobs:
+  source-checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - run: python3 tools/check_source.py --tracked
+      - name: Lint workflows
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/*.yml
+      - name: Export source
+        run: |
+          python3 tools/prepare_release.py --output dist/release
+          python3 tools/prepare_release.py --output "$RUNNER_TEMP/komamimic-repro-check"
+          cmp dist/release/SHA256SUMS "$RUNNER_TEMP/komamimic-repro-check/SHA256SUMS"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: komamimic-source
+          path: dist/release/*
+          if-no-files-found: error
+          retention-days: 14
+
+  linux:
+    name: Fedora 44 x64 / Qt WebEngine
+    env:
+      # Fedora's CI container runs as root. This applies only to test processes.
+      QTWEBENGINE_DISABLE_SANDBOX: '1'
+      QTWEBENGINE_CHROMIUM_FLAGS: --disable-gpu
+    needs: source-checks
+    runs-on: ubuntu-24.04
+    container: fedora:44
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install dependencies
+        run: >-
+          dnf install -y git gcc-c++ cmake ninja-build
+          qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools-devel qt6-linguist qt6-qttranslations qt6-qtwebengine-devel qt6-qtimageformats
+          libarchive-devel libicu-devel zlib-ng-compat-devel sdl2-compat-devel
+          poppler-glib-devel pkgconf-pkg-config dbus-daemon
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - run: cmake -S . -B build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DKOMAMIMIC_TEST_SCOPE=full
+      - run: cmake --build build-ci --parallel 4
+      - run: ./build-ci/komamimic --version
+      - run: ./build-ci/komamimic --formats
+      - run: ctest --test-dir build-ci --output-on-failure --parallel 2 --no-tests=error --output-junit "$GITHUB_WORKSPACE/build-ci/ctest.xml"
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: diagnostics-fedora44-x64
+          path: |
+            build-ci/CMakeFiles/CMakeConfigureLog.yaml
+            build-ci/Testing/Temporary/*.log
+            build-ci/ctest.xml
+          if-no-files-found: warn
+          retention-days: 14
+
+  macos:
+    name: macOS 15 arm64 / full tests
+    needs: source-checks
+    runs-on: macos-15
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - name: Install dependencies
+        run: brew install cmake ninja qtbase qtdeclarative qttools qttranslations qtwebengine qtimageformats libarchive icu4c sdl2-compat poppler pkgconf
+      - run: cmake -S . -B build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DKOMAMIMIC_TEST_SCOPE=full -DCMAKE_OSX_ARCHITECTURES=arm64
+      - run: cmake --build build-ci --parallel 3
+      - run: ./build-ci/komamimic --version
+      - run: ./build-ci/komamimic --formats
+      - run: ctest --test-dir build-ci --output-on-failure --parallel 2 --no-tests=error --output-junit "$GITHUB_WORKSPACE/build-ci/ctest.xml"
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: diagnostics-macos15-arm64
+          path: |
+            build-ci/CMakeFiles/CMakeConfigureLog.yaml
+            build-ci/Testing/Temporary/*.log
+            build-ci/ctest.xml
+          if-no-files-found: warn
+          retention-days: 14
+
+  windows:
+    name: Windows Release / prebuilt Qt / platform checks
+    needs: source-checks
+    runs-on: windows-2022
+    timeout-minutes: 180
+    env:
+      PYTHONUTF8: '1'
+      VCPKG_KEEP_ENV_VARS: PYTHONUTF8
+      VCPKG_MAX_CONCURRENCY: '4'
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - name: Read dependency configuration
+        id: dependencies
+        run: |
+          $commit = (Get-Content cmake/windows-fast/vcpkg.json -Raw | ConvertFrom-Json).'builtin-baseline'
+          if ($commit -notmatch '^[0-9a-f]{40}$') { throw 'Invalid vcpkg baseline' }
+          "commit=$commit" >> $env:GITHUB_OUTPUT
+          "image=$env:ImageVersion" >> $env:GITHUB_OUTPUT
+          $cache = Join-Path $env:RUNNER_TEMP 'vcpkg-binary-cache'
+          "VCPKG_BINARY_SOURCES=clear;files,$cache,readwrite" >> $env:GITHUB_ENV
+          "VCPKG_DEFAULT_BINARY_CACHE=$cache" >> $env:GITHUB_ENV
+          $qt = Join-Path $env:RUNNER_TEMP 'qt-sdk'
+          "KOMA_QT_PARENT=$qt" >> $env:GITHUB_ENV
+          $config = Get-Content tools/windows-fast.json -Raw | ConvertFrom-Json
+          "KOMAMIMIC_QT_ROOT=$qt/$($config.qt_version)/$($config.sdk_directory)" >> $env:GITHUB_ENV
+      - name: Cache official Qt SDK
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ${{ runner.temp }}/qt-sdk
+          key: windows-x64-official-qt-${{ hashFiles('tools/windows-fast.json', 'tools/setup_windows.py') }}
+      - name: Install or verify prebuilt Qt (no Qt compilation)
+        run: |
+          python tools/setup_windows.py --output "$env:KOMA_QT_PARENT"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Checkout pinned non-Qt dependencies
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: microsoft/vcpkg
+          ref: ${{ steps.dependencies.outputs.commit }}
+          path: .ci/vcpkg
+          persist-credentials: false
+      - name: Cache Release-only vcpkg packages
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ${{ runner.temp }}/vcpkg-binary-cache
+          key: windows-2022-release-vcpkg-${{ hashFiles('cmake/windows-fast/vcpkg.json', 'cmake/triplets/*.cmake') }}-${{ steps.dependencies.outputs.image }}
+          restore-keys: windows-2022-release-vcpkg-${{ hashFiles('cmake/windows-fast/vcpkg.json', 'cmake/triplets/*.cmake') }}-
+      - name: Bootstrap vcpkg and generate inputs
+        run: |
+          New-Item -ItemType Directory -Force $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
+          $root = Join-Path $env:GITHUB_WORKSPACE '.ci/vcpkg'
+          "VCPKG_ROOT=$root" >> $env:GITHUB_ENV
+          & "$root/bootstrap-vcpkg.bat" -disableMetrics
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python tests/fixtures/generate_validation_samples.py --output fixtures-ci
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Release build and platform integration tests
+        run: |
+          python tools/run_validation.py run --build-dir build-windows-fast --fixtures fixtures-ci --output results/windows-ci --jobs 4 --test-scope platform --windows-mode prebuilt --cmake-arg=-DVCPKG_INSTALL_OPTIONS=--x-buildtrees-root=D:/kfb
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Stage portable validation ZIP and own PDB symbols
+        run: |
+          python tools/stage_validation.py --build-dir build-windows-fast --output stage-windows
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Upload Windows validation build
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: komamimic-windows-x64-validation
+          path: |
+            stage-windows/KomaMimic-windows-x64-validation.zip
+            stage-windows/SHA256SUMS
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: diagnostics-windows-msvc-x64
+          path: |
+            results/windows-ci/
+            stage-windows/STAGE_MANIFEST.json
+            stage-windows/*.log
+            build-windows-fast/CMakeFiles/CMakeConfigureLog.yaml
+            D:/kfb/*/*.log
+          if-no-files-found: warn
+          retention-days: 14

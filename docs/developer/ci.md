@@ -24,20 +24,39 @@ python3 -m mkdocs build --strict --site-dir ../tmp/site-preview
 
 GitHub設定の参考：[カスタムworkflowでのPages公開](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)。
 
-## 本体ビルドCI（後続）
+## 本体ビルドCI
 
-以下は次段階で導入・確認する本体ビルドCIの構成です。現在は文書用workflowだけを追加しています。
+以下が本体ビルド・自動テスト用workflowの構成です。ローカルに定義を用意した段階と、
+GitHubで実際に各jobが成功した段階を区別して確認します。
 
-定義は `.github/workflows/build.yml` です。push（main/master・vタグ）、pull request、
+定義は `.github/workflows/build.yml` です。mainへのpush、pull request、
 手動実行を入口に、contentsの権限をreadへ限定しています。
 現在の定義と、GitHub上で実行済みの結果を区別してください。
 
 | job | 内容 | 保存するもの |
 |---|---|---|
 | source-checks | Git追跡ファイルと公開選択、翻訳、リンク、action pin、actionlint、ソースarchiveの再現性 | ソース配布候補 |
-| linux | Fedora 44 container、Release build、CLI、full CTest | 構成・試験ログ |
-| macos | macOS 15 arm64、Homebrew依存、Release build、CLI、full CTest | 構成・試験ログ |
-| windows | Windows 2022/MSVC、公式Qt SDK、Release専用vcpkg、platform検証、runtime配置 | 検証ZIP・PDB、構成・試験・配置ログ |
+| linux | Fedora 44 container、Release build、CLI、full CTest 17群 | 構成・試験ログ、JUnit XML |
+| macos | macOS 15 arm64、Homebrew依存、Release build、CLI、full CTest 17群 | 構成・試験ログ、JUnit XML |
+| windows | Windows 2022/MSVC、公式Qt SDK、Release専用vcpkg、platform検証8群、runtime配置 | 検証ZIP・PDB、構成・試験・配置ログ、JUnit XML、結果JSON |
+
+共通検査の成功後、3OSのjobを並列実行します。OSごとは独立したjobなので、
+あるOSの失敗を理由に他のOSのjobをキャンセルしません。同じブランチ・PRに新しいcommitが
+来た場合は古い実行を取り消します。文書だけの変更も現段階ではこのworkflowの対象です。
+
+失敗はjobの失敗として扱い、診断artifactは成功・失敗にかかわらず14日間保存します。
+CTest全体の成功と、Qtのpass/fail/skip、Pythonの件数を区別して確認してください。
+Linux/macOSはCTestのLastTest.logとctest.xml、Windowsはdiagnostics内のctest.log・
+LastTest.log・ctest.xml・automatic.jsonを確認します。Windowsのplatform成功をfull成功と扱いません。
+ログにはCI上のパスや自作fixtureを使用し、個人の読書データは使用しません。
+
+ソース配布候補とWindows検証ZIPはActionsのartifactとして保存します。WindowsのZIPには本体とworker、
+依存DLL、Qt plugin・WebEngine資源・翻訳、自コードのPDBと通知文書を含めます。
+Linux/macOSは今回ログ保存までで、配布用バイナリartifactは後続で整えます。
+このworkflowはtag・GitHub Releaseの作成や自動公開を行いません。
+
+初回は管理者がworkflowと本文を手動commit・pushし、Actionsの**Build**で各jobを確認します。
+同じ画面のRun workflowからmainを選んで手動実行もできます。PATの追加は不要です。
 
 GitHub Actionsはcommit SHAで固定しています。WindowsはQt SDKとvcpkgのbinary cacheを分け、
 設定・manifest・runner image等をkeyへ含めます。Qtをソースから再構築しません。
