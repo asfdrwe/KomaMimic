@@ -18,7 +18,7 @@ affiliated with the original project and does not include its code, artwork, or 
 
 ## Documentation
 
-- [User and script developer guide (Japanese)](docs/site/index.md)
+- [User and script developer guide (Japanese)](https://asfdrwe.github.io/KomaMimic/)
 - [Core developer documentation (Japanese draft)](docs/developer/index.md)
 - [Contributing](#contributing)
 
