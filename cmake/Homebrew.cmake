@@ -25,7 +25,9 @@ foreach(formula IN LISTS komamimic_brew_formulas)
         ERROR_QUIET
         TIMEOUT 10)
     # --prefix can report an uninstalled formula's prospective path.
-    if(brew_result STREQUAL "0" AND IS_DIRECTORY "${brew_prefix}/include")
+    # Qt framework-only formulae can provide lib/cmake without include/.
+    if(brew_result STREQUAL "0" AND
+       (IS_DIRECTORY "${brew_prefix}/include" OR IS_DIRECTORY "${brew_prefix}/lib/cmake"))
         list(APPEND CMAKE_PREFIX_PATH "${brew_prefix}")
         # Qt restricts component searches to its own installation and this list.
         # Homebrew installs Qml, WebEngine and their Qt dependencies separately.

@@ -375,6 +375,42 @@ class ValidationTests(unittest.TestCase):
             self.assertFalse(summary['all_manual_passed'])
             self.assertEqual(len(cases_for('Linux', 'full')), 36)
 
+    def test_homebrew_framework_only_qt_prefix_is_discovered(self):
+        cmake = shutil.which('cmake')
+        if not cmake:
+            self.skipTest('CMake is unavailable')
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp).resolve()
+            (directory / 'qtbase/include').mkdir(parents=True)
+            (directory / 'qtwebengine/lib/cmake').mkdir(parents=True)
+            # No include/ for framework-only Qt; other formula prefixes do not exist.
+            script = directory / 'check.cmake'
+            script.write_text('''cmake_minimum_required(VERSION 3.22)
+set(APPLE TRUE)
+set(CMAKE_CROSSCOMPILING FALSE)
+set(KOMAMIMIC_BREW_EXECUTABLE mocked-brew)
+set(KOMAMIMIC_USE_HOMEBREW ON)
+set(test_prefix "@PREFIX@")
+set(CMAKE_PREFIX_PATH explicit-prefix)
+set(QT_ADDITIONAL_PACKAGES_PREFIX_PATH explicit-qt-prefix)
+function(execute_process)
+    cmake_parse_arguments(brew "" "RESULT_VARIABLE;OUTPUT_VARIABLE" "COMMAND" ${ARGN})
+    list(GET brew_COMMAND 2 formula)
+    set(${brew_RESULT_VARIABLE} 0 PARENT_SCOPE)
+    set(${brew_OUTPUT_VARIABLE} "${test_prefix}/${formula}" PARENT_SCOPE)
+endfunction()
+include("@HELPER@")
+if(NOT CMAKE_PREFIX_PATH STREQUAL "explicit-prefix;${test_prefix}/qtbase;${test_prefix}/qtwebengine")
+    message(FATAL_ERROR "Incorrect CMake prefixes: ${CMAKE_PREFIX_PATH}")
+endif()
+if(NOT QT_ADDITIONAL_PACKAGES_PREFIX_PATH STREQUAL "explicit-qt-prefix;${test_prefix}/qtbase;${test_prefix}/qtwebengine")
+    message(FATAL_ERROR "Incorrect Qt prefixes: ${QT_ADDITIONAL_PACKAGES_PREFIX_PATH}")
+endif()
+'''.replace('@PREFIX@', directory.as_posix()).replace('@HELPER@',
+            (ROOT / 'cmake/Homebrew.cmake').as_posix()), encoding='utf-8')
+            result = subprocess.run([cmake, '-P', str(script)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
     def test_fast_dependencies_preserve_non_qt_features_and_baseline(self):
         root = json.loads((ROOT / 'vcpkg.json').read_text(encoding='utf-8'))
         fast = json.loads((ROOT / 'cmake/windows-fast/vcpkg.json').read_text(encoding='utf-8'))
