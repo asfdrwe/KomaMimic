@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=KomaMimic
+Comment=Comic and image viewer
+Comment[ja]=漫画・画像ビューア
+Exec=komamimic %F
+Icon=komamimic
+Terminal=false
+Categories=Graphics;Viewer;

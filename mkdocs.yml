@@ -1,0 +1,31 @@
+site_name: KomaMimicガイド
+site_description: KomaMimicの利用者・スクリプト開発者向けガイド
+docs_dir: docs/site
+site_dir: site
+use_directory_urls: true
+theme:
+  name: mkdocs
+  locale: ja
+plugins:
+  - search:
+      lang: ja
+markdown_extensions:
+  - tables
+  - fenced_code
+nav:
+  - はじめに: index.md
+  - 利用ガイド:
+      - 基本操作: user/basic.md
+      - 表示と画像加工: user/views.md
+      - 文書を読む: user/documents.md
+      - 本棚と履歴: user/library.md
+      - 設定とキャッシュ: user/settings.md
+      - 対応形式: user/formats.md
+      - 設定の取り込み: user/migration.md
+      - macOSの違い: user/macos.md
+  - スクリプト開発:
+      - 導入と登録: scripts/index.md
+      - API 1仕様: scripts/api.md
+      - 最小例: scripts/examples.md
+      - 同梱スクリプト: scripts/bundled.md
+  - 更新履歴: changelog.md

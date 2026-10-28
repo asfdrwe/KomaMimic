@@ -1,0 +1,24 @@
+{
+  "name": "komamimic",
+  "version-string": "1.0.0",
+  "description": "Non-Qt dependencies for the prebuilt Qt Windows Release build",
+  "license": "GPL-3.0-only",
+  "builtin-baseline": "9eec002df1cd109f8f104cd966a763daf9751489",
+  "dependencies": [
+    "libarchive",
+    "icu",
+    "sdl2",
+    "zlib",
+    {
+      "name": "poppler",
+      "features": [
+        "glib",
+        "cms"
+      ]
+    },
+    {
+      "name": "pkgconf",
+      "host": true
+    }
+  ]
+}

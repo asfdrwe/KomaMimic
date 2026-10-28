@@ -1,0 +1,14 @@
+<RCC>
+  <qresource prefix="/komamimic/readers">
+    <file alias="mag/manifest.json">../scripts/readers/mag/manifest.json</file>
+    <file alias="mag/decode.js">../scripts/readers/mag/decode.js</file>
+    <file alias="pic2/manifest.json">../scripts/readers/pic2/manifest.json</file>
+    <file alias="pic2/decode.js">../scripts/readers/pic2/decode.js</file>
+    <file alias="pic/manifest.json">../scripts/readers/pic/manifest.json</file>
+    <file alias="pic/decode.js">../scripts/readers/pic/decode.js</file>
+    <file alias="pnm/manifest.json">../scripts/readers/pnm/manifest.json</file>
+    <file alias="pnm/decode.js">../scripts/readers/pnm/decode.js</file>
+    <file alias="reading-filter/manifest.json">../scripts/readers/reading-filter/manifest.json</file>
+    <file alias="reading-filter/filter.js">../scripts/readers/reading-filter/filter.js</file>
+  </qresource>
+</RCC>

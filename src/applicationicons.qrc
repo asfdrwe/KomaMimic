@@ -1,0 +1,12 @@
+<RCC>
+  <qresource prefix="/icons">
+    <file alias="komamimic-16.png">../assets/icons/komamimic-16.png</file>
+    <file alias="komamimic-24.png">../assets/icons/komamimic-24.png</file>
+    <file alias="komamimic-32.png">../assets/icons/komamimic-32.png</file>
+    <file alias="komamimic-48.png">../assets/icons/komamimic-48.png</file>
+    <file alias="komamimic-64.png">../assets/icons/komamimic-64.png</file>
+    <file alias="komamimic-128.png">../assets/icons/komamimic-128.png</file>
+    <file alias="komamimic-256.png">../assets/icons/komamimic-256.png</file>
+    <file alias="komamimic-512.png">../assets/icons/komamimic-512.png</file>
+  </qresource>
+</RCC>

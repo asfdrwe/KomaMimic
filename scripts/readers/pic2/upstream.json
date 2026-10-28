@@ -1,0 +1,14 @@
+{
+  "project": "wuimg",
+  "source": "https://raw.githubusercontent.com/kaleicon/wuimg/trunk/src/lib/pic2.c",
+  "licenseSource": "https://raw.githubusercontent.com/kaleicon/wuimg/trunk/LICENSE",
+  "retrieved": "2026-10-23",
+  "revision": "content snapshot; commit not available from retrieval service",
+  "normalizedSourceSha256": "91a6088b8361bca1d69eb9937ba9900128ffe16d22e58514dd1a720c4262bad3",
+  "normalization": "535 source lines returned by retrieval service, joined with LF, final LF; not a hash of GitHub HTTP bytes",
+  "originalLicense": "0BSD",
+  "fileCopyright": "2024 kaleido",
+  "projectCopyright": "2018 kaleido <https://codeberg.org/kaleido>",
+  "adaptedPortion": "arithmetic() in decode.js: range decoding, number prediction, cache and chains",
+  "changes": "C to JavaScript/TypedArray; bounded reads and chain targets; channel predictor clamping; 15-bit GRB cache keys; probability split minimum 1; no wuimg runtime dependency"
+}

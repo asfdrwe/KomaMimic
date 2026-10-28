@@ -1,0 +1,36 @@
+{
+  "qt_version": "6.11.2",
+  "architecture": "win64_msvc2022_64",
+  "sdk_directory": "msvc2022_64",
+  "py7zr_version": "1.1.0",
+  "modules": [
+    "qtwebengine",
+    "qtwebchannel",
+    "qtpositioning",
+    "qtimageformats",
+    "qtshadertools"
+  ],
+  "required_files": [
+    "bin/Qt6Core.dll",
+    "bin/Qt6Gui.dll",
+    "bin/Qt6Widgets.dll",
+    "bin/Qt6Qml.dll",
+    "bin/Qt6Test.dll",
+    "bin/Qt6WebEngineCore.dll",
+    "bin/Qt6WebEngineWidgets.dll",
+    "bin/QtWebEngineProcess.exe",
+    "bin/qtpaths.exe",
+    "bin/windeployqt.exe",
+    "bin/moc.exe",
+    "bin/lrelease.exe",
+    "plugins/platforms/qwindows.dll",
+    "plugins/imageformats/qtiff.dll",
+    "plugins/sqldrivers/qsqlite.dll",
+    "resources/qtwebengine_resources.pak",
+    "translations/qtwebengine_locales/en-US.pak",
+    "translations/qtbase_ja.qm",
+    "lib/cmake/Qt6/Qt6Config.cmake",
+    "lib/cmake/Qt6WebEngineWidgets/Qt6WebEngineWidgetsConfig.cmake"
+  ],
+  "aqt_commit": "8c3695d4a4e1ceabf6a74dc6c79681656dc6b74b"
+}

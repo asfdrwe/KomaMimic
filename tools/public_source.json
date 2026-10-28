@@ -1,0 +1,234 @@
+{
+  "schema": 1,
+  "root_files": [
+    ".gitattributes",
+    ".gitignore",
+    "CMakeLists.txt",
+    "CMakePresets.json",
+    "vcpkg.json",
+    "LICENSE",
+    "README.md",
+    "tests/CMakeLists.txt",
+    "tests/fixtures/README.md",
+    "cmake/applicationicon.rc.in",
+    "mkdocs.yml",
+    "requirements-docs.txt"
+  ],
+  "source_trees": {
+    "src": [
+      ".cpp",
+      ".h",
+      ".qrc",
+      ".js"
+    ],
+    "scripts": [
+      ".js",
+      ".json"
+    ],
+    "tests": [
+      ".cpp",
+      ".h",
+      ".py"
+    ],
+    "cmake": [
+      ".cmake",
+      ".json"
+    ],
+    "tools": [
+      ".py",
+      ".json"
+    ],
+    "translations": [
+      ".ts"
+    ],
+    ".github": [
+      ".yml",
+      ".yaml"
+    ],
+    "examples": [
+      ".js",
+      ".json"
+    ]
+  },
+  "documents": [
+    "docs/developer/architecture.md",
+    "docs/developer/building.md",
+    "docs/developer/changelog.md",
+    "docs/developer/ci.md",
+    "docs/developer/icons.md",
+    "docs/developer/index.md",
+    "docs/developer/packaging.md",
+    "docs/developer/platform-validation.md",
+    "docs/developer/specification.md",
+    "docs/developer/testing.md",
+    "docs/developer/translations.md",
+    "docs/site/changelog.md",
+    "docs/site/index.md",
+    "docs/site/scripts/api.md",
+    "docs/site/scripts/bundled.md",
+    "docs/site/scripts/examples.md",
+    "docs/site/scripts/index.md",
+    "docs/site/user/basic.md",
+    "docs/site/user/documents.md",
+    "docs/site/user/formats.md",
+    "docs/site/user/library.md",
+    "docs/site/user/macos.md",
+    "docs/site/user/migration.md",
+    "docs/site/user/settings.md",
+    "docs/site/user/views.md"
+  ],
+  "excluded_paths": [
+    "tmp",
+    "demo",
+    "data",
+    "build",
+    "mybuild",
+    "release",
+    "out",
+    "dist",
+    "artifacts",
+    "internal",
+    "private",
+    "samples",
+    "site",
+    "tests/fixtures/generated"
+  ],
+  "runtime_sample_data": false,
+  "reviewed_assets": [
+    {
+      "path": "assets/icons/komamimic-1024.png",
+      "license": "GPL-3.0-only",
+      "sha256": "0b405689da8bac356423d093c766ada962035b50ebeb47757735ee39f2343f62"
+    },
+    {
+      "path": "assets/icons/komamimic-128.png",
+      "license": "GPL-3.0-only",
+      "sha256": "40e0a12a620aef58a72af21bddb504426e30b6f5fe30ed32f7813ada14797577"
+    },
+    {
+      "path": "assets/icons/komamimic-16.png",
+      "license": "GPL-3.0-only",
+      "sha256": "f2b07e3571229f03f61d185a5f45ccb9eb0c06a4646d4bcd8562751cf86dc055"
+    },
+    {
+      "path": "assets/icons/komamimic-24.png",
+      "license": "GPL-3.0-only",
+      "sha256": "f58af2ee03c1c8c61bd29b7b96584c3d89d50949d5fc9012fbcf611afb426f64"
+    },
+    {
+      "path": "assets/icons/komamimic-256.png",
+      "license": "GPL-3.0-only",
+      "sha256": "4bf047e52826a35e605c7bdc5b5f18f931d1b34e8fd4b13bf979b00d22b24491"
+    },
+    {
+      "path": "assets/icons/komamimic-32.png",
+      "license": "GPL-3.0-only",
+      "sha256": "dc8fea6489db4ed783382beb0606f04845e8dc0d2817edb170f0e45abfd0d640"
+    },
+    {
+      "path": "assets/icons/komamimic-48.png",
+      "license": "GPL-3.0-only",
+      "sha256": "5d62b0f9d0833a7e34db895bb2712f80eafdbb01ccd135ffa10e2b9dbdc103bb"
+    },
+    {
+      "path": "assets/icons/komamimic-512.png",
+      "license": "GPL-3.0-only",
+      "sha256": "6c11ec37ab95b2b07d2639d641a1ab357beac19a7288838ca2f3e08b43996bd5"
+    },
+    {
+      "path": "assets/icons/komamimic-64.png",
+      "license": "GPL-3.0-only",
+      "sha256": "7bd7d26c6d92dcc47985a7cff2498a21a92aeac606051a60c774e1b4b85ddbdd"
+    },
+    {
+      "path": "assets/icons/komamimic-symbol.svg",
+      "license": "GPL-3.0-only",
+      "sha256": "7a6147ed5b815ceadbbd912b0194771a11efa42cad29e6e9e72178b294945aad"
+    },
+    {
+      "path": "assets/icons/komamimic.icns",
+      "license": "GPL-3.0-only",
+      "sha256": "f1c963034554299844f950f92d2d11cc8049dc293bf8325c52c985b45cecd964"
+    },
+    {
+      "path": "assets/icons/komamimic.ico",
+      "license": "GPL-3.0-only",
+      "sha256": "7cd8d289a9664217a74f2cb6eb736fd81cedde61a837490b05a16db02faa6477"
+    },
+    {
+      "path": "assets/icons/komamimic.svg",
+      "license": "GPL-3.0-only",
+      "sha256": "8b258ffb54c07759ec58f7468db88050101430ff18a5471674be3f86aad65ee6"
+    },
+    {
+      "path": "assets/komamimic.desktop",
+      "license": "GPL-3.0-only",
+      "sha256": "4bc8a47e5ee813716c1d5cdf331e332ebde1cd5485d3be78322831b34c1dca40"
+    },
+    {
+      "path": "docs/site/assets/screenshots/basic-keys-ja.png",
+      "license": "GPL-3.0-only",
+      "sha256": "318bde5dce85a4b7be67ae5d9df3b47af39b014bd2816961d56803eab5273fe7"
+    },
+    {
+      "path": "docs/site/assets/screenshots/basic-open-ja.png",
+      "license": "GPL-3.0-only",
+      "sha256": "d8e5bc4fad1b1b2342d7718f7f9532600e050f51906afc3b1bed7b0654a70f3c"
+    },
+    {
+      "path": "docs/site/assets/screenshots/basic-page-ja.png",
+      "license": "GPL-3.0-only",
+      "sha256": "feb467bbbca6fbec1ad0c5146e27b3269799ddfc2d0e9bf0ff14aa38ff49b035"
+    },
+    {
+      "path": "docs/site/assets/screenshots/document-settings-ja.png",
+      "license": "GPL-3.0-only",
+      "sha256": "a45f6a0b45ff525c8833866eb078670e69fc54eadf25cb3417d567d27f48dab9"
+    },
+    {
+      "path": "docs/site/assets/screenshots/document-vertical-ja.png",
+      "license": "GPL-3.0-only",
+      "sha256": "9a36b515062786b82b92c4bbbe9ededd721fe435d259f980eecd21055a19cba2"
+    },
+    {
+      "path": "docs/site/assets/screenshots/library-lists-ja.png",
+      "license": "GPL-3.0-only",
+      "sha256": "25d678fac5c1fbff6d2e996749b76eb146e6c5d982e5d25b251c43df342f32da"
+    },
+    {
+      "path": "docs/site/assets/screenshots/migration-preview-ja.png",
+      "license": "GPL-3.0-only",
+      "sha256": "b93a20e805f7910bf7fe7a9228b65827b3a555f28c691d5579c2c5c94a1e8c9e"
+    },
+    {
+      "path": "docs/site/assets/screenshots/readme-en.png",
+      "license": "GPL-3.0-only",
+      "sha256": "7639bd29378e5030efeda4ac635a70f493b114baa0128ce0f08e0bc0bbc87cad"
+    },
+    {
+      "path": "docs/site/assets/screenshots/readme-ja.png",
+      "license": "GPL-3.0-only",
+      "sha256": "7f2aaab52c06dde64fc36dcfc10d690f7d09650e658efbd3ccfccd45d1fc6e29"
+    },
+    {
+      "path": "docs/site/assets/screenshots/script-preferences-ja.png",
+      "license": "GPL-3.0-only",
+      "sha256": "8af76844aaab06cad0ab418a9a24945c8842990561bf7b076e652b597452def8"
+    },
+    {
+      "path": "docs/site/assets/screenshots/settings-cache-ja.png",
+      "license": "GPL-3.0-only",
+      "sha256": "65e01da169d0c0f7042fc8a8b2f1597ac27bfd7d1c58be675c517ddc3432416f"
+    },
+    {
+      "path": "docs/site/assets/screenshots/settings-settings-ja.png",
+      "license": "GPL-3.0-only",
+      "sha256": "6c6ec02a2bc1e9396b5a24aad97327df1b1824f60537468fb86926793e1ce999"
+    },
+    {
+      "path": "docs/site/assets/screenshots/views-spread-ja.png",
+      "license": "GPL-3.0-only",
+      "sha256": "688777955de7e4e3f1ae025b7395e2dd020351b6975182e5fc4f520e45b76622"
+    }
+  ]
+}

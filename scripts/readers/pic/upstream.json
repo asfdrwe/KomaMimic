@@ -1,0 +1,14 @@
+{
+  "project": "wuimg",
+  "source": "https://raw.githubusercontent.com/kaleicon/wuimg/trunk/src/lib/pic.c",
+  "licenseSource": "https://raw.githubusercontent.com/kaleicon/wuimg/trunk/LICENSE",
+  "retrieved": "2026-10-23",
+  "revision": "content snapshot; commit not available from retrieval service",
+  "normalizedSourceSha256": "597d36c6f8995d5600d1195861071a5ceb2851506a33f2d44c1e33820df3b348",
+  "normalization": "578 source lines returned by retrieval service, joined with LF, final LF; not a hash of GitHub HTTP bytes",
+  "originalLicense": "0BSD",
+  "fileCopyright": "2022 kaleido",
+  "projectCopyright": "2018 kaleido <https://codeberg.org/kaleido>",
+  "adaptedPortion": "header profiles, indexed color ring, run length and downward chain decoding in decode.js",
+  "changes": "C to JavaScript/TypedArray; bounded bit reads and chain work; RGBA8 change-point mask; channel bit replication; native raster geometry; reject unsupported PC-88VA tiled and generic 32-bit modes; no wuimg runtime dependency"
+}

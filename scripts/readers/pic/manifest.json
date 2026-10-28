@@ -1,0 +1,9 @@
+{
+  "apiVersion": 1,
+  "id": "org.komamimic.reader.pic",
+  "name": "Yanagisawa PIC (JavaScript)",
+  "extensions": ["pic"],
+  "magic": "504943",
+  "script": "decode.js",
+  "license": "GPL-3.0-only AND 0BSD"
+}

@@ -1,0 +1,9 @@
+{
+  "apiVersion": 1,
+  "id": "org.komamimic.reader.mag",
+  "name": "MAG / MAKI02 (JavaScript)",
+  "extensions": ["mag", "max"],
+  "magic": "4d414b4930322020",
+  "script": "decode.js",
+  "license": "GPL-3.0-only"
+}

@@ -1,0 +1,64 @@
+{
+  "name": "komamimic",
+  "version-string": "1.0.0",
+  "description": "Cross-platform comic and image viewer",
+  "license": "GPL-3.0-only",
+  "builtin-baseline": "9eec002df1cd109f8f104cd966a763daf9751489",
+  "dependencies": [
+    {
+      "name": "qtbase",
+      "default-features": false,
+      "features": [
+        "concurrent",
+        "dnslookup",
+        "doubleconversion",
+        "freetype",
+        "gui",
+        "harfbuzz",
+        "jpeg",
+        "network",
+        "png",
+        "sql-sqlite",
+        "testlib",
+        "thread",
+        "widgets"
+      ]
+    },
+    {
+      "name": "qtbase",
+      "default-features": false,
+      "features": [
+        "windeployqt"
+      ],
+      "platform": "windows"
+    },
+    "qttranslations",
+    "qtimageformats",
+    {
+      "name": "qtwebengine",
+      "default-features": false,
+      "features": [
+        "webengine"
+      ]
+    },
+    {
+      "name": "qtdeclarative",
+      "default-features": false
+    },
+    "libarchive",
+    "icu",
+    "sdl2",
+    "zlib",
+    {
+      "name": "poppler",
+      "features": [
+        "glib",
+        "cms"
+      ]
+    },
+    {
+      "name": "pkgconf",
+      "host": true
+    }
+  ]
+}

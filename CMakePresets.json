@@ -1,0 +1,117 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 22,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "windows-fast",
+      "displayName": "Windows Release / prebuilt Qt / platform checks",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build-windows-fast",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "BUILD_TESTING": "ON",
+        "KOMAMIMIC_WINDOWS_FAST": "ON",
+        "KOMAMIMIC_TEST_SCOPE": "platform",
+        "KOMAMIMIC_QT_ROOT": "$env{KOMAMIMIC_QT_ROOT}",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_MANIFEST_DIR": "${sourceDir}/cmake/windows-fast",
+        "VCPKG_OVERLAY_TRIPLETS": "${sourceDir}/cmake/triplets",
+        "VCPKG_TARGET_TRIPLET": "x64-windows-release",
+        "VCPKG_HOST_TRIPLET": "x64-windows-release"
+      }
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows x64 / Visual Studio 2022 / vcpkg",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/build-windows",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "cacheVariables": {
+        "BUILD_TESTING": "ON",
+        "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "VCPKG_HOST_TRIPLET": "x64-windows"
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release / Ninja / Qt WebEngine",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-release",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "BUILD_TESTING": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "windows-fast",
+      "configurePreset": "windows-fast",
+      "configuration": "Release",
+      "jobs": 4
+    },
+    {
+      "name": "windows-msvc-release",
+      "configurePreset": "windows-msvc",
+      "configuration": "Release",
+      "jobs": 4
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "jobs": 4
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "windows-fast",
+      "configurePreset": "windows-fast",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 2,
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "windows-msvc-release",
+      "configurePreset": "windows-msvc",
+      "configuration": "Release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 2,
+        "noTestsAction": "error"
+      }
+    },
+    {
+      "name": "release",
+      "configurePreset": "release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 2,
+        "noTestsAction": "error"
+      }
+    }
+  ]
+}

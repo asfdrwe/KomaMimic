@@ -1,0 +1,1 @@
+{"id":"reading-filter","kind":"filter","apiVersion":1,"script":"filter.js","settings":{"grayscale":{"type":"boolean","default":true},"gamma":{"type":"number","minimum":0.1,"maximum":5,"default":1},"contrast":{"type":"integer","minimum":-100,"maximum":100,"default":10}}}

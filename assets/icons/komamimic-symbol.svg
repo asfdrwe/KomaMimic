@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+<title id="title">KomaMimic</title>
+<desc id="desc">An open comic book on a deep blue rounded square.</desc>
+<defs>
+  <linearGradient id="background" x1="0" y1="0" x2="0.85" y2="1">
+    <stop stop-color="#24485b"/><stop offset="1" stop-color="#122d40"/>
+  </linearGradient>
+</defs>
+<rect x="16" y="16" width="480" height="480" rx="104" fill="url(#background)"/>
+<g transform="translate(-23 10) scale(1.09)">
+<g stroke-linejoin="round" stroke-linecap="round">
+  <!-- The two leaves meet at a visible spine; no external font or image. -->
+  <path d="M66 116 Q154 90 256 120 Q358 90 446 116 L446 335 Q350 310 256 345 Q162 310 66 335 Z" fill="#0b202d" stroke="#0b202d" stroke-width="12"/>
+  <path d="M72 102 Q162 80 256 111 L256 329 Q161 298 72 320 Z" fill="#fffaf0"/>
+  <path d="M256 111 Q350 80 440 102 L440 320 Q351 298 256 329 Z" fill="#e9f1e9"/>
+  <path d="M256 115 L256 322" fill="none" stroke="#bdcfc8" stroke-width="6"/>
+  <path d="M105 131 Q167 120 222 137 L222 199 L105 191 Z" fill="#66d4c2"/>
+  <path d="M105 211 L222 219 L222 281 Q164 265 105 276 Z" fill="#24485b"/>
+  <path d="M289 137 Q350 120 407 131 L407 276 Q346 265 289 281 Z" fill="#66d4c2"/>
+  <path d="M308 253 L341 203 L362 228 L380 199 L389 253 Z" fill="#24485b"/>
+  <circle cx="324" cy="168" r="12" fill="#fffaf0"/>
+  <path d="M126 241 L143 233 L183 247" fill="none" stroke="#fffaf0" stroke-width="8"/>
+</g>
+</g>
+</svg>
