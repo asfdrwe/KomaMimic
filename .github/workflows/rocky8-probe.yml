@@ -30,7 +30,43 @@ jobs:
       LIBARCHIVE_SHA256: a1bffbe5152cfe869751179e7b16648c87c461cb8c46eee75062efbe164cc57c
     steps:
       - name: Bootstrap container
-        run: dnf install -y git ca-certificates
+        timeout-minutes: 10
+        run: |
+          exec > >(tee /var/log/komamimic-bootstrap.log) 2>&1
+          # Avoid long waits while cycling through geographically selected
+          # Rocky mirrors. Preserve the RPM signature settings from the image.
+          /usr/libexec/platform-python - <<'PY'
+          import configparser
+          from pathlib import Path
+
+          trees = {'baseos': 'BaseOS', 'appstream': 'AppStream',
+                   'extras': 'extras', 'powertools': 'PowerTools'}
+          for path in Path('/etc/yum.repos.d').glob('Rocky-*.repo'):
+              config = configparser.ConfigParser(interpolation=None)
+              config.read(str(path))
+              changed = False
+              for section in config.sections():
+                  if section not in trees:
+                      continue
+                  for key in ('mirrorlist', 'metalink'):
+                      config[section].pop(key, None)
+                  url = ('https://dl.rockylinux.org/pub/rocky/$releasever/'
+                         + trees[section] + '/$basearch/os/')
+                  config[section]['baseurl'] = url
+                  print(section + ': ' + url, flush=True)
+                  changed = True
+              if changed:
+                  with path.open('w') as stream:
+                      config.write(stream)
+          config = configparser.ConfigParser(interpolation=None)
+          config.read('/etc/dnf/dnf.conf')
+          config['main']['timeout'] = '20'
+          config['main']['minrate'] = '1024'
+          config['main']['retries'] = '2'
+          with open('/etc/dnf/dnf.conf', 'w') as stream:
+              config.write(stream)
+          PY
+          dnf -v install -y git ca-certificates
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
@@ -215,6 +251,15 @@ jobs:
           export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
           ctest --test-dir "$PROBE_DIR/build" --output-on-failure --parallel 2 \
             --no-tests=error --output-junit "$PROBE_DIR/ctest.xml" 2>&1 | tee "$PROBE_DIR/ctest.log"
+      - name: Collect package download diagnostics
+        if: always()
+        run: |
+          mkdir -p "$PROBE_DIR"
+          for log in /var/log/komamimic-bootstrap.log /var/log/dnf.log /var/log/dnf.librepo.log /var/log/hawkey.log; do
+            if [ -f "$log" ]; then
+              cp "$log" "$PROBE_DIR/"
+            fi
+          done
       - name: Upload probe diagnostics
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0

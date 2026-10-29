@@ -94,6 +94,10 @@ Cairoは`rx-cairo-devel`内の`libcairo.so`の実在と参照先を確認し、F
 `pkgcfg_lib_POPPLER_cairo`へ絶対パスを指定します。RPM内の配置情報もログへ保存します。
 Pythonは3.11を明示します。
 
+Rockyのbaseos・appstream・extras・powertoolsは公式配布先`dl.rockylinux.org`を直接使用し、
+ミラー切替による長時間待機を避けます。DNFの接続・低速通信のtimeoutは20秒、retryは2回、
+Bootstrap step全体の上限は10分です。BootstrapとDNFの詳細ログも診断artifactへ保存します。
+
 Rocky標準のlibarchiveはRAR5対応APIを提供しないため、libarchive 3.8.10だけは
 公式ソースのSHA-256を検証して同じコンテナ内でビルドします。作業用prefixへ配置し、
 本体のヘッダー・リンク先・実行時ライブラリをその版へ揃えます。
