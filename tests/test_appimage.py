@@ -18,6 +18,28 @@ import setup_linux_poppler as poppler_build
 
 
 class AppImageTests(unittest.TestCase):
+    def test_freetype_uses_selected_prefix_and_versioned_runtime_despite_broken_devel_link(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            libdir = root / 'lib64'
+            runtime = libdir / 'freetype/libfreetype.so.26.2.14'
+            runtime.parent.mkdir(parents=True)
+            runtime.write_bytes(b'runtime')
+            (runtime.parent / 'libfreetype.so.26').symlink_to(runtime.name)
+            (libdir / 'libfreetype.so').symlink_to('missing-library')
+            include = root / 'include/freetype2'
+            (include / 'freetype').mkdir(parents=True)
+            (include / 'ft2build.h').write_text('')
+            (include / 'freetype/freetype.h').write_text('')
+            with patch.object(poppler_build.subprocess, 'check_output',
+                              side_effect=[str(libdir), str(include)]):
+                self.assertEqual(poppler_build.freetype_paths(), (include, runtime.resolve()))
+            runtime.unlink()
+            with patch.object(poppler_build.subprocess, 'check_output',
+                              side_effect=[str(libdir), str(include)]):
+                with self.assertRaisesRegex(ValueError, 'Expected one libfreetype'):
+                    poppler_build.freetype_paths()
+
     def test_debian_source_manifest_rejects_escaping_filenames(self):
         checksum = 'a' * 64
         text = f'Checksums-Sha256:\n {checksum} 123 source.tar.xz\nFiles:\n'

@@ -62,6 +62,27 @@ def header_directory(files, filename):
     return found[0]
 
 
+def freetype_paths():
+    # RX FreeType can live below lib64/freetype, outside FindFreetype's
+    # default search paths. Follow the selected .pc file for both halves.
+    def variable(name):
+        return Path(subprocess.check_output(
+            ['pkg-config', '--variable=' + name, 'freetype2'], text=True).strip())
+    libdir = variable('libdir')
+    include = variable('includedir')
+    if not (include / 'ft2build.h').is_file() and (include / 'freetype2/ft2build.h').is_file():
+        include /= 'freetype2'
+    candidates = list(libdir.glob('libfreetype.so*'))
+    if not any(p.is_file() for p in candidates):
+        candidates = list((libdir / 'freetype').glob('libfreetype.so*'))
+    library = unique_library([str(p) for p in candidates], 'libfreetype.so')
+    for header in ('ft2build.h', 'freetype/freetype.h'):
+        if not (include / header).is_file():
+            raise ValueError('Missing selected FreeType header: ' + str(include / header))
+    print('Selected FreeType headers/library:', include, library, flush=True)
+    return include, library
+
+
 def apply_patches(source):
     patches = source / 'debian/patches'
     for line in (patches / 'series').read_text().splitlines():
@@ -119,6 +140,7 @@ def build(output):
     jpeg = unique_library(list(map(str, Path(os.environ['KOMA_PROBE_JPEG_LIBDIR']).glob('libjpeg.so.62*'))),
                           'libjpeg.so.62')
     jpeg_include = header_directory(package_files('libjpeg-turbo-devel'), 'jpeglib.h')
+    freetype_include, freetype = freetype_paths()
     # RX's devel Cairo symlink may be broken. Use a private build-only link
     # and corrected pkg-config copy, leaving the installed RPM files intact.
     dependencies = work / 'dependencies'
@@ -131,7 +153,7 @@ def build(output):
     (dependencies / 'pkgconfig/cairo.pc').write_text(cairo_pc)
     env = dict(os.environ)
     env['PKG_CONFIG_PATH'] = str(dependencies / 'pkgconfig') + ':' + env.get('PKG_CONFIG_PATH', '')
-    env['LD_LIBRARY_PATH'] = ':'.join([str(tiff.parent), os.environ['KOMA_PROBE_JPEG_LIBDIR'],
+    env['LD_LIBRARY_PATH'] = ':'.join([str(tiff.parent), str(freetype.parent), os.environ['KOMA_PROBE_JPEG_LIBDIR'],
                                     os.environ['KOMA_PROBE_CAIRO_LIBDIR'],
                                     subprocess.check_output(['pkg-config', '--variable=libdir', 'glib-2.0'], text=True).strip(),
                                     env.get('LD_LIBRARY_PATH', '')])
@@ -142,6 +164,9 @@ def build(output):
                '-DCMAKE_PREFIX_PATH=/opt/rx', '-DCMAKE_LIBRARY_PATH=' + str(dependencies / 'lib'),
                '-DTIFF_INCLUDE_DIR=' + tiff_include, '-DTIFF_LIBRARY=' + str(tiff), '-DTIFF_LIBRARY_RELEASE=' + str(tiff),
                '-DJPEG_INCLUDE_DIR=' + jpeg_include, '-DJPEG_LIBRARY=' + str(jpeg), '-DJPEG_LIBRARY_RELEASE=' + str(jpeg),
+               '-DFREETYPE_INCLUDE_DIR_ft2build=' + str(freetype_include),
+               '-DFREETYPE_INCLUDE_DIR_freetype2=' + str(freetype_include),
+               '-DFREETYPE_LIBRARY_RELEASE=' + str(freetype),
                '-DENABLE_GLIB=ON', '-DENABLE_QT5=OFF', '-DENABLE_QT6=OFF', '-DENABLE_CPP=OFF', '-DENABLE_UTILS=OFF',
                '-DENABLE_GOBJECT_INTROSPECTION=OFF', '-DENABLE_GTK_DOC=OFF', '-DBUILD_GTK_TESTS=OFF',
                '-DBUILD_QT5_TESTS=OFF', '-DBUILD_QT6_TESTS=OFF', '-DBUILD_CPP_TESTS=OFF', '-DBUILD_MANUAL_TESTS=OFF',
