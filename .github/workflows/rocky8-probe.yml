@@ -26,6 +26,8 @@ jobs:
       QTWEBENGINE_DISABLE_SANDBOX: '1'
       QTWEBENGINE_CHROMIUM_FLAGS: --disable-gpu
       PYTHONDONTWRITEBYTECODE: '1'
+      LIBARCHIVE_VERSION: '3.8.10'
+      LIBARCHIVE_SHA256: a1bffbe5152cfe869751179e7b16648c87c461cb8c46eee75062efbe164cc57c
     steps:
       - name: Bootstrap container
         run: dnf install -y git ca-certificates
@@ -79,7 +81,8 @@ jobs:
           dnf install -y gcc-toolset-12-gcc-c++ cmake ninja-build pkgconf-pkg-config \
             qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools-devel qt6-linguist \
             qt6-qttranslations qt6-qtwebengine-devel qt6-qtimageformats \
-            libarchive-devel libicu-devel zlib-devel SDL2-devel \
+            libicu-devel zlib-devel SDL2-devel curl tar \
+            bzip2-devel xz-devel libzstd-devel lz4-devel openssl-devel libxml2-devel \
             rx-poppler-glib-devel rx-glib2-devel rx-cairo-devel dbus-daemon
       - name: Record dependencies and configure search paths
         run: |
@@ -121,6 +124,45 @@ jobs:
           g++ --version
           cmake --version
           python3.11 --version
+      - name: Build libarchive with RAR5 support
+        run: |
+          exec > >(tee "$PROBE_DIR/libarchive-build.log") 2>&1
+          export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
+          source_archive="$PROBE_DIR/libarchive-$LIBARCHIVE_VERSION.tar.gz"
+          curl --fail --location --retry 3 --connect-timeout 20 \
+            --output "$source_archive" \
+            "https://github.com/libarchive/libarchive/releases/download/v$LIBARCHIVE_VERSION/libarchive-$LIBARCHIVE_VERSION.tar.gz"
+          printf '%s  %s\n' "$LIBARCHIVE_SHA256" "$source_archive" > "$PROBE_DIR/libarchive-SHA256SUMS.txt"
+          sha256sum --check "$PROBE_DIR/libarchive-SHA256SUMS.txt"
+          tar -xzf "$source_archive" -C "$PROBE_DIR"
+          prefix="$PROBE_DIR/libarchive-prefix"
+          cmake -S "$PROBE_DIR/libarchive-$LIBARCHIVE_VERSION" \
+            -B "$PROBE_DIR/libarchive-build" -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$prefix" \
+            -DCMAKE_INSTALL_LIBDIR=lib -DBUILD_SHARED_LIBS=ON \
+            -DBUILD_TESTING=OFF -DENABLE_TEST=OFF \
+            -DENABLE_TAR=OFF -DENABLE_CPIO=OFF -DENABLE_CAT=OFF -DENABLE_UNZIP=OFF
+          cmake --build "$PROBE_DIR/libarchive-build" --parallel 4
+          cmake --install "$PROBE_DIR/libarchive-build"
+          cp "$PROBE_DIR/libarchive-$LIBARCHIVE_VERSION/COPYING" "$PROBE_DIR/libarchive-COPYING.txt"
+          # Verify both the header and the linked library before building KomaMimic.
+          cat > "$PROBE_DIR/libarchive-rar5-check.c" <<'C'
+          #include <archive.h>
+          #include <stdio.h>
+          int main(void) {
+              struct archive *reader = archive_read_new();
+              if (!reader) return 1;
+              printf("%s\n", archive_version_string());
+              int status = archive_read_support_format_rar5(reader);
+              archive_read_free(reader);
+              return status == ARCHIVE_OK ? 0 : 1;
+          }
+          C
+          cc -I"$prefix/include" "$PROBE_DIR/libarchive-rar5-check.c" \
+            "$prefix/lib/libarchive.so" -Wl,-rpath,"$prefix/lib" \
+            -o "$PROBE_DIR/libarchive-rar5-check"
+          LD_LIBRARY_PATH="$prefix/lib:${LD_LIBRARY_PATH:-}" "$PROBE_DIR/libarchive-rar5-check"
+          printf 'LD_LIBRARY_PATH=%s/lib:%s\n' "$prefix" "${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
       - name: Configure Release and full tests
         run: |
           exec > >(tee "$PROBE_DIR/configure.log") 2>&1
@@ -133,12 +175,14 @@ jobs:
             pkg-config --variable=pcfiledir "$module"
           done
           rx_libs=$(pkg-config --variable=libdir poppler-glib):$(pkg-config --variable=libdir glib-2.0):$(pkg-config --variable=libdir cairo)
-          export LD_LIBRARY_PATH="$rx_libs:${LD_LIBRARY_PATH:-}"
+          export LD_LIBRARY_PATH="$PROBE_DIR/libarchive-prefix/lib:$rx_libs:${LD_LIBRARY_PATH:-}"
           printf 'LD_LIBRARY_PATH=%s\n' "$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
           cmake -S . -B "$PROBE_DIR/build" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
             -DKOMAMIMIC_TEST_SCOPE=full -DPython3_EXECUTABLE=/usr/bin/python3.11 \
-            -DQt6_DIR="$KOMA_PROBE_QT_DIR"
+            -DQt6_DIR="$KOMA_PROBE_QT_DIR" \
+            -DLibArchive_INCLUDE_DIR="$PROBE_DIR/libarchive-prefix/include" \
+            -DLibArchive_LIBRARY="$PROBE_DIR/libarchive-prefix/lib/libarchive.so"
       - name: Build
         run: |
           export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
@@ -169,5 +213,8 @@ jobs:
             tmp/rocky8-probe/build/CMakeCache.txt
             tmp/rocky8-probe/build/CMakeFiles/CMakeConfigureLog.yaml
             tmp/rocky8-probe/build/Testing/Temporary/*.log
+            tmp/rocky8-probe/libarchive-build/CMakeCache.txt
+            tmp/rocky8-probe/libarchive-build/CMakeFiles/CMakeConfigureLog.yaml
+            tmp/rocky8-probe/libarchive-*.tar.gz
           if-no-files-found: warn
           retention-days: 14
