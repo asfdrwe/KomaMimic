@@ -101,6 +101,12 @@ JPEG ABI 62の実ライブラリも提供RPMから取得し、その配置先を
 Releaseの最適化を保持して`-g1`の診断情報を付けます。CTestが失敗した場合だけ、
 自作fixtureを生成し直して`validation_probe`をGDBで実行し、呼び出し履歴と読込ライブラリを
 `probe-debug.log`へ保存します。この診断の結果で元のCTest失敗を成功扱いにはしません。
+
+RavenのQt TIFF pluginはTIFF ABI 6、RX PopplerはABI 5を使い、同一プロセス内での
+混在によるクラッシュが疑われるため、QtImageFormatsの公式`v6.11.2`ソースからTIFF pluginだけを
+Rocky標準のTIFF ABI 5に対して再ビルドします。依存先を`readelf`で確認後、CIコンテナ内の
+pluginを差し替えて試験します。使用commit・ソースarchive・checksum・構成/buildログを保存します。
+この対応が17群すべてで成功することは実際のActions実行で確認します。
 Pythonは3.11を明示します。
 
 Rockyのbaseos・appstream・extras・powertoolsは公式配布先`dl.rockylinux.org`を直接使用し、

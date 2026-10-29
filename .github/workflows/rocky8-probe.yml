@@ -76,6 +76,8 @@ jobs:
           exec > >(tee "$PROBE_DIR/dependencies.log") 2>&1
           dnf install -y dnf-plugins-core epel-release python3.11
           dnf config-manager --set-enabled powertools
+          # Match Poppler's TIFF ABI before enabling third-party repositories.
+          dnf install -y libtiff-devel
           dnf install -y https://pkgs.sysadmins.ws/el8/base/x86_64/raven-release.el8.noarch.rpm
 
           # Reuse the release RPM's signing configuration. WebEngine's codec
@@ -200,6 +202,70 @@ jobs:
           g++ --version
           cmake --version
           python3.11 --version
+      - name: Checkout Qt TIFF plugin source
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          repository: qt/qtimageformats
+          ref: v6.11.2
+          path: tmp/qtimageformats-source
+          persist-credentials: false
+      - name: Rebuild Qt TIFF plugin against the Poppler TIFF ABI
+        run: |
+          exec > >(tee "$PROBE_DIR/qtiff-build.log") 2>&1
+          export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
+          export LD_LIBRARY_PATH="$KOMA_PROBE_JPEG_LIBDIR:$KOMA_PROBE_ICU_LIBDIR:$KOMA_PROBE_CAIRO_LIBDIR:${LD_LIBRARY_PATH:-}"
+          git -C tmp/qtimageformats-source rev-parse HEAD > "$PROBE_DIR/qtimageformats-commit.txt"
+          git -C tmp/qtimageformats-source archive --format=tar --prefix=qtimageformats/ HEAD \
+            | gzip -n > "$PROBE_DIR/qtimageformats-source.tar.gz"
+          sha256sum "$PROBE_DIR/qtimageformats-source.tar.gz" > "$PROBE_DIR/qtimageformats-SHA256SUMS.txt"
+          python3.11 - <<'PY'
+          import os
+          from pathlib import Path
+          import subprocess
+
+          probe = Path(os.environ['PROBE_DIR'])
+          source = Path('tmp/qtimageformats-source/src/plugins/imageformats/tiff').resolve()
+          headers = subprocess.check_output(['rpm', '-ql', 'libtiff-devel'], text=True).splitlines()
+          include_dirs = sorted({str(Path(p).parent) for p in headers if p.endswith('/tiffio.h')})
+          runtime = subprocess.check_output(['rpm', '-ql', 'libtiff'], text=True).splitlines()
+          libraries = sorted({Path(p).resolve(strict=True) for p in runtime
+                              if Path(p).name.startswith('libtiff.so.5') and Path(p).is_file()})
+          plugins = subprocess.check_output(['rpm', '-ql', 'qt6-qtimageformats'], text=True).splitlines()
+          plugins = [Path(p) for p in plugins if p.endswith('/imageformats/libqtiff.so') and Path(p).is_file()]
+          if len(include_dirs) != 1 or len(libraries) != 1 or len(plugins) != 1:
+              raise SystemExit('Ambiguous TIFF 5 header/library/plugin: ' + repr((include_dirs, libraries, plugins)))
+          project = probe / 'qtiff-project'
+          project.mkdir()
+          cmake = '''cmake_minimum_required(VERSION 3.22)
+          project(RockyQTiff LANGUAGES CXX)
+          set(CMAKE_AUTOMOC ON)
+          set(CMAKE_CXX_STANDARD 17)
+          find_package(Qt6 6.11.2 EXACT REQUIRED COMPONENTS Core Gui)
+          find_package(TIFF REQUIRED)
+          qt_add_plugin(QTiffPlugin SHARED CLASS_NAME QTiffPlugin)
+          set_target_properties(QTiffPlugin PROPERTIES OUTPUT_NAME qtiff)
+          target_sources(QTiffPlugin PRIVATE "${QT_TIFF_SOURCE}/main.cpp"
+              "${QT_TIFF_SOURCE}/qtiffhandler.cpp" "${QT_TIFF_SOURCE}/qtiffhandler_p.h")
+          target_link_libraries(QTiffPlugin PRIVATE Qt6::Gui TIFF::TIFF)
+          '''
+          (project / 'CMakeLists.txt').write_text(cmake)
+          subprocess.run(['cmake', '-S', str(project), '-B', str(probe / 'qtiff-build'), '-G', 'Ninja',
+                          '-DCMAKE_BUILD_TYPE=Release', '-DQt6_DIR=' + os.environ['KOMA_PROBE_QT_DIR'],
+                          '-DQT_TIFF_SOURCE=' + str(source), '-DTIFF_INCLUDE_DIR=' + include_dirs[0],
+                          '-DTIFF_LIBRARY=' + str(libraries[0]), '-DTIFF_LIBRARY_RELEASE=' + str(libraries[0])], check=True)
+          subprocess.run(['cmake', '--build', str(probe / 'qtiff-build'), '--parallel', '4'], check=True)
+          built = list((probe / 'qtiff-build').rglob('libqtiff.so'))
+          if len(built) != 1:
+              raise SystemExit('Expected one rebuilt TIFF plugin: ' + repr(built))
+          needed = subprocess.check_output(['readelf', '-d', str(built[0])], text=True)
+          print(needed)
+          if '[libtiff.so.5]' not in needed or '[libtiff.so.6]' in needed:
+              raise SystemExit('Rebuilt Qt plugin must depend on TIFF ABI 5 only')
+          import shutil
+          shutil.copy2(plugins[0], probe / 'vendor-libqtiff.so')
+          shutil.copy2(built[0], plugins[0])
+          subprocess.run(['ldd', str(plugins[0])], check=True)
+          PY
       - name: Build libarchive with RAR5 support
         run: |
           exec > >(tee "$PROBE_DIR/libarchive-build.log") 2>&1
@@ -360,5 +426,9 @@ jobs:
             tmp/rocky8-probe/libarchive-build/CMakeCache.txt
             tmp/rocky8-probe/libarchive-build/CMakeFiles/CMakeConfigureLog.yaml
             tmp/rocky8-probe/libarchive-*.tar.gz
+            tmp/rocky8-probe/qtimageformats-source.tar.gz
+            tmp/rocky8-probe/qtiff-project/CMakeLists.txt
+            tmp/rocky8-probe/qtiff-build/CMakeCache.txt
+            tmp/rocky8-probe/qtiff-build/CMakeFiles/CMakeConfigureLog.yaml
           if-no-files-found: warn
           retention-days: 14
