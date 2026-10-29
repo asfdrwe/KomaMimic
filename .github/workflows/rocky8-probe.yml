@@ -111,9 +111,18 @@ jobs:
           configs = [str(Path(p).parent) for p in qt if p.endswith('/Qt6Config.cmake')]
           if len(configs) != 1:
               raise SystemExit('Expected one Qt6Config.cmake: ' + repr(configs))
+          cairo_files = subprocess.check_output(['rpm', '-ql', 'rx-cairo-devel'], text=True).splitlines()
+          cairo_libraries = [Path(p) for p in cairo_files if Path(p).name == 'libcairo.so']
+          print('RX Cairo development files:\n' + '\n'.join(cairo_files))
+          if len(cairo_libraries) != 1 or not cairo_libraries[0].is_file():
+              raise SystemExit('Expected one existing RX libcairo.so: ' + repr(cairo_libraries))
+          cairo_library = cairo_libraries[0].resolve(strict=True)
+          print('RX Cairo link library: ' + str(cairo_library))
           with open(os.environ['GITHUB_ENV'], 'a') as stream:
               stream.write('PKG_CONFIG_PATH=' + ':'.join(pc_dirs) + '\n')
               stream.write('KOMA_PROBE_QT_DIR=' + configs[0] + '\n')
+              stream.write('KOMA_PROBE_CAIRO_LIBRARY=' + str(cairo_library) + '\n')
+              stream.write('KOMA_PROBE_CAIRO_LIBDIR=' + str(cairo_libraries[0].parent) + '\n')
           PY
           # GCC Toolset's enable script also sets its runtime library path.
           set +u
@@ -174,16 +183,19 @@ jobs:
             printf '%s pkg-config directory: ' "$module"
             pkg-config --variable=pcfiledir "$module"
           done
-          rx_libs=$(pkg-config --variable=libdir poppler-glib):$(pkg-config --variable=libdir glib-2.0):$(pkg-config --variable=libdir cairo)
+          rx_libs=$KOMA_PROBE_CAIRO_LIBDIR:$(pkg-config --variable=libdir poppler-glib):$(pkg-config --variable=libdir glib-2.0):$(pkg-config --variable=libdir cairo)
           printf 'RX link search directories: %s\n' "$rx_libs"
           pkg-config --libs poppler-glib cairo
           export LD_LIBRARY_PATH="$PROBE_DIR/libarchive-prefix/lib:$rx_libs:${LD_LIBRARY_PATH:-}"
           printf 'LD_LIBRARY_PATH=%s\n' "$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
+          # FindPkgConfig's POPPLER imported target uses this cache entry for
+          # -lcairo. Pin it to the actual RX file, not only cairo.pc's libdir.
           cmake -S . -B "$PROBE_DIR/build" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
             -DKOMAMIMIC_TEST_SCOPE=full -DPython3_EXECUTABLE=/usr/bin/python3.11 \
             -DQt6_DIR="$KOMA_PROBE_QT_DIR" \
             -DCMAKE_LIBRARY_PATH="${rx_libs//:/;}" \
+            -Dpkgcfg_lib_POPPLER_cairo:FILEPATH="$KOMA_PROBE_CAIRO_LIBRARY" \
             -DLibArchive_INCLUDE_DIR="$PROBE_DIR/libarchive-prefix/include" \
             -DLibArchive_LIBRARY="$PROBE_DIR/libarchive-prefix/lib/libarchive.so"
       - name: Build
