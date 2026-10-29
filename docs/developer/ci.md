@@ -90,8 +90,10 @@ Popplerは必要な22.0以上を満たすため`rx-poppler-glib-devel`を使い�
 `rx-glib2-devel`・`rx-cairo-devel`を導入します。これらのRPMに含まれるpkg-configファイルの
 配置先を取得して標準版より優先し、選択された版・配置先を構成ログへ記録します。
 これらの`libdir`も`CMAKE_LIBRARY_PATH`へ渡し、Cairo等のライブラリをリンク時に探索できるようにします。
-Cairoは`rx-cairo-devel`内の`libcairo.so`の実在と参照先を確認し、FindPkgConfigの
-`pkgcfg_lib_POPPLER_cairo`へ絶対パスを指定します。RPM内の配置情報もログへ保存します。
+Cairoは`rx-cairo`と`rx-cairo-devel`から実在する共有ライブラリを取得し、FindPkgConfigの
+`pkgcfg_lib_POPPLER_cairo`へ絶対パスを指定します。開発用`libcairo.so`がリンク切れの場合も、
+RPM内のバージョン付き実ファイルを使用できます。リンクの参照先をログに記録し、構成前に
+選択したライブラリのロードと実際のCairoバージョンを確認します。
 Pythonは3.11を明示します。
 
 Rockyのbaseos・appstream・extras・powertoolsは公式配布先`dl.rockylinux.org`を直接使用し、

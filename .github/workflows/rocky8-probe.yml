@@ -119,7 +119,7 @@ jobs:
             qt6-qttranslations qt6-qtwebengine-devel qt6-qtimageformats \
             libicu-devel zlib-devel SDL2-devel curl tar \
             bzip2-devel xz-devel libzstd-devel lz4-devel openssl-devel libxml2-devel \
-            rx-poppler-glib-devel rx-glib2-devel rx-cairo-devel dbus-daemon
+            rx-poppler-glib-devel rx-glib2-devel rx-cairo rx-cairo-devel dbus-daemon
       - name: Record dependencies and configure search paths
         run: |
           exec > >(tee "$PROBE_DIR/environment.log") 2>&1
@@ -147,18 +147,25 @@ jobs:
           configs = [str(Path(p).parent) for p in qt if p.endswith('/Qt6Config.cmake')]
           if len(configs) != 1:
               raise SystemExit('Expected one Qt6Config.cmake: ' + repr(configs))
-          cairo_files = subprocess.check_output(['rpm', '-ql', 'rx-cairo-devel'], text=True).splitlines()
-          cairo_libraries = [Path(p) for p in cairo_files if Path(p).name == 'libcairo.so']
-          print('RX Cairo development files:\n' + '\n'.join(cairo_files))
-          if len(cairo_libraries) != 1 or not cairo_libraries[0].is_file():
-              raise SystemExit('Expected one existing RX libcairo.so: ' + repr(cairo_libraries))
-          cairo_library = cairo_libraries[0].resolve(strict=True)
+          cairo_files = subprocess.check_output(
+              ['rpm', '-ql', 'rx-cairo', 'rx-cairo-devel'], text=True).splitlines()
+          cairo_paths = sorted({Path(p) for p in cairo_files
+                                if Path(p).name == 'libcairo.so' or Path(p).name.startswith('libcairo.so.')})
+          for path in cairo_paths:
+              target = os.readlink(path) if path.is_symlink() else '(not a symlink)'
+              print(str(path) + ' -> ' + target + '; usable=' + str(path.is_file()))
+          # A broken devel symlink must not hide an intact versioned runtime
+          # library. Select only real files owned by the installed RX RPMs.
+          cairo_libraries = sorted({p.resolve(strict=True) for p in cairo_paths if p.is_file()})
+          if len(cairo_libraries) != 1:
+              raise SystemExit('Expected one RX Cairo runtime library: ' + repr(cairo_libraries))
+          cairo_library = cairo_libraries[0]
           print('RX Cairo link library: ' + str(cairo_library))
           with open(os.environ['GITHUB_ENV'], 'a') as stream:
               stream.write('PKG_CONFIG_PATH=' + ':'.join(pc_dirs) + '\n')
               stream.write('KOMA_PROBE_QT_DIR=' + configs[0] + '\n')
               stream.write('KOMA_PROBE_CAIRO_LIBRARY=' + str(cairo_library) + '\n')
-              stream.write('KOMA_PROBE_CAIRO_LIBDIR=' + str(cairo_libraries[0].parent) + '\n')
+              stream.write('KOMA_PROBE_CAIRO_LIBDIR=' + str(cairo_library.parent) + '\n')
           PY
           # GCC Toolset's enable script also sets its runtime library path.
           set +u
@@ -224,6 +231,17 @@ jobs:
           pkg-config --libs poppler-glib cairo
           export LD_LIBRARY_PATH="$PROBE_DIR/libarchive-prefix/lib:$rx_libs:${LD_LIBRARY_PATH:-}"
           printf 'LD_LIBRARY_PATH=%s\n' "$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
+          python3.11 - <<'PY'
+          import ctypes
+          import os
+
+          cairo = ctypes.CDLL(os.environ['KOMA_PROBE_CAIRO_LIBRARY'])
+          cairo.cairo_version.restype = ctypes.c_int
+          cairo.cairo_version_string.restype = ctypes.c_char_p
+          print('Loaded RX Cairo: ' + cairo.cairo_version_string().decode('ascii'))
+          if cairo.cairo_version() < 11600:
+              raise SystemExit('RX Cairo runtime must be at least 1.16.0')
+          PY
           # FindPkgConfig's POPPLER imported target uses this cache entry for
           # -lcairo. Pin it to the actual RX file, not only cairo.pc's libdir.
           cmake -S . -B "$PROBE_DIR/build" -G Ninja \
