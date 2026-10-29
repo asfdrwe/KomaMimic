@@ -3,11 +3,43 @@ name: Build
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - 'docs/**'
+    # Build only when application, dependency, test or validation inputs change.
+    # Pages validates documentation and tools/public_source.json separately.
+    paths:
+      - 'src/**'
+      - 'cmake/**'
+      - 'scripts/**'
+      - 'translations/**'
+      - 'assets/**'
+      - 'examples/**'
+      - 'tests/**'
+      - '!tests/fixtures/README.md'
+      - 'tools/**'
+      - '!tools/public_source.json'
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'vcpkg*.json'
+      - '.gitattributes'
+      - '.github/actions/**'
+      - '.github/workflows/build.yml'
   pull_request:
-    paths-ignore:
-      - 'docs/**'
+    paths:
+      - 'src/**'
+      - 'cmake/**'
+      - 'scripts/**'
+      - 'translations/**'
+      - 'assets/**'
+      - 'examples/**'
+      - 'tests/**'
+      - '!tests/fixtures/README.md'
+      - 'tools/**'
+      - '!tools/public_source.json'
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'vcpkg*.json'
+      - '.gitattributes'
+      - '.github/actions/**'
+      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 permissions:

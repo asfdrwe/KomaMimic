@@ -42,13 +42,26 @@ GitHubで実際に各jobが成功した段階を区別して確認します。
 
 共通検査の成功後、3OSのjobを並列実行します。OSごとは独立したjobなので、
 あるOSの失敗を理由に他のOSのjobをキャンセルしません。同じブランチ・PRに新しいcommitが
-来た場合は古い実行を取り消します。push・PRとも変更が`docs/**`だけなら本体workflowを起動しません。
+来た場合は古い実行を取り消します。
+
+push・PRの自動起動は、ビルド・検証の入力に変更がある場合に限定します。
+対象は`src/`・`cmake/`・`scripts/`・`translations/`・`assets/`・`examples/`・`tests/`・`tools/`と、
+`CMakeLists.txt`・`CMakePresets.json`・`vcpkg*.json`・`.gitattributes`・
+`.github/actions/`・Build自身のworkflowです。
+`tests/fixtures/README.md`と`tools/public_source.json`は対象から除きます。
+文書・MkDocs設定・文書の公開対象登録だけの変更では本体workflowを起動しません。
+公開対象登録の検査はDocumentation and Pagesで実行します。
 コード等を同時に変更した場合は本体workflowも起動します。手動実行は変更パスに関係なく使用できます。
+新しいビルド入力を上記以外の場所へ追加する場合は、Buildの`paths`も更新してください。
 
 | 変更内容 | 本体ビルド・テスト | MkDocs・Pages |
 |---|---|---|
 | `docs/developer/**`だけ | 省略 | 省略 |
 | `docs/site/**`だけ（画像を含む） | 省略 | 実行（PRでは公開しない） |
+| `mkdocs.yml`・`requirements-docs.txt`・`tools/public_source.json`だけ | 省略 | 実行（PRでは公開しない） |
+| `README.md`だけ | 省略 | 省略 |
+| Build自身のworkflow | 実行 | 省略 |
+| Rocky AppImageのworkflowだけ | 省略 | 省略（AppImageは手動実行） |
 | 本体コードだけ | 実行 | 省略 |
 | 本体コードと`docs/site/**` | 実行 | 実行 |
 
