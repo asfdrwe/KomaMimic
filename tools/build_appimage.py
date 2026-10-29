@@ -288,7 +288,10 @@ def stage(build, destination, sources, max_glibc):
     (app / 'AppRun').chmod(0o755)
     manifest = dict(schema=1, status='CANDIDATE_REQUIRES_MANUAL_VALIDATION',
                     version=re.search(r'project\(KomaMimic VERSION ([0-9.]+)', (ROOT / 'CMakeLists.txt').read_text())[1],
-                    commit=output(['git', '-C', ROOT, 'rev-parse', 'HEAD']), required_glibc=required_glibc,
+                    # Container checkout and packaging users may differ. Trust
+                    # only this explicit source directory for this read command.
+                    commit=output(['git', '-c', 'safe.directory=' + str(ROOT),
+                                   '-C', ROOT, 'rev-parse', 'HEAD']), required_glibc=required_glibc,
                     poppler_build=json.loads((sources / 'poppler-source.json').read_text()),
                     source_archives={p.name: digest(p) for p in sorted(sources.glob('*.tar.gz'))},
                     host_libraries=HOST_LIBRARIES.pattern, packages=packages,
