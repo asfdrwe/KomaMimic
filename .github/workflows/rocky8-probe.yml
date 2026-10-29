@@ -114,7 +114,7 @@ jobs:
           PY
 
           dnf repolist -v
-          dnf install -y gcc-toolset-12-gcc-c++ cmake ninja-build pkgconf-pkg-config \
+          dnf install -y gcc-toolset-12-gcc-c++ gcc-toolset-12-gdb cmake ninja-build pkgconf-pkg-config \
             qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools-devel qt6-linguist \
             qt6-qttranslations qt6-qtwebengine-devel qt6-qtimageformats \
             libicu78-devel zlib-devel SDL2-devel curl tar 'libjpeg.so.62()(64bit)' \
@@ -288,6 +288,7 @@ jobs:
           # -lcairo. Pin it to the actual RX file, not only cairo.pc's libdir.
           cmake -S . -B "$PROBE_DIR/build" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
+            -DCMAKE_CXX_FLAGS_RELEASE="-O3 -DNDEBUG -g1" \
             -DKOMAMIMIC_TEST_SCOPE=full -DPython3_EXECUTABLE=/usr/bin/python3.11 \
             -DQt6_DIR="$KOMA_PROBE_QT_DIR" \
             -DCMAKE_LIBRARY_PATH="${rx_libs//:/;}" \
@@ -312,10 +313,28 @@ jobs:
           ldd "$PROBE_DIR/build/komamimic"
           ldd "$PROBE_DIR/build/komamimic-script-worker"
       - name: Run full tests
+        id: tests
         run: |
           export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
           ctest --test-dir "$PROBE_DIR/build" --output-on-failure --parallel 2 \
             --no-tests=error --output-junit "$PROBE_DIR/ctest.xml" 2>&1 | tee "$PROBE_DIR/ctest.log"
+      - name: Diagnose native fixture reader after test failure
+        if: ${{ failure() && steps.tests.outcome == 'failure' }}
+        timeout-minutes: 5
+        run: |
+          exec > >(tee "$PROBE_DIR/probe-debug.log") 2>&1
+          export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
+          python3.11 tests/fixtures/generate_validation_samples.py --output "$PROBE_DIR/debug-fixtures"
+          ldd "$PROBE_DIR/build/validation_probe"
+          # Keep the original CTest failure. This run only collects a backtrace.
+          gdb --batch --return-child-result \
+            -ex 'set pagination off' \
+            -ex 'set confirm off' \
+            -ex 'set debuginfod enabled off' \
+            -ex 'run' \
+            -ex 'thread apply all bt' \
+            -ex 'info sharedlibrary' \
+            --args "$PROBE_DIR/build/validation_probe" "$PROBE_DIR/debug-fixtures"
       - name: Collect package download diagnostics
         if: always()
         run: |

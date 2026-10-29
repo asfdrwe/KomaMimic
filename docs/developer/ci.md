@@ -98,6 +98,9 @@ JPEG ABI 62の実ライブラリも提供RPMから取得し、その配置先を
 間接依存探索（`-rpath-link`）に追加します。ICUはQtが使う78に揃え、`libicu78-devel`の
 ヘッダーと共有ライブラリを明示指定します。主要な共有ライブラリは本体build前に
 `ldd`で未解決依存がないことも確認します。
+Releaseの最適化を保持して`-g1`の診断情報を付けます。CTestが失敗した場合だけ、
+自作fixtureを生成し直して`validation_probe`をGDBで実行し、呼び出し履歴と読込ライブラリを
+`probe-debug.log`へ保存します。この診断の結果で元のCTest失敗を成功扱いにはしません。
 Pythonは3.11を明示します。
 
 Rockyのbaseos・appstream・extras・powertoolsは公式配布先`dl.rockylinux.org`を直接使用し、
