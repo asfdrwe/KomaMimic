@@ -344,7 +344,7 @@ void MainWindow::populatePages() {
 }
 void MainWindow::startNextThumbnail(quint64 generation) { if (generation == m_libraryGeneration) requestThumbnails(m_library); }
 void MainWindow::requestThumbnails(ThumbnailGrid *grid) {
-    if (!grid->isVisible()) return;
+    if (m_backgroundCancel->load() || !grid->isVisible()) return;
     const bool pages = grid == m_pages;
     if (pages && !m_book) return;
     for (int row : grid->visibleRows()) {

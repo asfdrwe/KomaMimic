@@ -27,9 +27,10 @@ Qtとvcpkg DLLのPATH、Qt pluginの探索先もビルド手順と同じよう�
 power、evolution、cache、i18n、archive_text、legacy_settingsに、C localeのformatと
 Pythonのdistribution検査を加えます。
 
-`platform` は8群です。CLI・UI・PDF・script・document・power・i18n・distributionを選び、
+`platform` は9群です。CLI・UI・PDF・script・document・power・cache・i18n・distributionを選び、
 一部のQt群はOS連携に必要な関数に限定します。Windows-fastの既定はこちらです。
-8群の成功を全機能の17群成功と記録しないでください。
+cache群は、ZIP読込・画像取得の48箇所の中止タイミングでプロセスが終了する回帰試験に限定します。
+9群の成功を全機能の17群成功と記録しないでください。
 
 ```sh
 ctest --test-dir build-test -R '^(ui|script)_tests$' --output-on-failure

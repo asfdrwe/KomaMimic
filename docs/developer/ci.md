@@ -38,7 +38,7 @@ GitHubで実際に各jobが成功した段階を区別して確認します。
 | source-checks | Git追跡ファイルと公開選択、翻訳、リンク、action pin、actionlint、ソースarchiveの再現性 | ソース配布候補 |
 | linux | Fedora 44 container、Release build、CLI、full CTest 17群 | 構成・試験ログ、JUnit XML |
 | macos | macOS 15 arm64、Homebrew依存、Release build、CLI、full CTest 17群 | 構成・試験ログ、JUnit XML |
-| windows | Windows 2022/MSVC、公式Qt SDK、Release専用vcpkg、platform検証8群、runtime配置・配布ZIP検査 | 配布ZIP候補・ソース・checksum、別artifactの自作PDB、構成・試験・配置ログ、JUnit XML、結果JSON |
+| windows | Windows 2022/MSVC、公式Qt SDK、Release専用vcpkg、platform検証9群、runtime配置・配布ZIP検査 | 配布ZIP候補・ソース・checksum、別artifactの自作PDB、構成・試験・配置ログ、JUnit XML、結果JSON |
 
 共通検査の成功後、3OSのjobを並列実行します。OSごとは独立したjobなので、
 あるOSの失敗を理由に他のOSのjobをキャンセルしません。同じブランチ・PRに新しいcommitが

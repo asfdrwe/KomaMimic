@@ -21,14 +21,14 @@ public:
                       const std::function<bool()> &sourceUnchanged = {});
     Stats stats();
     QString clear();
-    QString maintain();
+    QString maintain(const std::function<bool()> &cancel = {});
 private:
     struct Entry { qint64 bytes=0, used=0, diskUsed=0; };
     bool prepare(bool create, QString &error);
-    void inventory();
+    bool inventory(const std::function<bool()> &cancel = {});
     void changed();
     bool remove(const QString &name);
-    void trim(qint64 limit, int count=20000);
+    void trim(qint64 limit, int count=20000, const std::function<bool()> &cancel = {});
     QString m_directory;
     QMutex m_mutex;
     QMap<QString,Entry> m_entries;

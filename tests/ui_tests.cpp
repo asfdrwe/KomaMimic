@@ -23,6 +23,8 @@
 #include <QDialog>
 #include <QDir>
 #include <QFileSystemWatcher>
+#include <QFileSystemModel>
+#include <QThreadPool>
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
@@ -58,6 +60,50 @@ void thumbnailPointer(ThumbnailGrid *grid, QPoint position,
 class UiTests : public QObject {
     Q_OBJECT
 private slots:
+    void folderTreeListsFilesystemRoots() {
+        FolderTree tree;
+        auto *files=qobject_cast<QFileSystemModel *>(tree.model()); QVERIFY(files);
+        QVERIFY(!tree.rootIndex().isValid());
+        // Enumerate existing rows. Calling index(drive.path()) here would add
+        // missing drive nodes on demand and hide a broken initial listing.
+        auto visibleRoots=[&] {
+            QStringList paths;
+            for (int row=0;row<files->rowCount();++row)
+                paths.append(QDir::cleanPath(files->filePath(files->index(row,0))));
+            return paths;
+        };
+        for (const auto &drive:QDir::drives()) {
+            const auto path=QDir::cleanPath(drive.absoluteFilePath());
+            QTRY_VERIFY2(visibleRoots().contains(path),qPrintable("Missing filesystem root: "+path));
+        }
+        QTemporaryDir directory; QVERIFY(directory.isValid());
+        tree.selectPath(directory.path());
+        QTRY_COMPARE(QDir::cleanPath(tree.selectedPath()),QDir::cleanPath(directory.path()));
+    }
+    void closeCancelsCollectionCover() {
+        QTemporaryDir directory; QVERIFY(directory.isValid());
+        const auto scripts=directory.filePath("script"); QVERIFY(QDir().mkpath(scripts));
+        QVERIFY(TestData::write(scripts+"/manifest.json",R"({"apiVersion":1,"kind":"reader","id":"close-test","extensions":["lag"],"magic":"4c414747","script":"decode.js"})"));
+        QVERIFY(TestData::write(scripts+"/decode.js","function decode(){while(true){}}"));
+        QVERIFY(configureScriptReaders({scripts}).isEmpty());
+        const auto restore=qScopeGuard([] {configureScriptReaders({});});
+        const auto path=directory.filePath("slow.lag"); QVERIFY(TestData::write(path,"LAGG input"));
+        { LibraryStore library(directory.filePath("library.sqlite3"));
+          QVERIFY(library.error().isEmpty()); QVERIFY(!library.add("playlist",path).isEmpty()); }
+        MainWindow window(directory.filePath("settings.ini")); window.show();
+        window.command("bookLists")->trigger();
+        auto *list=window.findChild<QListWidget *>("collection_playlist"); QVERIFY(list);
+        QTRY_VERIFY(list->isVisible());
+        QTest::qWait(250);
+        QVERIFY(QThreadPool::globalInstance()->activeThreadCount()>0);
+        QElapsedTimer elapsed; elapsed.start();
+        window.close();
+        const bool stopped=QThreadPool::globalInstance()->waitForDone(1500);
+        qInfo() << "Background work stopped after close:" << elapsed.elapsed() << "ms";
+        // Always join before leaving the fixture, including a regression failure.
+        if (!stopped) QThreadPool::globalInstance()->waitForDone();
+        QVERIFY2(stopped,"Closing the window left collection-cover generation running");
+    }
     void mangaDefaultsAndSavedSettings() {
         QTemporaryDir d;const auto config=d.filePath("new.ini");
         {

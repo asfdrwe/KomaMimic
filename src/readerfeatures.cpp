@@ -1677,7 +1677,7 @@ void ReaderFeatures::showCollection(const QString &kind, int layout) {
   rebuildLists();
 }
 void ReaderFeatures::requestCollectionCover() {
-  if (m_coverBusy || !m_shelf || !m_tabs)
+  if (w->m_backgroundCancel->load() || m_coverBusy || !m_shelf || !m_tabs)
     return;
   QListWidget *target = nullptr;
   LibraryItem chosen;
@@ -1707,6 +1707,7 @@ void ReaderFeatures::requestCollectionCover() {
             const auto image = watcher->result();
             watcher->deleteLater();
             m_coverBusy = false;
+            if (w->m_backgroundCancel->load()) return;
             if (m_collectionIcons.size() >= 512 &&
                 !m_collectionIconOrder.isEmpty()) {
               const auto stale = m_collectionIconOrder.takeFirst();
@@ -1734,8 +1735,8 @@ void ReaderFeatures::requestCollectionCover() {
           });
   const auto policy = w->namePolicyFor(chosen.path);
   const bool spine = target == m_shelf;
-  watcher->setFuture(QtConcurrent::run([chosen, policy, spine, cache=w->m_thumbnailDiskCache] {
-    return cachedCollectionCover(chosen.path,policy,chosen.metadata,spine,cache);
+  watcher->setFuture(QtConcurrent::run([chosen, policy, spine, cache=w->m_thumbnailDiskCache,stop=w->m_backgroundCancel] {
+    return cachedCollectionCover(chosen.path,policy,chosen.metadata,spine,cache,[stop]{return stop->load();});
   }));
 }
 QString ReaderFeatures::currentPositionKey() const {

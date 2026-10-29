@@ -6,6 +6,7 @@
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
+#include <QDirIterator>
 #include <QFile>
 #include <QFileInfo>
 #include <QImageReader>
@@ -51,18 +52,24 @@ bool ThumbnailDiskCache::prepare(bool create,QString &error) {
     if(!existed) QFile::setPermissions(m_directory,QFileDevice::ReadOwner|QFileDevice::WriteOwner|QFileDevice::ExeOwner);
     return true;
 }
-void ThumbnailDiskCache::inventory() {
+bool ThumbnailDiskCache::inventory(const std::function<bool()> &cancel) {
+    if(cancel && cancel()) return false;
     const auto current=revision(m_directory);
-    if(m_initialized && current==m_revision) return;
-    const auto previous=std::move(m_entries);m_entries.clear();m_bytes=0;
-    const auto files=QDir(m_directory).entryInfoList({"*.png"},QDir::Files|QDir::NoSymLinks);
-    for(const auto &file:files) if(managed(file.fileName())) {
+    if(m_initialized && current==m_revision) return true;
+    QMap<QString,Entry> entries;qint64 bytes=0;
+    QDirIterator files(m_directory,{"*.png"},QDir::Files|QDir::NoSymLinks);
+    while(files.hasNext()) {
+        if(cancel && cancel()) return false;
+        files.next();const auto file=files.fileInfo();
+        if(!managed(file.fileName())) continue;
         const auto diskUsed=file.lastModified().toMSecsSinceEpoch();
-        const auto old=previous.value(file.fileName());
-        m_entries.insert(file.fileName(),{file.size(),old.bytes==file.size()?std::max(old.used,diskUsed):diskUsed,diskUsed});
-        m_bytes+=file.size();
+        const auto old=m_entries.value(file.fileName());
+        entries.insert(file.fileName(),{file.size(),old.bytes==file.size()?std::max(old.used,diskUsed):diskUsed,diskUsed});
+        bytes+=file.size();
     }
-    m_revision=current;m_initialized=true;
+    if(cancel && cancel()) return false;
+    m_entries=std::move(entries);m_bytes=bytes;m_revision=current;m_initialized=true;
+    return true;
 }
 void ThumbnailDiskCache::changed() {
     QSaveFile file(m_directory+"/.revision");
@@ -77,7 +84,7 @@ bool ThumbnailDiskCache::remove(const QString &name) {
     if(found!=m_entries.end()) {m_bytes-=found->bytes;m_entries.erase(found);}
     return true;
 }
-void ThumbnailDiskCache::trim(qint64 limit,int count) {
+void ThumbnailDiskCache::trim(qint64 limit,int count,const std::function<bool()> &cancel) {
     if(m_bytes<=limit && m_entries.size()<=count) return;
     auto order=m_entries.keys();
     std::sort(order.begin(),order.end(),[this](const QString &a,const QString &b) {
@@ -85,6 +92,7 @@ void ThumbnailDiskCache::trim(qint64 limit,int count) {
         return x==y ? a<b : x<y;
     });
     for(const auto &name:order) {
+        if(cancel && cancel()) break;
         if(m_bytes<=limit && m_entries.size()<=count) break;
         remove(name);
     }
@@ -102,7 +110,7 @@ ImageResult ThumbnailDiskCache::image(const QByteArray &key,const std::function<
         if(prepare(false,error)) {
             QLockFile lock(m_directory+"/.lock");
             if(lock.tryLock(100)) {
-                inventory();
+                if(!inventory(cancelled)) return {};
                 const auto path=QDir(m_directory).filePath(name);
                 const QFileInfo info(path);
                 if(!info.isSymLink() && info.isFile() && info.size()<=MaxCacheFile) {
@@ -124,6 +132,7 @@ ImageResult ThumbnailDiskCache::image(const QByteArray &key,const std::function<
             }
         }
     }
+    if(cancelled()) return {};
     auto result=generate();
     if(!use || cancelled() || generation!=m_generation.load() || !m_enabled.load() ||
        !result.error.isEmpty() || result.image.isNull() || (sourceUnchanged && !sourceUnchanged())) return result;
@@ -138,9 +147,9 @@ ImageResult ThumbnailDiskCache::image(const QByteArray &key,const std::function<
     QMutexLocker guard(&m_mutex);QString error;
     if(cancelled() || generation!=m_generation.load() || !m_enabled.load() || !prepare(true,error)) return result;
     QLockFile lock(m_directory+"/.lock");if(!lock.tryLock(100)) return result;
-    inventory();
+    if(!inventory(cancelled)) return result;
     const auto old=m_entries.value(name).bytes;
-    trim(m_limit.load()-bytes.size()+old,19999);
+    trim(m_limit.load()-bytes.size()+old,19999,cancelled);
     const auto existing=m_entries.value(name).bytes;
     if(m_bytes-existing+bytes.size()>m_limit.load()) {changed();return result;}
     const auto destination=QDir(m_directory).filePath(name);
@@ -171,11 +180,12 @@ QString ThumbnailDiskCache::clear() {
     for(const auto &name:names) if(!remove(name)) error=QCoreApplication::translate("KomaMimic", "一部のサムネイルを削除できませんでした。");
     changed();return error;
 }
-QString ThumbnailDiskCache::maintain() {
-    if(!m_enabled.load()) return {};
+QString ThumbnailDiskCache::maintain(const std::function<bool()> &cancel) {
+    if(!m_enabled.load() || (cancel && cancel())) return {};
     QMutexLocker guard(&m_mutex);QString error;
     if(!prepare(false,error)) return error;
     QLockFile lock(m_directory+"/.lock");
     if(!lock.tryLock(1000)) return QCoreApplication::translate("KomaMimic", "サムネイルキャッシュを別の処理が使用中です。");
-    inventory();trim(m_limit.load());changed();return {};
+    if(!inventory(cancel)) return {};
+    trim(m_limit.load(),20000,cancel);changed();return {};
 }

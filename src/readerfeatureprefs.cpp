@@ -808,7 +808,7 @@ void ReaderFeatures::preferences(const QString &pageName) {
   w->m_actions["toolbarToggle"]->setChecked(w->m_settings->value("window/readerToolbar", false).toBool());
   if (w->isFullScreen()) w->setFullscreenChromeVisible(w->m_topChromeVisible, w->m_bottomChromeVisible);
   w->m_thumbnailDiskCache->configure(w->m_settings->value("cache/thumbnailsEnabled",true).toBool(),w->m_settings->value("cache/thumbnailMegabytes",512).toInt());
-  (void)QtConcurrent::run([disk=w->m_thumbnailDiskCache]{disk->maintain();});
+  (void)QtConcurrent::run([disk=w->m_thumbnailDiskCache,stop=w->m_backgroundCancel]{disk->maintain([stop]{return stop->load();});});
   w->m_view->setBackgroundColor(QColor(w->m_settings->value("display/background").toString()));
   w->restoreThumbnailSettings();
   if (!w->m_directory.isEmpty()) w->populateDirectory(w->m_directory, false, false);

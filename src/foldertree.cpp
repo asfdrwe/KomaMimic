@@ -29,7 +29,9 @@ FolderTree::FolderTree(QWidget *parent) : QTreeView(parent), m_files(new QFileSy
     // The model does not own its provider. Parenting it to the model keeps it
     // alive through the model's shutdown, including its information gatherer.
     m_files->setIconProvider(new DirectoryTreeIcons(m_files));
-    m_files->setRootPath(QDir::rootPath()); setModel(m_files);
+    // An empty model path enumerates all filesystem roots (Windows drives,
+    // or / on Unix). QDir::rootPath() only starts loading C:/ on Windows.
+    m_files->setRootPath(QString()); setModel(m_files);
     for (int col = 1; col < m_files->columnCount(); ++col) hideColumn(col);
     setHeaderHidden(true); setUniformRowHeights(true); setEditTriggers(QAbstractItemView::NoEditTriggers);
     header()->setStretchLastSection(false);

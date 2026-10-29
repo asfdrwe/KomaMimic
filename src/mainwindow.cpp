@@ -90,7 +90,7 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
     setApplicationAppearance(m_settings->value("display/appearance",0).toInt());
     m_thumbnailDiskCache=std::make_shared<ThumbnailDiskCache>();
     m_thumbnailDiskCache->configure(m_settings->value("cache/thumbnailsEnabled",true).toBool(),m_settings->value("cache/thumbnailMegabytes",512).toInt());
-    (void)QtConcurrent::run([cache=m_thumbnailDiskCache]{cache->maintain();});
+    (void)QtConcurrent::run([cache=m_thumbnailDiskCache,stop=m_backgroundCancel]{cache->maintain([stop]{return stop->load();});});
     setObjectName("mainWindow");
     setWindowTitle("KomaMimic");
     setAcceptDrops(true);
@@ -126,6 +126,7 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
     refreshState();
 }
 MainWindow::~MainWindow() {
+    cancelBackgroundWork();
     disconnect(qApp, nullptr, this, nullptr);
     if (m_features) m_features->closingBook();
     m_features.reset(); qApp->removeEventFilter(this);
@@ -808,12 +809,16 @@ void MainWindow::saveSettings() {
     if (m_settings->status() != QSettings::NoError)
         statusBar()->showMessage(QCoreApplication::translate("KomaMimic", "設定ファイルに書き込めません: ") + m_settings->fileName(), 15000);
 }
-void MainWindow::closeEvent(QCloseEvent *event) {
-    if (m_features) {m_features->setProperty("closing",true);m_features->updateInhibit();m_features->closingBook();}
+void MainWindow::cancelBackgroundWork() {
+    m_backgroundCancel->store(true);
     m_thumbnailToken->store(++m_libraryGeneration);
     m_pageThumbnailToken->store(++m_pageGeneration);
     m_renderToken->fetch_add(1); ++m_renderGeneration;
     m_openToken->fetch_add(1); ++m_bookGeneration;
+}
+void MainWindow::closeEvent(QCloseEvent *event) {
+    cancelBackgroundWork();
+    if (m_features) {m_features->setProperty("closing",true);m_features->updateInhibit();m_features->closingBook();}
     saveSettings(); QMainWindow::closeEvent(event);
 }
 void MainWindow::dragEnterEvent(QDragEnterEvent *event) {

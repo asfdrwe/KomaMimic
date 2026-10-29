@@ -135,6 +135,7 @@ private:
     void buildImageActions();
     void restoreImageSettings();
     void saveImageSettings();
+    void cancelBackgroundWork();
     void updateImageActionChecks();
     void highlightBook();
     QStringList zipPaths() const;
@@ -155,6 +156,7 @@ private:
     std::shared_ptr<std::atomic<quint64>> m_renderToken;
     std::shared_ptr<std::atomic<quint64>> m_openToken;
     std::shared_ptr<std::atomic<quint64>> m_pageThumbnailToken;
+    std::shared_ptr<std::atomic<bool>> m_backgroundCancel=std::make_shared<std::atomic<bool>>(false);
     quint64 m_pageGeneration = 0;
     bool m_loading = false, m_renderReady = false;
     bool m_toolbarBeforeFullscreen = false;

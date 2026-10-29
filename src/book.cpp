@@ -137,7 +137,10 @@ Archive reader(const QString &path, QString &error, const QString &password = {}
         const auto read=in.file.read(in.buffer.data(),in.buffer.size());*buffer=in.buffer.constData();return read;
       },
       [](archive *a,void *opaque,la_int64_t distance)->la_int64_t {
-        auto &in=*static_cast<ArchiveInput*>(opaque);if(in.cancelled(a))return ARCHIVE_FATAL;
+        // libarchive 3.8.7 retries negative skip results indefinitely. Decline
+        // this optimization on cancellation; the read callback then reports
+        // the fatal error without entering the skipper's retry loop.
+        auto &in=*static_cast<ArchiveInput*>(opaque);if(in.cancelled(a))return 0;
         const auto begin=in.file.pos();distance=std::clamp<qint64>(distance,0,std::max<qint64>(0,in.file.size()-begin));
         return in.file.seek(begin+distance) ? distance : 0;
       },
