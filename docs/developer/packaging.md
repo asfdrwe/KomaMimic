@@ -22,7 +22,7 @@ python3 tools/stage_validation.py --build-dir ../tmp/build-native --output ../tm
 
 | OS | 現在の配置処理 | 確認するもの |
 |---|---|---|
-| Windows x64 | Qt deploymentと非Qt DLL、検証用ZIP | 本体/worker、PDB、WebEngine helper/resources/locales、画像/SQLite plugin、翻訳 |
+| Windows x64 | Qt deploymentと非Qt DLL、配布ZIP候補、別ZIPの自作PDB | 全PEの通常/遅延import、再展開後のCLI/worker/reader、WebEngine資源、画像/SQLite plugin、翻訳 |
 | macOS arm64 | .app、macdeployqt、依存再配置、ad-hoc署名 | helper、dylib、Qt resources、entitlements、codesign/otool/architecture、Finder起動 |
 | Linux x64 | Rocky 8でbuild/test後、AppDirの依存を再配置しAppImage化 | 本体/worker、desktop/icon、Qt plugin、WebEngine資源、glibc要件、別環境での読込 |
 
@@ -34,6 +34,25 @@ LinuxのActions生成は[CIのAppImage workflow](ci.md#rocky-8でのlinux-appima
 hash固定したツールによる圧縮、取得候補の検査を行います。AppImage内は検証待ちの候補と表示します。
 Qt WebEngineとQt TIFF pluginはRPMを使用し、PopplerをTIFF ABI 6に対してビルドします。
 Popplerのデータ、適用patchと対応ソースも同梱します。TIFF ABI 5/6の混在は生成時に拒否します。
+
+## Windows配布ZIP候補
+
+Windows上で、同じソースをビルド・platform検証した後に実行します。出力先は新規フォルダーにします。
+
+```powershell
+python tools/stage_validation.py --build-dir ../tmp/build-windows-fast --output ../tmp/stage-windows-01
+python tools/package_windows.py pack --build-dir ../tmp/build-windows-fast --stage ../tmp/stage-windows-01 --output ../tmp/windows-zip-01
+```
+
+`KomaMimic-1.0.0-windows-x86_64.zip`は、単一フォルダー内の`komamimic.exe`から起動する構成です。
+worker、依存DLL、Qt plugin・WebEngine資源・翻訳・読込スクリプト・通知原文・build情報を含みます。
+自作PDBは`symbols/`の別ZIPです。Windows標準DLLと、Microsoft公式Visual C++ v14 x64
+再頒布可能パッケージを前提条件として扱い、SDK内の任意のMSVC DLLを追加同梱しません。
+
+stageの全hashと公開ソース内容を照合してから圧縮し、再展開した実物をSDK/vcpkgのPATHなしで検査します。
+本体ソースとchecksumも新規出力します。手順・artifactの構成と未確認範囲は
+[WindowsのCI](ci.md#windows-x86_64の配布zip候補)を参照してください。
+本体のソース出力と、同梱した第三者依存の必要な対応ソースの収集は別工程です。
 
 ## 正式配布への条件
 

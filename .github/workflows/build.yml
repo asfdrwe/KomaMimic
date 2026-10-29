@@ -147,7 +147,7 @@ jobs:
           retention-days: 14
 
   windows:
-    name: Windows Release / prebuilt Qt / platform checks
+    name: Windows Release ZIP / prebuilt Qt / platform checks
     needs: source-checks
     runs-on: windows-2022
     timeout-minutes: 180
@@ -219,13 +219,26 @@ jobs:
         run: |
           python tools/stage_validation.py --build-dir build-windows-fast --output stage-windows
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      - name: Upload Windows validation build
+      - name: Package and verify Windows distribution ZIP
+        run: |
+          python tools/package_windows.py pack --build-dir build-windows-fast --stage stage-windows --output dist/windows
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Upload Windows distribution candidate
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: komamimic-windows-x64-validation
+          name: komamimic-windows-x86_64-zip
           path: |
-            stage-windows/KomaMimic-windows-x64-validation.zip
-            stage-windows/SHA256SUMS
+            dist/windows/KomaMimic-*-windows-x86_64.zip
+            dist/windows/SHA256SUMS
+            dist/windows/BUILD_MANIFEST.json
+            dist/windows/sources/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload own Windows PDB symbols
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: komamimic-windows-x86_64-symbols
+          path: dist/windows/symbols/*
           if-no-files-found: error
           retention-days: 14
       - name: Collect external vcpkg logs
@@ -252,6 +265,9 @@ jobs:
             results/vcpkg-build-logs/
             stage-windows/STAGE_MANIFEST.json
             stage-windows/*.log
+            dist/windows/BUILD_MANIFEST.json
+            dist/windows/verification/*.log
+            dist/windows/verification/*.json
             build-windows-fast/CMakeFiles/CMakeConfigureLog.yaml
           if-no-files-found: warn
           retention-days: 14

@@ -38,7 +38,7 @@ GitHubで実際に各jobが成功した段階を区別して確認します。
 | source-checks | Git追跡ファイルと公開選択、翻訳、リンク、action pin、actionlint、ソースarchiveの再現性 | ソース配布候補 |
 | linux | Fedora 44 container、Release build、CLI、full CTest 17群 | 構成・試験ログ、JUnit XML |
 | macos | macOS 15 arm64、Homebrew依存、Release build、CLI、full CTest 17群 | 構成・試験ログ、JUnit XML |
-| windows | Windows 2022/MSVC、公式Qt SDK、Release専用vcpkg、platform検証8群、runtime配置 | 検証ZIP・PDB、構成・試験・配置ログ、JUnit XML、結果JSON |
+| windows | Windows 2022/MSVC、公式Qt SDK、Release専用vcpkg、platform検証8群、runtime配置・配布ZIP検査 | 配布ZIP候補・ソース・checksum、別artifactの自作PDB、構成・試験・配置ログ、JUnit XML、結果JSON |
 
 共通検査の成功後、3OSのjobを並列実行します。OSごとは独立したjobなので、
 あるOSの失敗を理由に他のOSのjobをキャンセルしません。同じブランチ・PRに新しいcommitが
@@ -76,8 +76,8 @@ Windowsの短い作業パス`D:/kfb`にあるvcpkgログは、`results/vcpkg-bui
 構成を保ってコピーしてから保存します。artifactへ渡すパスはリポジトリ内へ揃えます。
 ログにはCI上のパスや自作fixtureを使用し、個人の読書データは使用しません。
 
-ソース配布候補とWindows検証ZIPはActionsのartifactとして保存します。WindowsのZIPには本体とworker、
-依存DLL、Qt plugin・WebEngine資源・翻訳、自コードのPDBと通知文書を含めます。
+ソース配布候補とWindows配布ZIP候補はActionsのartifactとして保存します。WindowsのZIPには本体とworker、
+依存DLL、Qt plugin・WebEngine資源・翻訳、収集した通知文書を含めます。自作PDBは別artifactです。
 このBuild内のLinux/macOS jobはログ保存までです。Linux AppImageは下記の独立workflowで生成します。
 このworkflowはtag・GitHub Releaseの作成や自動公開を行いません。
 
@@ -88,6 +88,39 @@ GitHub Actionsはcommit SHAで固定しています。WindowsはQt SDKとvcpkg�
 設定・manifest・runner image等をkeyへ含めます。Qtをソースから再構築しません。
 Fedoraのroot containerでのWebEngine sandbox無効化は試験プロセスに限った設定です。
 通常の利用環境への設定方法として案内しません。
+
+## Windows x86_64の配布ZIP候補
+
+BuildのWindows jobは、既存の公式Qt 6.11.2 SDKとRelease専用vcpkgのcacheをそのまま使います。
+platform検証後に`stage_validation.py`で配置し、`package_windows.py pack`で配布用の構成へまとめます。
+本体・worker・全plugin/依存DLLのAMD64 PEと通常・遅延importを検査し、Windows標準DLLと
+明示したMSVC前提条件以外の未解決依存を拒否します。アプリで使わない位置情報・QML debugging・
+SQLite以外のDB pluginは候補から除きます。F3のツリーでは、特定ドライブのフォルダーを選ぶ前に
+全ファイルシステムrootが列挙されることもplatformのUI試験で確認します。
+
+MSVCランタイムDLLをSDKから追加コピーすることはせず、Microsoft公式の
+[Visual C++ v14 x64再頒布可能パッケージ](https://aka.ms/vs/17/release/vc_redist.x64.exe)を前提条件とします。
+ZIP内の`配布情報.txt`にも記載します。CI runnerにはランタイムがあるため、
+この検査だけでランタイム未導入環境への対応を確認したとは扱いません。
+
+作成したZIPを別フォルダーへ再展開し、全payload hashとPEを再検査します。
+Qt/vcpkgをPATHから除き、Qt/SDL等のoverrideを取り除いた環境で本体の版・形式一覧、
+workerによる12サンプルの全RGBA比較とnative reader probeを実行します。
+probeは検査時だけ展開先へ追加し、配布ZIPには含めません。失敗時は配布artifactを保存しません。
+
+成功時のartifactは以下です（14日間保存）。
+
+- **komamimic-windows-x86_64-zip**：`KomaMimic-1.0.0-windows-x86_64.zip`、
+  `BUILD_MANIFEST.json`、`SHA256SUMS`と`sources/`内の本体ソースtar.gz・manifest・checksum。
+- **komamimic-windows-x86_64-symbols**：自作exeのPDBと対応するexeのhash/版/commit、symbols ZIPのchecksum。
+- **diagnostics-windows-msvc-x64**：従来の診断に加え、ZIP再展開後のCLI・worker・reader検査ログ。
+
+ZIPには版・commit・ソース内容・dirty状態・依存import・同梱ファイルhashを記録します。
+インストール済みvcpkgのcopyright等と、Qt SDK内に存在する法的文書・attribution/SPDXを原文で収集します。
+Qt通知を発見できたかもmanifestに記録しますが、発見した文書だけで全通知が揃ったとは判断しません。
+**最終的な第三者通知と必要な対応ソースの照合、取得物のGUI確認は別途必要です。**
+利用者向けWindows導入文書は、この構成のActions取得物を確認してから追加します。
+このjobはタグ・Releaseを作成しません。
 
 ## Rocky 8でのLinux AppImage生成
 
