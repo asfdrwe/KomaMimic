@@ -117,7 +117,7 @@ jobs:
           dnf install -y gcc-toolset-12-gcc-c++ cmake ninja-build pkgconf-pkg-config \
             qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools-devel qt6-linguist \
             qt6-qttranslations qt6-qtwebengine-devel qt6-qtimageformats \
-            libicu-devel zlib-devel SDL2-devel curl tar \
+            libicu78-devel zlib-devel SDL2-devel curl tar 'libjpeg.so.62()(64bit)' \
             bzip2-devel xz-devel libzstd-devel lz4-devel openssl-devel libxml2-devel \
             rx-poppler-glib-devel rx-glib2-devel rx-cairo rx-cairo-devel dbus-daemon
       - name: Record dependencies and configure search paths
@@ -136,7 +136,7 @@ jobs:
           import subprocess
 
           installed = subprocess.check_output(
-              ['rpm', '-ql', 'rx-poppler-glib-devel', 'rx-glib2-devel', 'rx-cairo-devel'],
+              ['rpm', '-ql', 'rx-poppler-glib-devel', 'rx-glib2-devel', 'rx-cairo-devel', 'libicu78-devel'],
               text=True).splitlines()
           pc_dirs = sorted({str(Path(p).parent) for p in installed
                             if p.endswith('.pc')})
@@ -161,11 +161,35 @@ jobs:
               raise SystemExit('Expected one RX Cairo runtime library: ' + repr(cairo_libraries))
           cairo_library = cairo_libraries[0]
           print('RX Cairo link library: ' + str(cairo_library))
+          jpeg_packages = subprocess.check_output(
+              ['rpm', '-q', '--whatprovides', 'libjpeg.so.62()(64bit)', '--qf', '%{NAME}\n'],
+              text=True).splitlines()
+          jpeg_files = subprocess.check_output(['rpm', '-ql', *sorted(set(jpeg_packages))], text=True).splitlines()
+          jpeg_libraries = sorted({Path(p).resolve(strict=True) for p in jpeg_files
+                                   if (Path(p).name == 'libjpeg.so.62' or Path(p).name.startswith('libjpeg.so.62.'))
+                                   and Path(p).is_file()})
+          if not jpeg_libraries:
+              raise SystemExit('No usable JPEG ABI 62 library in: ' + repr(jpeg_files))
+          # Prefer the RX provider when both the system and RX provide ABI 62.
+          jpeg_library = next((p for p in jpeg_libraries if str(p).startswith('/opt/rx/')), jpeg_libraries[0])
+          print('JPEG ABI 62 runtime library: ' + str(jpeg_library))
+          icu_files = subprocess.check_output(['rpm', '-ql', 'libicu78', 'libicu78-devel'], text=True).splitlines()
+          icu_headers = sorted({str(Path(p).parent.parent) for p in icu_files if p.endswith('/unicode/uversion.h')})
+          icu_libraries = sorted({Path(p).resolve(strict=True) for p in icu_files
+                                  if (Path(p).name == 'libicuuc.so.78' or Path(p).name.startswith('libicuuc.so.78.'))
+                                  and Path(p).is_file()})
+          if len(icu_headers) != 1 or len(icu_libraries) != 1:
+              raise SystemExit('Expected one ICU 78 header/library: ' + repr((icu_headers, icu_libraries)))
+          print('ICU 78 header/library: ' + repr((icu_headers, icu_libraries)))
           with open(os.environ['GITHUB_ENV'], 'a') as stream:
               stream.write('PKG_CONFIG_PATH=' + ':'.join(pc_dirs) + '\n')
               stream.write('KOMA_PROBE_QT_DIR=' + configs[0] + '\n')
               stream.write('KOMA_PROBE_CAIRO_LIBRARY=' + str(cairo_library) + '\n')
               stream.write('KOMA_PROBE_CAIRO_LIBDIR=' + str(cairo_library.parent) + '\n')
+              stream.write('KOMA_PROBE_JPEG_LIBDIR=' + str(jpeg_library.parent) + '\n')
+              stream.write('KOMA_PROBE_ICU_INCLUDE_DIR=' + icu_headers[0] + '\n')
+              stream.write('KOMA_PROBE_ICU_LIBRARY=' + str(icu_libraries[0]) + '\n')
+              stream.write('KOMA_PROBE_ICU_LIBDIR=' + str(icu_libraries[0].parent) + '\n')
           PY
           # GCC Toolset's enable script also sets its runtime library path.
           set +u
@@ -226,7 +250,7 @@ jobs:
             printf '%s pkg-config directory: ' "$module"
             pkg-config --variable=pcfiledir "$module"
           done
-          rx_libs=$KOMA_PROBE_CAIRO_LIBDIR:$(pkg-config --variable=libdir poppler-glib):$(pkg-config --variable=libdir glib-2.0):$(pkg-config --variable=libdir cairo)
+          rx_libs=$KOMA_PROBE_JPEG_LIBDIR:$KOMA_PROBE_ICU_LIBDIR:$KOMA_PROBE_CAIRO_LIBDIR:$(pkg-config --variable=libdir poppler-glib):$(pkg-config --variable=libdir glib-2.0):$(pkg-config --variable=libdir cairo)
           printf 'RX link search directories: %s\n' "$rx_libs"
           pkg-config --libs poppler-glib cairo
           export LD_LIBRARY_PATH="$PROBE_DIR/libarchive-prefix/lib:$rx_libs:${LD_LIBRARY_PATH:-}"
@@ -241,6 +265,24 @@ jobs:
           print('Loaded RX Cairo: ' + cairo.cairo_version_string().decode('ascii'))
           if cairo.cairo_version() < 11600:
               raise SystemExit('RX Cairo runtime must be at least 1.16.0')
+          # Inspect the dependency closure before the lengthy application build.
+          import subprocess
+          from pathlib import Path
+
+          libraries = [os.environ['KOMA_PROBE_CAIRO_LIBRARY'], os.environ['KOMA_PROBE_ICU_LIBRARY']]
+          for package in ('qt6-qtbase', 'qt6-qtbase-gui', 'qt6-qtwebengine', 'rx-poppler-glib'):
+              files = subprocess.check_output(['rpm', '-ql', package], text=True).splitlines()
+              libraries.extend(p for p in files if Path(p).name in
+                               ('libQt6Core.so.6', 'libQt6Gui.so.6', 'libQt6WebEngineCore.so.6', 'libpoppler-glib.so.8')
+                               and Path(p).is_file())
+          missing = []
+          for library in libraries:
+              result = subprocess.run(['ldd', library], text=True, capture_output=True)
+              print('Dependencies of ' + library + ':\n' + result.stdout + result.stderr)
+              if result.returncode or 'not found' in result.stdout:
+                  missing.append(library)
+          if missing:
+              raise SystemExit('Unresolved runtime dependencies: ' + repr(missing))
           PY
           # FindPkgConfig's POPPLER imported target uses this cache entry for
           # -lcairo. Pin it to the actual RX file, not only cairo.pc's libdir.
@@ -249,6 +291,11 @@ jobs:
             -DKOMAMIMIC_TEST_SCOPE=full -DPython3_EXECUTABLE=/usr/bin/python3.11 \
             -DQt6_DIR="$KOMA_PROBE_QT_DIR" \
             -DCMAKE_LIBRARY_PATH="${rx_libs//:/;}" \
+            -DCMAKE_EXE_LINKER_FLAGS="-Wl,-rpath-link,$KOMA_PROBE_JPEG_LIBDIR" \
+            -DCMAKE_BUILD_RPATH="${rx_libs//:/;}" \
+            -DICU_INCLUDE_DIR="$KOMA_PROBE_ICU_INCLUDE_DIR" \
+            -DICU_UC_LIBRARY:FILEPATH="$KOMA_PROBE_ICU_LIBRARY" \
+            -DICU_UC_LIBRARY_RELEASE:FILEPATH="$KOMA_PROBE_ICU_LIBRARY" \
             -Dpkgcfg_lib_POPPLER_cairo:FILEPATH="$KOMA_PROBE_CAIRO_LIBRARY" \
             -DLibArchive_INCLUDE_DIR="$PROBE_DIR/libarchive-prefix/include" \
             -DLibArchive_LIBRARY="$PROBE_DIR/libarchive-prefix/lib/libarchive.so"

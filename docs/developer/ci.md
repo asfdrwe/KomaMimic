@@ -94,6 +94,10 @@ Cairoは`rx-cairo`と`rx-cairo-devel`から実在する共有ライブラリを�
 `pkgcfg_lib_POPPLER_cairo`へ絶対パスを指定します。開発用`libcairo.so`がリンク切れの場合も、
 RPM内のバージョン付き実ファイルを使用できます。リンクの参照先をログに記録し、構成前に
 選択したライブラリのロードと実際のCairoバージョンを確認します。
+JPEG ABI 62の実ライブラリも提供RPMから取得し、その配置先を実行時とリンク時の
+間接依存探索（`-rpath-link`）に追加します。ICUはQtが使う78に揃え、`libicu78-devel`の
+ヘッダーと共有ライブラリを明示指定します。主要な共有ライブラリは本体build前に
+`ldd`で未解決依存がないことも確認します。
 Pythonは3.11を明示します。
 
 Rockyのbaseos・appstream・extras・powertoolsは公式配布先`dl.rockylinux.org`を直接使用し、
