@@ -17,6 +17,27 @@ import build_appimage as appimage
 
 
 class AppImageTests(unittest.TestCase):
+    def test_japanese_catalog_uses_rpm_location_and_rejects_filtered_files(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            alternate = root / 'rpm-translations/qtbase_ja.qm'
+            alternate.parent.mkdir()
+            alternate.write_bytes(b'Japanese catalog fixture')
+            with patch.object(appimage, 'output', return_value=str(alternate)):
+                self.assertEqual(appimage.japanese_catalog(root / 'qt-query'), alternate.resolve())
+                alternate.unlink()
+                with self.assertRaisesRegex(ValueError, '_install_langs'):
+                    appimage.japanese_catalog(root / 'qt-query')
+
+    def test_japanese_catalog_uses_existing_qt_query_path(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            catalog = root / 'qtbase_ja.qm'
+            catalog.write_bytes(b'Japanese catalog fixture')
+            with patch.object(appimage, 'output') as rpm:
+                self.assertEqual(appimage.japanese_catalog(root), catalog)
+                rpm.assert_not_called()
+
     def test_host_boundary_keeps_qt_codecs_and_cpp_but_excludes_glibc_and_drivers(self):
         for name in ('libc.so.6', 'libm.so.6', 'libpthread.so.0', 'libdl.so.2',
                      'ld-linux-x86-64.so.2', 'libGLX.so.0', 'libEGL.so.1', 'libnss_files.so.2'):

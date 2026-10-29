@@ -74,6 +74,12 @@ jobs:
         run: |
           mkdir -p "$PROBE_DIR/temp" "$PROBE_DIR/cache"
           exec > >(tee "$PROBE_DIR/dependencies.log") 2>&1
+          # Minimal container images may filter out non-English RPM files.
+          printf 'Original RPM language filter: '
+          rpm --eval '%{_install_langs}'
+          printf '%s\n' '%_install_langs all' >> /etc/rpm/macros
+          printf 'Packaging RPM language filter: '
+          rpm --eval '%{_install_langs}'
           dnf install -y dnf-plugins-core epel-release python3.11
           dnf config-manager --set-enabled powertools
           # Match Poppler's TIFF ABI before enabling third-party repositories.

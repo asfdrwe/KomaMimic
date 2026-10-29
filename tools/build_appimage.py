@@ -85,6 +85,21 @@ def qtpaths():
     return next(Path(p) for p in candidates if p and Path(p).is_file())
 
 
+def japanese_catalog(translations):
+    standard = translations / 'qtbase_ja.qm'
+    if standard.is_file():
+        return standard
+    files = output(['rpm', '-ql', 'qt6-qttranslations']).splitlines()
+    candidates = [Path(p) for p in files if Path(p).name == 'qtbase_ja.qm']
+    usable = sorted({p.resolve(strict=True) for p in candidates if p.is_file()})
+    print('RPM Japanese Qt catalog candidates: ' + repr(candidates), flush=True)
+    if len(usable) != 1:
+        raise ValueError('Japanese Qt catalog missing or ambiguous in qt6-qttranslations; '
+                         'check the RPM _install_langs filter and translation package: ' + repr(usable))
+    print('Japanese Qt catalog: ' + str(usable[0]), flush=True)
+    return usable[0]
+
+
 def qt_resources(app):
     paths = qtpaths()
     query = lambda key: Path(output([paths, '--query', key]))
@@ -113,7 +128,7 @@ def qt_resources(app):
     shutil.copytree(resources, app / 'usr/share/qt6/resources')
     translations = query('QT_INSTALL_TRANSLATIONS')
     shutil.copytree(translations / 'qtwebengine_locales', app / 'usr/translations/qtwebengine_locales')
-    copy(translations / 'qtbase_ja.qm', app / 'usr/translations/qtbase_ja.qm')
+    copy(japanese_catalog(translations), app / 'usr/translations/qtbase_ja.qm')
     # NSS providers are loaded with dlopen and do not appear in ldd's closure.
     rpm_files = output(['rpm', '-qal']).splitlines()
     for name in ('libsoftokn3.so', 'libfreebl3.so', 'libfreeblpriv3.so', 'libnssckbi.so'):
