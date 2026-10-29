@@ -458,6 +458,7 @@ jobs:
             tmp/rocky8-probe/qtiff-build/CMakeCache.txt
             tmp/rocky8-probe/qtiff-build/CMakeFiles/CMakeConfigureLog.yaml
             tmp/rocky8-probe/appimage-stage/BUILD_MANIFEST.json
+            tmp/rocky8-probe/appimage-stage/TIFF_DEPENDENCIES.json
           if-no-files-found: warn
           retention-days: 14
 

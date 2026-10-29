@@ -104,6 +104,23 @@ class AppImageTests(unittest.TestCase):
             with patch.object(appimage, 'dependencies', return_value=paths):
                 with self.assertRaisesRegex(ValueError, 'Mixed TIFF'):
                     appimage.collect_libraries(root / 'AppDir', [(root / 'program', root / 'unused')])
+            report = json.loads((root / 'TIFF_DEPENDENCIES.json').read_text())
+            self.assertEqual({entry['tiff'] for entry in report}, {'libtiff.so.5', 'libtiff.so.6'})
+            self.assertTrue(all(entry['root'] == str(root / 'program') for entry in report))
+
+    @unittest.skipUnless(shutil.which('cc') and shutil.which('patchelf'), 'requires native ELF tools')
+    def test_dependency_report_traces_real_elf_transitive_edges(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / 'leaf.c').write_text('int koma_leaf(void) { return 0; }\n')
+            (root / 'parent.c').write_text('int koma_leaf(void); int koma_parent(void) { return koma_leaf(); }\n')
+            leaf, parent = root / 'libkoma_leaf.so.1', root / 'libkoma_parent.so.1'
+            subprocess.run(['cc', '-shared', '-fPIC', str(root / 'leaf.c'),
+                            '-Wl,-soname,' + leaf.name, '-o', str(leaf)], check=True)
+            subprocess.run(['cc', '-shared', '-fPIC', str(root / 'parent.c'), str(leaf),
+                            '-Wl,-rpath,' + str(root), '-o', str(parent)], check=True)
+            chain = appimage.dependency_chain(parent, leaf.name, dict(appimage.dependencies(parent)))
+            self.assertEqual(chain, [str(parent), leaf.name + ' => ' + str(leaf)])
 
     @unittest.skipUnless(shutil.which('cc') and shutil.which('patchelf'), 'requires native ELF tools')
     def test_real_elf_dependency_is_relocated_and_cannot_leak_build_prefix(self):

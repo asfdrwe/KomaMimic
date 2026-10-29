@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Build and check a Linux x86_64 AppImage candidate from tested native outputs."""
 import argparse
+from collections import deque
 import hashlib
 import json
 import os
@@ -143,10 +144,34 @@ def qt_resources(app):
     return seeds
 
 
+def dependency_chain(source, target, resolved):
+    """Explain a transitive dependency with the source ELFs' DT_NEEDED edges."""
+    queue = deque([(Path(source), [str(source)])])
+    visited = set()
+    while queue:
+        path, chain = queue.popleft()
+        if path in visited:
+            continue
+        visited.add(path)
+        result = subprocess.run(['patchelf', '--print-needed', str(path)],
+                                text=True, capture_output=True)
+        if result.returncode:
+            continue
+        for name in result.stdout.splitlines():
+            if name not in resolved:
+                continue
+            entry = name + ' => ' + str(resolved[name])
+            if name == target:
+                return [*chain, entry]
+            queue.append((resolved[name], [*chain, entry]))
+    return [str(source), target + ' (reported by ldd; direct chain unavailable)']
+
+
 def collect_libraries(app, seeds, preferred=()):
     libraries = {}
     alternatives = []
     extra_seeds = []
+    tiff_roots = []
     # Keep the exact Poppler/GLib/Cairo versions selected by CMake, even when
     # a vendor ELF's RPATH would otherwise prefer the older system equivalent.
     for path in preferred:
@@ -160,7 +185,11 @@ def collect_libraries(app, seeds, preferred=()):
     # ldd includes each source's transitive dependency closure. Preserve the
     # first resolution of a SONAME, rather than bundling conflicting duplicates.
     for source, _ in [*extra_seeds, *seeds]:
-        for name, path in dependencies(source):
+        resolved = dict(dependencies(source))
+        for tiff in ('libtiff.so.5', 'libtiff.so.6'):
+            if tiff in resolved:
+                tiff_roots.append((source, tiff, resolved))
+        for name, path in resolved.items():
             if HOST_LIBRARIES.fullmatch(name):
                 continue
             if '/' in name:
@@ -173,7 +202,14 @@ def collect_libraries(app, seeds, preferred=()):
             libraries[name] = real
             copy(real, app / 'usr/lib' / name)
     if 'libtiff.so.5' in libraries and 'libtiff.so.6' in libraries:
-        raise ValueError('Mixed TIFF 5/6 would reintroduce the known Qt/Poppler crash')
+        report = [dict(root=str(source), tiff=tiff, library=str(resolved[tiff]),
+                       chain=dependency_chain(source, tiff, resolved))
+                  for source, tiff, resolved in tiff_roots]
+        text = json.dumps(report, indent=2)
+        (app.parent / 'TIFF_DEPENDENCIES.json').write_text(text + '\n')
+        print('TIFF dependency chains:\n' + text, flush=True)
+        raise ValueError('Mixed TIFF 5/6 would reintroduce the known Qt/Poppler crash; '
+                         'see TIFF_DEPENDENCIES.json and the dependency chains above')
     return libraries, alternatives
 
 
