@@ -25,8 +25,9 @@ class AppImageTests(unittest.TestCase):
             root = Path(temporary)
             source = root / 'sample.c'
             library = root / 'sample.so'
-            source.write_text('int sample(void) {return 7;}\n')
-            subprocess.run(['cc', '-shared', '-fPIC', str(source), '-o', str(library)], check=True)
+            source.write_text('void custom_init(void) {}\nint sample(void) {return 7;}\n')
+            subprocess.run(['cc', '-shared', '-fPIC', '-Wl,-init,custom_init',
+                            str(source), '-o', str(library)], check=True)
             appimage.audit_elf_layout(library)
             original = library.read_bytes()
             header = struct.unpack_from('<16sHHIQQQIHHHHHH', original)
@@ -190,7 +191,9 @@ class AppImageTests(unittest.TestCase):
     def test_glibc_audit_compares_versions_numerically_and_rejects_private_abi(self):
         versions = appimage.glibc_versions('GLIBC_2.9 GLIBC_2.28 GLIBC_2.35 GLIBCXX_3.4.30')
         self.assertEqual(max(versions), (2, 35))
-        for unsupported in ('GLIBC_PRIVATE', 'GLIBC_ABI_DT_RELR'):
+        self.assertEqual(appimage.glibc_versions('GLIBC_2.28 GLIBC_ABI_DT_RELR'), {(2, 28), (2, 36)})
+        self.assertEqual(appimage.glibc_versions('GLIBC_ABI_GNU2_TLS'), {(2, 43)})
+        for unsupported in ('GLIBC_PRIVATE', 'GLIBC_ABI_UNKNOWN'):
             with self.assertRaises(ValueError):
                 appimage.glibc_versions(unsupported)
 

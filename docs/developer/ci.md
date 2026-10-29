@@ -143,8 +143,11 @@ RPATHを相対化し、非同梱とするglibc・ローダー・ホストのOpen
 ビルド環境のライブラリを参照していないことを確認します。TIFF ABI 5/6の混在を拒否し、
 全payload ELFのglibc要求がUbuntu 22.04相当の2.35以下であることを検査します。
 通常のAppRunにはsandbox無効化を設定しません。
-RPATHの書換えにはSHA-256固定の公式ソースから構築したpatchelf 0.18.0を使います。
-builderは0.18未満を拒否し、全ELFのsection・LOAD segment・初期化関数の対応を検査します。
+RPATHの書換えにはSHA-256固定の公式ソースから構築したpatchelf 0.19.2を使います。
+0.18.0にも[初期化コードの移動に関する問題](https://github.com/NixOS/patchelf/issues/639)があるため、
+builderは0.19.2未満を拒否し、全ELFのsection・LOAD segment・初期化関数の対応を検査します。
+`-Wl,-init/-fini`で`.text`内の独自関数を指定したELFも有効です。
+NSSは32bit/64bitが共存するホストでもx86_64の実体だけを選択し、glibcのlibmvecは同梱しません。
 配置後のAppRunで`--version`と`--formats`を実行してから圧縮へ進みます。
 
 続くUbuntu 22.04コンテナのjobは、Rockyで作ったAppDirのhashを再確認し、

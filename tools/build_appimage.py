@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 # These come from the target OS: glibc/loader and the graphics driver interface.
 # Qt, ICU, C++ runtime, XCB, codecs, NSS and all other resolved DSOs are bundled.
 HOST_LIBRARIES = re.compile(
-    r'^(?:ld-linux[^/]*|lib(?:c|m|pthread|dl|rt|resolv|util|anl|BrokenLocale)\.so(?:\..*)?'
+    r'^(?:ld-linux[^/]*|lib(?:c|m|mvec|pthread|dl|rt|resolv|util|anl|BrokenLocale)\.so(?:\..*)?'
     r'|libnss_[^/]+\.so(?:\..*)?|lib(?:GL|GLX|OpenGL|EGL|GLdispatch)\.so(?:\..*)?)$')
 APP_RUN = '''#!/bin/sh
 set -eu
@@ -64,6 +64,13 @@ def elf(path):
         return stream.read(4) == b'\x7fELF'
 
 
+def x86_64_elf(path):
+    with Path(path).open('rb') as stream:
+        header = stream.read(20)
+    return (len(header) == 20 and header[:6] == b'\x7fELF\x02\x01'
+            and struct.unpack_from('<H', header, 18)[0] == 62)
+
+
 def dependencies(path, env=None):
     result = output(['ldd', path], env=env)
     if 'not found' in result:
@@ -77,10 +84,18 @@ def dependencies(path, env=None):
 
 
 def glibc_versions(text):
-    if 'GLIBC_PRIVATE' in text or 'GLIBC_ABI_' in text:
+    markers = set(re.findall(r'\bGLIBC_ABI_[A-Z0-9_]+', text))
+    if 'GLIBC_PRIVATE' in text or markers - {'GLIBC_ABI_DT_RELR', 'GLIBC_ABI_GNU2_TLS'}:
         raise ValueError('Payload uses a private/non-numeric glibc ABI')
-    return {tuple(map(int, version.split('.')))
-            for version in re.findall(r'\bGLIBC_([0-9]+(?:\.[0-9]+)+)', text)}
+    versions = {tuple(map(int, version.split('.')))
+                for version in re.findall(r'\bGLIBC_([0-9]+(?:\.[0-9]+)+)', text)}
+    if 'GLIBC_ABI_DT_RELR' in markers:
+        versions.add((2, 36))
+    if 'GLIBC_ABI_GNU2_TLS' in markers:
+        # Conservative supported floor, not its historical introduction:
+        # older distro releases have inconsistent backports of this tag.
+        versions.add((2, 43))
+    return versions
 
 
 def qtpaths():
@@ -135,7 +150,8 @@ def qt_resources(app):
     # NSS providers are loaded with dlopen and do not appear in ldd's closure.
     rpm_files = output(['rpm', '-qal']).splitlines()
     for name in ('libsoftokn3.so', 'libfreebl3.so', 'libfreeblpriv3.so', 'libnssckbi.so'):
-        sources = sorted({Path(p).resolve() for p in rpm_files if Path(p).name == name and Path(p).is_file()})
+        sources = sorted({Path(p).resolve() for p in rpm_files
+                          if Path(p).name == name and Path(p).is_file() and x86_64_elf(p)})
         if len(sources) != 1:
             raise ValueError('Expected one NSS provider ' + name + ': ' + repr(sources))
         target = app / 'usr/lib' / name
@@ -233,10 +249,8 @@ def audit_elf_layout(path):
         names = sections[header[13]]
         stream.seek(names[4])
         names = stream.read(names[5])
-        addresses = {}
         for section in sections:
             name = names[section[0]:].split(b'\0', 1)[0].decode()
-            addresses[name] = section[3]
             if not section[2] & 2 or section[1] == 8 or not section[5]:
                 continue  # Non-allocated, NOBITS, or empty section.
             if not any(p[3] <= section[3] and section[3] + section[5] <= p[3] + p[5]
@@ -253,15 +267,17 @@ def audit_elf_layout(path):
                 if tag not in (12, 13) or not address:
                     continue
                 name = '.init' if tag == 12 else '.fini'
-                if (name in addresses and address != addresses[name]) or not any(
+                # -Wl,-init/-fini may name a function in .text instead of
+                # the conventional section; both are valid executable code.
+                if not any(s[2] & 4 and s[3] <= address < s[3] + s[5] for s in sections) or not any(
                         p[1] & 1 and p[3] <= address < p[3] + p[5] for p in loads):
                     raise ValueError(f'Invalid ELF initializer {path}: {name} {address:#x}')
 
 
 def relocate_and_audit(app, max_glibc):
     tool_version = output(['patchelf', '--version'])
-    if tuple(map(int, re.search(r'(\d+)\.(\d+)', tool_version).groups())) < (0, 18):
-        raise ValueError('patchelf >= 0.18 required to preserve ELF layout; found ' + tool_version)
+    if tuple(map(int, re.search(r'(\d+)\.(\d+)\.(\d+)', tool_version).groups())) < (0, 19, 2):
+        raise ValueError('patchelf >= 0.19.2 required to preserve ELF layout; found ' + tool_version)
     app = Path(app).resolve()
     binaries = [p for p in app.rglob('*') if p.is_file() and elf(p)]
     versions = set()
@@ -307,7 +323,7 @@ def package_notices(app, libraries, seeds, sources):
                 if source.is_file() and ('/licenses/' in filename or ('/doc/' in filename and legal)):
                     copy(source, notices / name / source.relative_to('/'))
     copy(sources / 'libarchive-COPYING.txt', notices / 'libarchive/COPYING')
-    shutil.copytree(sources / 'poppler-notices', notices / 'poppler')
+    shutil.copytree(sources / 'poppler-notices', notices / 'poppler', dirs_exist_ok=True)
     return packages
 
 

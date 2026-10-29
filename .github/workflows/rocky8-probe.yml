@@ -342,17 +342,17 @@ jobs:
         run: |
           exec > >(tee "$PROBE_DIR/patchelf-build.log") 2>&1
           export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
-          archive="$PROBE_DIR/patchelf-0.18.0.tar.bz2"
+          archive="$PROBE_DIR/patchelf-0.19.2.tar.bz2"
           curl --fail --location --retry 3 --connect-timeout 20 \
-            --output "$archive" https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0.tar.bz2
-          printf '%s  %s\n' 1952b2a782ba576279c211ee942e341748fdb44997f704dd53def46cd055470b "$archive" \
+            --output "$archive" https://github.com/NixOS/patchelf/releases/download/0.19.2/patchelf-0.19.2.tar.bz2
+          printf '%s  %s\n' d4ad9a4e5c689e09119ce2f30a94b0e8b4f98c78590123ea21665e34c6928801 "$archive" \
             > "$PROBE_DIR/patchelf-SHA256SUMS.txt"
           sha256sum --check "$PROBE_DIR/patchelf-SHA256SUMS.txt"
           tar -xjf "$archive" -C "$PROBE_DIR"
           mkdir "$PROBE_DIR/patchelf-build"
           (
             cd "$PROBE_DIR/patchelf-build"
-            "$PROBE_DIR/patchelf-0.18.0/configure" --prefix="$PROBE_DIR/patchelf-prefix"
+            "$PROBE_DIR/patchelf-0.19.2/configure" --prefix="$PROBE_DIR/patchelf-prefix"
             make -j4
             make install
           )
