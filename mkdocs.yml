@@ -17,6 +17,7 @@ markdown_extensions:
   - fenced_code
 nav:
   - はじめに: index.md
+  - インストール: user/install.md
   - 利用ガイド:
       - 基本操作: user/basic.md
       - 表示と画像加工: user/views.md

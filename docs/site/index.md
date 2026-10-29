@@ -8,6 +8,7 @@ PDF・TXT・Markdown・EPUBと、JavaScriptによる画像reader・filterにも�
 
 ## 使い方
 
+- [インストール](user/install.md)：KomaMimic のインストール
 - [基本操作](user/basic.md)：開く、移動、一覧、全画面、キーとマウス。
 - [表示と画像加工](user/views.md)：見開き、倍率、下部バー、加工、保存。
 - [文書を読む](user/documents.md)：TXT・Markdown・EPUB、表示設定と読書位置。
