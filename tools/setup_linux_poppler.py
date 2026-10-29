@@ -11,6 +11,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 import tarfile
 import urllib.request
 
@@ -83,6 +84,19 @@ def freetype_paths():
     return include, library
 
 
+def glib_mkenums():
+    files = package_files('rx-glib2-devel')
+    found = sorted({Path(p).resolve() for p in files
+                    if Path(p).name == 'glib-mkenums' and Path(p).is_file()})
+    if len(found) != 1:
+        raise ValueError('Expected one installed RX glib-mkenums: ' + repr(found))
+    # Poppler invokes this Python script via its selected interpreter;
+    # validate that combination before compiling the library.
+    subprocess.run([sys.executable, str(found[0]), '--help'], check=True)
+    print('Selected GLib enum generator:', sys.executable, found[0], flush=True)
+    return found[0]
+
+
 def apply_patches(source):
     patches = source / 'debian/patches'
     for line in (patches / 'series').read_text().splitlines():
@@ -141,6 +155,7 @@ def build(output):
                           'libjpeg.so.62')
     jpeg_include = header_directory(package_files('libjpeg-turbo-devel'), 'jpeglib.h')
     freetype_include, freetype = freetype_paths()
+    mkenums = glib_mkenums()
     # RX's devel Cairo symlink may be broken. Use a private build-only link
     # and corrected pkg-config copy, leaving the installed RPM files intact.
     dependencies = work / 'dependencies'
@@ -167,10 +182,12 @@ def build(output):
                '-DFREETYPE_INCLUDE_DIR_ft2build=' + str(freetype_include),
                '-DFREETYPE_INCLUDE_DIR_freetype2=' + str(freetype_include),
                '-DFREETYPE_LIBRARY_RELEASE=' + str(freetype),
+               '-DGLIB2_MKENUMS=' + str(mkenums),
+               '-DPYTHON_EXECUTABLE=' + sys.executable, '-DPython3_EXECUTABLE=' + sys.executable,
                '-DENABLE_GLIB=ON', '-DENABLE_QT5=OFF', '-DENABLE_QT6=OFF', '-DENABLE_CPP=OFF', '-DENABLE_UTILS=OFF',
                '-DENABLE_GOBJECT_INTROSPECTION=OFF', '-DENABLE_GTK_DOC=OFF', '-DBUILD_GTK_TESTS=OFF',
                '-DBUILD_QT5_TESTS=OFF', '-DBUILD_QT6_TESTS=OFF', '-DBUILD_CPP_TESTS=OFF', '-DBUILD_MANUAL_TESTS=OFF',
-               '-DENABLE_BOOST=OFF', '-DENABLE_NSS3=OFF', '-DENABLE_GPGME=OFF', '-DENABLE_LIBCURL=OFF',
+               '-DENABLE_BOOST=OFF', '-DENABLE_NSS3=OFF', '-DENABLE_LIBCURL=OFF',
                '-DENABLE_LIBOPENJPEG=openjpeg2', '-DENABLE_LIBJPEG=ON', '-DENABLE_LIBPNG=ON', '-DENABLE_LIBTIFF=ON']
     print('Poppler configuration:', shlex.join(command), flush=True)
     subprocess.run(command, env=env, check=True)

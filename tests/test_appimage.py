@@ -18,6 +18,17 @@ import setup_linux_poppler as poppler_build
 
 
 class AppImageTests(unittest.TestCase):
+    def test_rx_enum_generator_runs_with_selected_python_and_missing_tool_fails_early(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            tool = Path(temporary) / 'opt/rx/glib2/bin/glib-mkenums'
+            tool.parent.mkdir(parents=True)
+            tool.write_text('#!/missing/interpreter\nimport sys\nassert sys.argv[1:] == ["--help"]\n')
+            with patch.object(poppler_build, 'package_files', return_value=[str(tool)]):
+                self.assertEqual(poppler_build.glib_mkenums(), tool.resolve())
+                tool.unlink()
+                with self.assertRaisesRegex(ValueError, 'Expected one installed RX glib-mkenums'):
+                    poppler_build.glib_mkenums()
+
     def test_freetype_uses_selected_prefix_and_versioned_runtime_despite_broken_devel_link(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
