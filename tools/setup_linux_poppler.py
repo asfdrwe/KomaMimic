@@ -172,6 +172,10 @@ def build(output):
                                     os.environ['KOMA_PROBE_CAIRO_LIBDIR'],
                                     subprocess.check_output(['pkg-config', '--variable=libdir', 'glib-2.0'], text=True).strip(),
                                     env.get('LD_LIBRARY_PATH', '')])
+    # Validate private .pc dependencies too; a version/--exists query alone
+    # does not guarantee that compilation flags can be retrieved.
+    subprocess.run(['pkg-config', '--print-errors', '--cflags', '--libs',
+                    'fontconfig', 'freetype2', 'cairo', 'gio-2.0'], env=env, check=True)
     prefix = output / 'poppler-prefix'
     command = ['cmake', '-S', str(source), '-B', str(output / 'poppler-build'), '-G', 'Ninja',
                '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=ON',
@@ -196,6 +200,8 @@ def build(output):
     env['LD_LIBRARY_PATH'] = str(prefix / 'lib') + ':' + env['LD_LIBRARY_PATH']
     env['PKG_CONFIG_PATH'] = str(prefix / 'lib/pkgconfig') + ':' + env['PKG_CONFIG_PATH']
     subprocess.run(['pkg-config', '--modversion', 'poppler-glib'], env=env, check=True)
+    subprocess.run(['pkg-config', '--print-errors', '--cflags', '--libs', 'poppler-glib', 'cairo'],
+                   env=env, check=True)
     for library in (prefix / 'lib').glob('*.so'):
         needed = subprocess.check_output(['readelf', '-d', str(library)], text=True, env=env)
         print(needed, flush=True)

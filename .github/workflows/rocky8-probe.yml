@@ -126,7 +126,7 @@ jobs:
             libicu78-devel zlib-devel SDL2-devel curl tar 'libjpeg.so.62()(64bit)' \
             bzip2-devel xz-devel libzstd-devel lz4-devel openssl-devel libxml2-devel \
             rx-glib2-devel rx-cairo rx-cairo-devel dbus-daemon patchelf patch \
-            libtiff6-devel libjpeg-turbo-devel freetype-devel fontconfig-devel \
+            libtiff6-devel libjpeg-turbo-devel freetype-devel fontconfig-devel libuuid-devel \
             libpng-devel openjpeg2-devel lcms2-devel poppler-data
       - name: Record dependencies and configure search paths
         run: |
@@ -258,6 +258,9 @@ jobs:
           pkg-config --modversion poppler-glib glib-2.0 gobject-2.0 cairo
           pkg-config --print-errors --exists 'poppler-glib >= 22.0' \
             'glib-2.0 >= 2.64' 'gobject-2.0 >= 2.64' 'cairo >= 1.16.0'
+          # --exists can succeed while --cflags fails on a private dependency.
+          # CMake may otherwise proceed with empty imported-target properties.
+          pkg-config --print-errors --cflags --libs poppler-glib cairo
           for module in poppler-glib glib-2.0 gobject-2.0 cairo; do
             printf '%s pkg-config directory: ' "$module"
             pkg-config --variable=pcfiledir "$module"
