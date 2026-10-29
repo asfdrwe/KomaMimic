@@ -175,12 +175,15 @@ jobs:
             pkg-config --variable=pcfiledir "$module"
           done
           rx_libs=$(pkg-config --variable=libdir poppler-glib):$(pkg-config --variable=libdir glib-2.0):$(pkg-config --variable=libdir cairo)
+          printf 'RX link search directories: %s\n' "$rx_libs"
+          pkg-config --libs poppler-glib cairo
           export LD_LIBRARY_PATH="$PROBE_DIR/libarchive-prefix/lib:$rx_libs:${LD_LIBRARY_PATH:-}"
           printf 'LD_LIBRARY_PATH=%s\n' "$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
           cmake -S . -B "$PROBE_DIR/build" -G Ninja \
             -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON \
             -DKOMAMIMIC_TEST_SCOPE=full -DPython3_EXECUTABLE=/usr/bin/python3.11 \
             -DQt6_DIR="$KOMA_PROBE_QT_DIR" \
+            -DCMAKE_LIBRARY_PATH="${rx_libs//:/;}" \
             -DLibArchive_INCLUDE_DIR="$PROBE_DIR/libarchive-prefix/include" \
             -DLibArchive_LIBRARY="$PROBE_DIR/libarchive-prefix/lib/libarchive.so"
       - name: Build
