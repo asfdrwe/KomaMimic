@@ -65,7 +65,7 @@ Windowsの短い作業パス`D:/kfb`にあるvcpkgログは、`results/vcpkg-bui
 
 ソース配布候補とWindows検証ZIPはActionsのartifactとして保存します。WindowsのZIPには本体とworker、
 依存DLL、Qt plugin・WebEngine資源・翻訳、自コードのPDBと通知文書を含めます。
-Linux/macOSは今回ログ保存までで、配布用バイナリartifactは後続で整えます。
+このBuild内のLinux/macOS jobはログ保存までです。Linux AppImageは下記の独立workflowで生成します。
 このworkflowはtag・GitHub Releaseの作成や自動公開を行いません。
 
 初回は管理者がworkflowと本文を手動commit・pushし、Actionsの**Build**で各jobを確認します。
@@ -76,10 +76,10 @@ GitHub Actionsはcommit SHAで固定しています。WindowsはQt SDKとvcpkg�
 Fedoraのroot containerでのWebEngine sandbox無効化は試験プロセスに限った設定です。
 通常の利用環境への設定方法として案内しません。
 
-## Rocky 8での試験ビルド
+## Rocky 8でのLinux AppImage生成
 
-`.github/workflows/rocky8-probe.yml`は、AppImageのビルド基準環境を検討するための
-手動実行専用workflowです。Actionsの **Rocky 8 build probe → Run workflow** から起動します。
+`.github/workflows/rocky8-probe.yml`は、手動実行専用のAppImage workflowです。
+Actionsの **Linux AppImage (Rocky 8) → Run workflow → main** から起動します。
 Ubuntu 24.04 runner上のRocky Linux 8.10 x86_64コンテナ
 （`rockylinux/rockylinux:8.10`）内で、Rocky・EPEL・Ravenの
 RPMを導入し、GCC Toolset 12によるRelease build、CLI確認、full CTest 17群を実行します。
@@ -106,7 +106,7 @@ RavenのQt TIFF pluginはTIFF ABI 6、RX PopplerはABI 5を使い、同一プロ
 混在によるクラッシュが疑われるため、QtImageFormatsの公式`v6.11.2`ソースからTIFF pluginだけを
 Rocky標準のTIFF ABI 5に対して再ビルドします。依存先を`readelf`で確認後、CIコンテナ内の
 pluginを差し替えて試験します。使用commit・ソースarchive・checksum・構成/buildログを保存します。
-この対応が17群すべてで成功することは実際のActions実行で確認します。
+この依存構成での17群成功を確認してからAppDirを生成します。
 Pythonは3.11を明示します。
 
 Rockyのbaseos・appstream・extras・powertoolsは公式配布先`dl.rockylinux.org`を直接使用し、
@@ -121,9 +121,33 @@ Rocky標準のlibarchiveはRAR5対応APIを提供しないため、libarchive 3.
 
 依存導入・構成・ビルド・試験のログと導入RPM一覧を
 `diagnostics-rocky8-raven-x64` artifactへ14日間保存します。
-この試験は既存3OSのBuildとは独立し、pushでは起動しません。AppImageの生成や公開は行いません。
-依存の同時導入と全テストの成功はGitHub上の実行結果で確認します。
-Rocky上でのビルド成功だけでは、同梱依存を含むAppImageの他OSでの互換性は確定しません。
+このworkflowは既存3OSのBuildとは独立し、pushでは起動しません。Releaseやtagは作成しません。
+
+Rocky jobではテスト成功後に`tools/build_appimage.py stage`を実行し、本体とworker、
+Qt plugin・WebEngine helper/resources/locales・日本語翻訳・依存共有ライブラリをAppDirへ配置します。
+RPATHを相対化し、非同梱とするglibc・ローダー・ホストのOpenGL/EGLライブラリを除き、
+ビルド環境のライブラリを参照していないことを確認します。TIFF ABI 5/6の混在を拒否し、
+全payload ELFのglibc要求がUbuntu 22.04相当の2.35以下であることを検査します。
+通常のAppRunにはsandbox無効化を設定しません。
+
+続くUbuntu 22.04コンテナのjobは、Rockyで作ったAppDirのhashを再確認し、
+appimagetoolと静的runtimeで1ファイルへまとめます。アプリや依存の再コンパイルはしません。
+ツールは`tools/appimage-tools.json`のSHA-256で検証し、上流continuous assetが更新されて
+hashが変わった場合は停止します。更新時は公式release assetと照合して設定を更新します。
+Qt・Ravenをインストールしない環境で、AppImageの`--version`・`--formats`、展開後のworker、
+生成fixtureのnative reader probeを検査します。CIではFUSEを必要としないextract-and-runを使います。
+
+成功後のartifact **komamimic-linux-x86_64-appimage** に以下を保存します。
+
+- `KomaMimic-1.0.0-linux-x86_64.AppImage`と`SHA256SUMS`
+- 同梱ファイルのhash・必要glibc・依存RPM版/ライセンス/Source RPM等の`BUILD_MANIFEST.json`
+- `sources/`内の本体ソース・manifest、構築したlibarchiveとQtImageFormatsのソース
+
+圧縮用の中間artifactは7日間、取得候補と診断artifactは14日間保存します。
+Ubuntu側のログは**diagnostics-appimage-ubuntu22-x64**へ保存します。
+RPMに含まれるライセンス文書もAppImage内へコピーしますが、正式公開前には依存の対応ソース・
+通知の網羅性とAppImage runtime自体の通知も確認します。Actionsの成功はGUI手動確認の代替ではありません。
+取得物のFedora等での確認、導入・削除文書と正式Releaseは後続です。
 
 ## GitHub上で確立する順序
 

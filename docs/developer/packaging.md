@@ -24,12 +24,15 @@ python3 tools/stage_validation.py --build-dir ../tmp/build-native --output ../tm
 |---|---|---|
 | Windows x64 | Qt deploymentと非Qt DLL、検証用ZIP | 本体/worker、PDB、WebEngine helper/resources/locales、画像/SQLite plugin、翻訳 |
 | macOS arm64 | .app、macdeployqt、依存再配置、ad-hoc署名 | helper、dylib、Qt resources、entitlements、codesign/otool/architecture、Finder起動 |
-| Linux x64 | CMake installによるローカル配置 | 本体/worker、desktop/icon、依存解決、WebEngine資源 |
+| Linux x64 | Rocky 8でbuild/test後、AppDirの依存を再配置しAppImage化 | 本体/worker、desktop/icon、Qt plugin、WebEngine資源、glibc要件、別環境での読込 |
 
 sdl2-compatがSDL3を実行時ロードする構成では、静的な依存検査だけでは不足します。
 macOSのhelperはSDL3を明示配置し、実行時に要求される名前も用意します。
 macOSのad-hoc署名とAppleの公証は別です。初回配布の公証は行わない方針です。
-Linux AppImageは後続で成立を検証する候補であり、現在のinstall ruleで完成するものではありません。
+LinuxのActions生成は[CIのAppImage workflow](ci.md#rocky-8でのlinux-appimage生成)を参照してください。
+`tools/build_appimage.py`がCMake install後の依存・資源配置、相対RPATH、glibc要求の検査、
+hash固定したツールによる圧縮、取得候補の検査を行います。AppImage内は検証待ちの候補と表示します。
+Qt TIFF pluginのABI 5への再buildを含む、成功したRocky 8の依存構成を使用します。
 
 ## 正式配布への条件
 

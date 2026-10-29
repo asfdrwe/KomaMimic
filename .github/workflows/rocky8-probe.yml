@@ -1,4 +1,4 @@
-name: Rocky 8 build probe
+name: Linux AppImage (Rocky 8)
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   rocky8:
-    name: Rocky 8.10 x64 / Raven / full tests
+    name: Rocky 8.10 x64 / full tests and AppDir
     runs-on: ubuntu-24.04
     container: rockylinux/rockylinux:8.10
     timeout-minutes: 60
@@ -121,7 +121,7 @@ jobs:
             qt6-qttranslations qt6-qtwebengine-devel qt6-qtimageformats \
             libicu78-devel zlib-devel SDL2-devel curl tar 'libjpeg.so.62()(64bit)' \
             bzip2-devel xz-devel libzstd-devel lz4-devel openssl-devel libxml2-devel \
-            rx-poppler-glib-devel rx-glib2-devel rx-cairo rx-cairo-devel dbus-daemon
+            rx-poppler-glib-devel rx-glib2-devel rx-cairo rx-cairo-devel dbus-daemon patchelf
       - name: Record dependencies and configure search paths
         run: |
           exec > >(tee "$PROBE_DIR/environment.log") 2>&1
@@ -384,6 +384,27 @@ jobs:
           export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
           ctest --test-dir "$PROBE_DIR/build" --output-on-failure --parallel 2 \
             --no-tests=error --output-junit "$PROBE_DIR/ctest.xml" 2>&1 | tee "$PROBE_DIR/ctest.log"
+      - name: Stage relocatable AppDir and audit dependencies
+        run: |
+          export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
+          python3.11 -m unittest discover -s tests -p test_appimage.py
+          python3.11 tools/build_appimage.py stage --build-dir "$PROBE_DIR/build" \
+            --sources "$PROBE_DIR" --output "$PROBE_DIR/appimage-stage" \
+            --max-glibc 2.35 2>&1 | tee "$PROBE_DIR/appimage-stage.log"
+          python3.11 tools/prepare_release.py --output "$PROBE_DIR/appimage-source"
+      - name: Upload tested AppDir for packaging
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: komamimic-appimage-input
+          path: |
+            tmp/rocky8-probe/appimage-stage/AppDir.tar.gz
+            tmp/rocky8-probe/appimage-stage/BUILD_MANIFEST.json
+            tmp/rocky8-probe/appimage-stage/validation_probe
+            tmp/rocky8-probe/appimage-source/*
+            tmp/rocky8-probe/libarchive-*.tar.gz
+            tmp/rocky8-probe/qtimageformats-source.tar.gz
+          if-no-files-found: error
+          retention-days: 7
       - name: Diagnose native fixture reader after test failure
         if: ${{ failure() && steps.tests.outcome == 'failure' }}
         timeout-minutes: 5
@@ -430,5 +451,80 @@ jobs:
             tmp/rocky8-probe/qtiff-project/CMakeLists.txt
             tmp/rocky8-probe/qtiff-build/CMakeCache.txt
             tmp/rocky8-probe/qtiff-build/CMakeFiles/CMakeConfigureLog.yaml
+            tmp/rocky8-probe/appimage-stage/BUILD_MANIFEST.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  appimage:
+    name: Package AppImage / Ubuntu 22.04 checks
+    needs: rocky8
+    runs-on: ubuntu-24.04
+    container: ubuntu:22.04
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHONDONTWRITEBYTECODE: '1'
+      QTWEBENGINE_DISABLE_SANDBOX: '1' # Root-owned CI test container only.
+    steps:
+      - name: Install host graphics libraries and packaging prerequisites
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            git ca-certificates python3 file gdb libgl1 libegl1 libopengl0 \
+            fontconfig fonts-dejavu-core fonts-noto-cjk desktop-file-utils
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: komamimic-appimage-input
+          path: tmp/appimage-input
+      - name: Unpack Rocky-built payload
+        run: |
+          mkdir -p tmp/appimage-work/stage tmp/appimage-work/temp tmp/appimage-work/cache
+          tar -xzf tmp/appimage-input/appimage-stage/AppDir.tar.gz -C tmp/appimage-work/stage
+          cp tmp/appimage-input/appimage-stage/BUILD_MANIFEST.json tmp/appimage-work/stage/
+          chmod +x tmp/appimage-input/appimage-stage/validation_probe
+      - name: Create AppImage using checksum-pinned tools
+        run: |
+          export TMPDIR="$GITHUB_WORKSPACE/tmp/appimage-work/temp"
+          export XDG_CACHE_HOME="$GITHUB_WORKSPACE/tmp/appimage-work/cache"
+          python3 tools/build_appimage.py pack --stage tmp/appimage-work/stage \
+            --output tmp/appimage-dist 2>&1 | tee tmp/appimage-work/pack.log
+      - name: Verify AppImage on Ubuntu 22.04 without Qt or Raven installed
+        run: |
+          python3 tools/build_appimage.py verify --image tmp/appimage-dist/*.AppImage \
+            --probe tmp/appimage-input/appimage-stage/validation_probe \
+            --output tmp/appimage-work/verify 2>&1 | tee tmp/appimage-work/verify.log
+          cp -a tmp/appimage-input/appimage-source tmp/appimage-dist/sources
+          cp tmp/appimage-input/libarchive-*.tar.gz tmp/appimage-dist/sources/
+          cp tmp/appimage-input/qtimageformats-source.tar.gz tmp/appimage-dist/sources/
+          (
+            cd tmp/appimage-dist/sources
+            sha256sum *.tar.gz SOURCE_MANIFEST.json > SHA256SUMS
+          )
+      - name: Upload AppImage candidate
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: komamimic-linux-x86_64-appimage
+          path: |
+            tmp/appimage-dist/*.AppImage
+            tmp/appimage-dist/SHA256SUMS
+            tmp/appimage-dist/BUILD_MANIFEST.json
+            tmp/appimage-dist/sources/**
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Upload AppImage diagnostics
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: diagnostics-appimage-ubuntu22-x64
+          path: |
+            tmp/appimage-work/*.log
+            tmp/appimage-work/verify/native-reader.json
+            tmp/appimage-dist/BUILD_MANIFEST.json
           if-no-files-found: warn
           retention-days: 14
