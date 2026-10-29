@@ -18,6 +18,43 @@ import setup_linux_poppler as poppler_build
 
 
 class AppImageTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which('pkg-config'), 'requires pkg-config')
+    def test_private_pc_dependency_closure_is_installed_and_requeried(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            def pc(name, requires=''):
+                (root / (name + '.pc')).write_text(
+                    f'Name: {name}\nDescription: fixture\nVersion: 1\n'
+                    f'Requires.private: {requires}\nCflags: -I/fixture/{name}\nLibs: -l{name}\n')
+            pc('fontconfig', 'uuid')
+            pc('gio-2.0', 'mount libselinux')
+            real_run = subprocess.run
+            installed = set()
+            def run(command, **kwargs):
+                if command[0] != 'dnf':
+                    return real_run(command, **kwargs)
+                for capability in command[4:]:
+                    name = capability.removeprefix('pkgconfig(').removesuffix(')')
+                    installed.add(name)
+                    pc(name, 'blkid' if name == 'mount' else '')
+                return subprocess.CompletedProcess(command, 0)
+            env = dict(os.environ, PKG_CONFIG_PATH=str(root), PKG_CONFIG_LIBDIR=str(root))
+            with patch.object(poppler_build.subprocess, 'run', side_effect=run):
+                flags = poppler_build.pkg_config_flags(['fontconfig', 'gio-2.0'], env, True)
+            self.assertEqual(installed, {'uuid', 'mount', 'libselinux', 'blkid'})
+            self.assertIn('-I/fixture/gio-2.0', flags)
+            self.assertIn('-I/fixture/blkid', flags)
+            # A failed install must stop rather than looping or dropping flags.
+            (root / 'uuid.pc').unlink()
+            with patch.object(poppler_build.subprocess, 'run', side_effect=lambda command, **kw:
+                              subprocess.CompletedProcess(command, 0) if command[0] == 'dnf'
+                              else real_run(command, **kw)):
+                with self.assertRaisesRegex(ValueError, 'Cannot resolve'):
+                    poppler_build.pkg_config_flags(['fontconfig'], env, True)
+            # Missing dependencies must not mutate the host without the CI flag.
+            with self.assertRaisesRegex(ValueError, 'Cannot resolve'):
+                poppler_build.pkg_config_flags(['fontconfig'], env)
+
     def test_rx_enum_generator_runs_with_selected_python_and_missing_tool_fails_early(self):
         with tempfile.TemporaryDirectory() as temporary:
             tool = Path(temporary) / 'opt/rx/glib2/bin/glib-mkenums'

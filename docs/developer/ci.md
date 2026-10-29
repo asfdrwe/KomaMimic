@@ -89,6 +89,16 @@ Qt WebEngineが要求するFFmpeg・OpenH264・libvpx等の依存を解決する
 GLibとCairoは`rx-glib2-devel`・`rx-cairo-devel`を導入します。これらのRPMに含まれるpkg-configファイルの
 配置先を取得して標準版より優先し、選択された版・配置先を構成ログへ記録します。
 これらの`libdir`も`CMAKE_LIBRARY_PATH`へ渡し、Cairo等のライブラリをリンク時に探索できるようにします。
+実行用RPMだけでは`.pc`の間接依存が揃わないため、UUID・mount・blkid・SELinux・PCRE・libffiの
+開発用RPMも導入します。Poppler helperの`--install-missing-pc-deps`はCIコンテナ専用です。
+ソース取得前に使用する全モジュールの`--cflags --libs`を検査し、不足する`.pc`について
+DNFの`pkgconfig(名前)`提供機能でパッケージを導入して再検査します。間接依存を含めて解決するまで
+繰り返しますが、解消しない依存・版不一致・16回の上限では停止します。フラグの省略や警告の抑制はしません。
+このオプションなしではパッケージを追加しません。導入後のRPM一覧も保存します。
+Poppler install後は本体と同じpkg-config情報でPoppler・Cairo・GLibを使う小さなC++プログラムを
+コンパイル・リンク・実行してから本体の構成へ進みます。
+実行時の探索順もRXのGLib・Cairoをシステムの`/usr/lib64`より先にし、構成時と実行時で版が
+入れ替わらないようにします。上の小さなプログラムではロードしたライブラリの版も表示します。
 Cairoは`rx-cairo`と`rx-cairo-devel`から実在する共有ライブラリを取得し、FindPkgConfigの
 `pkgcfg_lib_POPPLER_cairo`へ絶対パスを指定します。開発用`libcairo.so`がリンク切れの場合も、
 RPM内のバージョン付き実ファイルを使用できます。リンクの参照先をログに記録し、構成前に

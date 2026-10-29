@@ -127,6 +127,7 @@ jobs:
             bzip2-devel xz-devel libzstd-devel lz4-devel openssl-devel libxml2-devel \
             rx-glib2-devel rx-cairo rx-cairo-devel dbus-daemon patchelf patch \
             libtiff6-devel libjpeg-turbo-devel freetype-devel fontconfig-devel libuuid-devel \
+            libmount-devel libblkid-devel libselinux-devel pcre-devel libffi-devel \
             libpng-devel openjpeg2-devel lcms2-devel poppler-data
       - name: Record dependencies and configure search paths
         run: |
@@ -211,7 +212,9 @@ jobs:
       - name: Build maintained Poppler source against TIFF ABI 6
         run: |
           export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
-          python3.11 tools/setup_linux_poppler.py --output "$PROBE_DIR" 2>&1 | tee "$PROBE_DIR/poppler-build.log"
+          python3.11 tools/setup_linux_poppler.py --output "$PROBE_DIR" \
+            --install-missing-pc-deps 2>&1 | tee "$PROBE_DIR/poppler-build.log"
+          rpm -qa --qf '%{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort > "$PROBE_DIR/packages.txt"
       - name: Build libarchive with RAR5 support
         run: |
           exec > >(tee "$PROBE_DIR/libarchive-build.log") 2>&1
@@ -265,7 +268,8 @@ jobs:
             printf '%s pkg-config directory: ' "$module"
             pkg-config --variable=pcfiledir "$module"
           done
-          rx_libs=$KOMA_PROBE_JPEG_LIBDIR:$KOMA_PROBE_ICU_LIBDIR:$KOMA_PROBE_CAIRO_LIBDIR:$(pkg-config --variable=libdir poppler-glib):$(pkg-config --variable=libdir glib-2.0):$(pkg-config --variable=libdir cairo)
+          # Keep RX GLib/Cairo before the system ICU/TIFF directory (/usr/lib64).
+          rx_libs=$(pkg-config --variable=libdir poppler-glib):$(pkg-config --variable=libdir glib-2.0):$KOMA_PROBE_CAIRO_LIBDIR:$KOMA_PROBE_JPEG_LIBDIR:$KOMA_PROBE_ICU_LIBDIR
           printf 'RX link search directories: %s\n' "$rx_libs"
           pkg-config --libs poppler-glib cairo
           export LD_LIBRARY_PATH="$PROBE_DIR/libarchive-prefix/lib:$rx_libs:${LD_LIBRARY_PATH:-}"

@@ -20,6 +20,51 @@ REVISION = VERSION + '-2+deb12u2'
 BASE = 'https://deb.debian.org/debian/pool/main/p/poppler/'
 
 
+def pkg_config_flags(modules, env, install_missing=False):
+    """Resolve the complete flag queries, including Requires.private, in CI."""
+    attempted = set()
+    query_env = dict(env, LC_ALL='C')
+    for _ in range(16):
+        missing = set()
+        errors = []
+        for module in modules:
+            result = subprocess.run(['pkg-config', '--print-errors', '--cflags', '--libs', module],
+                                    env=query_env, text=True, capture_output=True)
+            if result.returncode:
+                errors.append(result.stderr)
+                missing.update(re.findall(
+                    r"Package ['\"]?([A-Za-z0-9_.+-]+)['\"]?(?: was not found|, required by [^\n]+, not found)",
+                    result.stderr))
+        if not errors:
+            return subprocess.check_output(['pkg-config', '--cflags', '--libs', *modules],
+                                           env=query_env, text=True).strip()
+        print('\n'.join(errors), flush=True)
+        if not install_missing or not missing or missing & attempted:
+            raise ValueError('Cannot resolve pkg-config development dependencies: ' + ', '.join(sorted(missing)))
+        capabilities = ['pkgconfig(' + name + ')' for name in sorted(missing)]
+        print('Installing missing development capabilities:', capabilities, flush=True)
+        subprocess.run(['dnf', 'install', '-y', '--setopt=install_weak_deps=False', *capabilities],
+                       env=query_env, check=True)
+        attempted.update(missing)
+    raise ValueError('pkg-config dependency resolution exceeded 16 transactions')
+
+
+def probe_poppler(work, env):
+    flags = shlex.split(pkg_config_flags(['poppler-glib', 'cairo'], env))
+    source = work / 'poppler-consumer.cpp'
+    program = work / 'poppler-consumer'
+    source.write_text('#include <poppler.h>\n#include <cairo.h>\n#include <glib.h>\n#include <cstdio>\n'
+                      'int main() { std::printf("Poppler %s; Cairo %s; GLib %u.%u.%u\\n", '
+                      'poppler_get_version(), cairo_version_string(), glib_major_version, '
+                      'glib_minor_version, glib_micro_version); '
+                      'return poppler_get_version() && cairo_version() >= 11600 && '
+                      '!glib_check_version(2, 64, 0) ? 0 : 1; }\n')
+    command = ['c++', str(source), '-o', str(program), *flags]
+    print('Poppler consumer compile/link check:', shlex.join(command), flush=True)
+    subprocess.run(command, env=env, check=True)
+    subprocess.run([str(program)], env=env, check=True)
+
+
 def checksums(text):
     section = text.split('Checksums-Sha256:\n', 1)[1]
     result = {}
@@ -126,8 +171,13 @@ def relocatable_data_patch(source):
     return hashlib.sha256(patch.encode()).hexdigest()
 
 
-def build(output):
+def build(output, install_missing=False):
     output = output.resolve()
+    modules = ['fontconfig', 'freetype2', 'cairo', 'glib-2.0', 'gobject-2.0', 'gmodule-2.0',
+               'gio-2.0', 'libpng', 'libopenjp2', 'lcms2', 'zlib']
+    # Complete the installed .pc dependency graph before downloads, library
+    # selection or compilation; do not rely on RPM runtime dependencies alone.
+    print('Dependency flags:', pkg_config_flags(modules, dict(os.environ), install_missing), flush=True)
     work = output / 'poppler-work'
     work.mkdir(exist_ok=False)
     dsc_name = 'poppler_' + REVISION + '.dsc'
@@ -168,14 +218,14 @@ def build(output):
     (dependencies / 'pkgconfig/cairo.pc').write_text(cairo_pc)
     env = dict(os.environ)
     env['PKG_CONFIG_PATH'] = str(dependencies / 'pkgconfig') + ':' + env.get('PKG_CONFIG_PATH', '')
-    env['LD_LIBRARY_PATH'] = ':'.join([str(tiff.parent), str(freetype.parent), os.environ['KOMA_PROBE_JPEG_LIBDIR'],
+    env['LD_LIBRARY_PATH'] = ':'.join([str(freetype.parent), os.environ['KOMA_PROBE_JPEG_LIBDIR'],
                                     os.environ['KOMA_PROBE_CAIRO_LIBDIR'],
                                     subprocess.check_output(['pkg-config', '--variable=libdir', 'glib-2.0'], text=True).strip(),
+                                    str(tiff.parent),
                                     env.get('LD_LIBRARY_PATH', '')])
     # Validate private .pc dependencies too; a version/--exists query alone
     # does not guarantee that compilation flags can be retrieved.
-    subprocess.run(['pkg-config', '--print-errors', '--cflags', '--libs',
-                    'fontconfig', 'freetype2', 'cairo', 'gio-2.0'], env=env, check=True)
+    print('Configured dependency flags:', pkg_config_flags(modules, env), flush=True)
     prefix = output / 'poppler-prefix'
     command = ['cmake', '-S', str(source), '-B', str(output / 'poppler-build'), '-G', 'Ninja',
                '-DCMAKE_BUILD_TYPE=Release', '-DBUILD_SHARED_LIBS=ON',
@@ -200,8 +250,7 @@ def build(output):
     env['LD_LIBRARY_PATH'] = str(prefix / 'lib') + ':' + env['LD_LIBRARY_PATH']
     env['PKG_CONFIG_PATH'] = str(prefix / 'lib/pkgconfig') + ':' + env['PKG_CONFIG_PATH']
     subprocess.run(['pkg-config', '--modversion', 'poppler-glib'], env=env, check=True)
-    subprocess.run(['pkg-config', '--print-errors', '--cflags', '--libs', 'poppler-glib', 'cairo'],
-                   env=env, check=True)
+    probe_poppler(work, env)
     for library in (prefix / 'lib').glob('*.so'):
         needed = subprocess.check_output(['readelf', '-d', str(library)], text=True, env=env)
         print(needed, flush=True)
@@ -228,4 +277,7 @@ def build(output):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--output', type=Path, required=True)
-    build(parser.parse_args().output)
+    parser.add_argument('--install-missing-pc-deps', action='store_true',
+                        help='CI container only: install missing pkgconfig capabilities using DNF')
+    args = parser.parse_args()
+    build(args.output, args.install_missing_pc_deps)
