@@ -29,6 +29,7 @@ export QT_QPA_PLATFORM_PLUGIN_PATH="$HERE/usr/plugins/platforms"
 export QTWEBENGINEPROCESS_PATH="$HERE/usr/libexec/QtWebEngineProcess"
 export QTWEBENGINE_RESOURCES_PATH="$HERE/usr/share/qt6/resources"
 export QTWEBENGINE_LOCALES_PATH="$HERE/usr/translations/qtwebengine_locales"
+export POPPLER_DATADIR="$HERE/usr/share/poppler"
 export XDG_DATA_DIRS="$HERE/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 exec "$HERE/usr/bin/komamimic" "$@"
 '''
@@ -240,7 +241,10 @@ def relocate_and_audit(app, max_glibc):
 def package_notices(app, libraries, seeds, sources):
     notices = app / 'usr/share/doc/KomaMimic/dependencies'
     packages = {}
-    for path in sorted(set(libraries.values()) | {p.resolve() for p, _ in seeds}):
+    data_files = {p.resolve() for p in Path('/usr/share/poppler').rglob('*') if p.is_file()}
+    # One data file identifies the poppler-data RPM and its license directory.
+    data_owner = set(sorted(data_files)[:1])
+    for path in sorted(set(libraries.values()) | {p.resolve() for p, _ in seeds} | data_owner):
         result = subprocess.run(['rpm', '-qf', str(path), '--qf', '%{NAME}\n'], text=True, capture_output=True)
         if result.returncode:
             continue  # Locally built libarchive is recorded separately below.
@@ -255,6 +259,7 @@ def package_notices(app, libraries, seeds, sources):
                 if source.is_file() and ('/licenses/' in filename or ('/doc/' in filename and legal)):
                     copy(source, notices / name / source.relative_to('/'))
     copy(sources / 'libarchive-COPYING.txt', notices / 'libarchive/COPYING')
+    shutil.copytree(sources / 'poppler-notices', notices / 'poppler')
     return packages
 
 
@@ -265,6 +270,7 @@ def stage(build, destination, sources, max_glibc):
     seeds = [(build / name, app / 'usr/bin' / name) for name in ('komamimic', 'komamimic-script-worker')]
     # cmake --install may change RPATHs, so inspect the original tested ELF files.
     seeds += qt_resources(app)
+    shutil.copytree('/usr/share/poppler', app / 'usr/share/poppler')
     cache = (build / 'CMakeCache.txt').read_text()
     preferred = [Path(p) for p in re.findall(r'^pkgcfg_lib_POPPLER_[^:]+:FILEPATH=(/[^\n]+)$', cache, re.MULTILINE)
                  if Path(p).is_file()]
@@ -283,7 +289,7 @@ def stage(build, destination, sources, max_glibc):
     manifest = dict(schema=1, status='CANDIDATE_REQUIRES_MANUAL_VALIDATION',
                     version=re.search(r'project\(KomaMimic VERSION ([0-9.]+)', (ROOT / 'CMakeLists.txt').read_text())[1],
                     commit=output(['git', '-C', ROOT, 'rev-parse', 'HEAD']), required_glibc=required_glibc,
-                    qtimageformats_commit=(sources / 'qtimageformats-commit.txt').read_text().strip(),
+                    poppler_build=json.loads((sources / 'poppler-source.json').read_text()),
                     source_archives={p.name: digest(p) for p in sorted(sources.glob('*.tar.gz'))},
                     host_libraries=HOST_LIBRARIES.pattern, packages=packages,
                     libraries={n: str(p) for n, p in libraries.items()}, resolution_alternatives=alternatives,
@@ -345,6 +351,7 @@ def verify(image, probe, destination):
                QTWEBENGINEPROCESS_PATH=str(app / 'usr/libexec/QtWebEngineProcess'),
                QTWEBENGINE_RESOURCES_PATH=str(app / 'usr/share/qt6/resources'),
                QTWEBENGINE_LOCALES_PATH=str(app / 'usr/translations/qtwebengine_locales'))
+    env['POPPLER_DATADIR'] = str(app / 'usr/share/poppler')
     # Exercise the same native reader probe, using only the extracted payload's
     # libraries/plugins and worker. The probe itself is not shipped in the image.
     copy(probe, app / 'usr/bin/validation_probe')

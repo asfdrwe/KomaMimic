@@ -14,9 +14,46 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 import build_appimage as appimage
+import setup_linux_poppler as poppler_build
 
 
 class AppImageTests(unittest.TestCase):
+    def test_debian_source_manifest_rejects_escaping_filenames(self):
+        checksum = 'a' * 64
+        text = f'Checksums-Sha256:\n {checksum} 123 source.tar.xz\nFiles:\n'
+        self.assertEqual(poppler_build.checksums(text), {'source.tar.xz': (checksum, 123)})
+        with self.assertRaises(ValueError):
+            poppler_build.checksums(text.replace('source.tar.xz', '../source.tar.xz'))
+
+    @unittest.skipUnless(shutil.which('patch'), 'requires patch')
+    def test_debian_patches_are_applied_in_series_order(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            patches = root / 'debian/patches'
+            patches.mkdir(parents=True)
+            (root / 'value').write_text('old\n')
+            (patches / 'series').write_text('# Security fixes\nfirst.patch\nsecond.patch\n')
+            for name, before, after in [('first', 'old', 'intermediate'), ('second', 'intermediate', 'fixed')]:
+                (patches / (name + '.patch')).write_text(
+                    f'--- a/value\n+++ b/value\n@@ -1 +1 @@\n-{before}\n+{after}\n')
+            poppler_build.apply_patches(root)
+            self.assertEqual((root / 'value').read_text(), 'fixed\n')
+
+    def test_poppler_data_override_patch_keeps_notices_and_targets_constructor_body(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            path = root / 'poppler/GlobalParams.cc'
+            path.parent.mkdir()
+            path.write_text('// Upstream copyright and license\n'
+                            'GlobalParams::GlobalParams(const char *customPopplerDataDir) : cache{0}\n{\n'
+                            '    originalSetup(customPopplerDataDir);\n}\n')
+            checksum = poppler_build.relocatable_data_patch(root)
+            text = path.read_text()
+            self.assertIn('// Upstream copyright and license', text)
+            self.assertIn('cache{0}\n{\n    if (!customPopplerDataDir)', text)
+            self.assertIn('std::getenv("POPPLER_DATADIR")', text)
+            self.assertEqual(checksum, appimage.digest(root / 'komamimic-relocatable-data.patch'))
+
     def test_japanese_catalog_uses_rpm_location_and_rejects_filtered_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -60,6 +97,7 @@ class AppImageTests(unittest.TestCase):
             program.write_text('#!' + sys.executable + '\nimport json, os, sys\n'
                                'print(json.dumps(dict(args=sys.argv[1:], cwd=os.getcwd(), '
                                'plugins=os.environ["QT_PLUGIN_PATH"], '
+                               'poppler=os.environ["POPPLER_DATADIR"], '
                                'sandbox=os.environ.get("QTWEBENGINE_DISABLE_SANDBOX"))))\n')
             program.chmod(0o755)
             (root / 'AppRun').write_text(appimage.APP_RUN)
@@ -72,6 +110,7 @@ class AppImageTests(unittest.TestCase):
             self.assertEqual(report['args'], ['book & space.cbz', '--version'])
             self.assertEqual(Path(report['cwd']).resolve(), Path(temporary).resolve())
             self.assertEqual(report['plugins'], str(root / 'usr/plugins'))
+            self.assertEqual(report['poppler'], str(root / 'usr/share/poppler'))
             self.assertIsNone(report['sandbox'])
 
     def test_download_rejects_modified_packaging_tool(self):

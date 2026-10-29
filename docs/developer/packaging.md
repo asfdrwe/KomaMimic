@@ -32,7 +32,8 @@ macOSのad-hoc署名とAppleの公証は別です。初回配布の公証は行�
 LinuxのActions生成は[CIのAppImage workflow](ci.md#rocky-8でのlinux-appimage生成)を参照してください。
 `tools/build_appimage.py`がCMake install後の依存・資源配置、相対RPATH、glibc要求の検査、
 hash固定したツールによる圧縮、取得候補の検査を行います。AppImage内は検証待ちの候補と表示します。
-Qt TIFF pluginのABI 5への再buildを含む、成功したRocky 8の依存構成を使用します。
+Qt WebEngineとQt TIFF pluginはRPMを使用し、PopplerをTIFF ABI 6に対してビルドします。
+Popplerのデータ、適用patchと対応ソースも同梱します。TIFF ABI 5/6の混在は生成時に拒否します。
 
 ## 正式配布への条件
 

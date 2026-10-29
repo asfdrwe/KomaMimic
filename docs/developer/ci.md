@@ -86,8 +86,7 @@ RPMを導入し、GCC Toolset 12によるRelease build、CLI確認、full CTest 
 QtとQt WebEngineはRavenのRPMを使い、ソースからのビルドは行いません。
 Ravenはbase・extras・rx-devel・multimediaを有効にします。multimediaは
 Qt WebEngineが要求するFFmpeg・OpenH264・libvpx等の依存を解決するために必要です。
-Popplerは必要な22.0以上を満たすため`rx-poppler-glib-devel`を使い、その依存にも
-`rx-glib2-devel`・`rx-cairo-devel`を導入します。これらのRPMに含まれるpkg-configファイルの
+GLibとCairoは`rx-glib2-devel`・`rx-cairo-devel`を導入します。これらのRPMに含まれるpkg-configファイルの
 配置先を取得して標準版より優先し、選択された版・配置先を構成ログへ記録します。
 これらの`libdir`も`CMAKE_LIBRARY_PATH`へ渡し、Cairo等のライブラリをリンク時に探索できるようにします。
 Cairoは`rx-cairo`と`rx-cairo-devel`から実在する共有ライブラリを取得し、FindPkgConfigの
@@ -102,10 +101,15 @@ Releaseの最適化を保持して`-g1`の診断情報を付けます。CTestが
 自作fixtureを生成し直して`validation_probe`をGDBで実行し、呼び出し履歴と読込ライブラリを
 `probe-debug.log`へ保存します。この診断の結果で元のCTest失敗を成功扱いにはしません。
 
-RavenのQt TIFF pluginはTIFF ABI 6、RX PopplerはABI 5を使い、同一プロセス内での
-混在によるクラッシュが疑われるため、QtImageFormatsの公式`v6.11.2`ソースからTIFF pluginだけを
-Rocky標準のTIFF ABI 5に対して再ビルドします。依存先を`readelf`で確認後、CIコンテナ内の
-pluginを差し替えて試験します。使用commit・ソースarchive・checksum・構成/buildログを保存します。
+Qt WebEngine本体とQt TIFF pluginはTIFF ABI 6を要求します。同一プロセスへABI 5も
+読み込まないよう、Popplerも`libtiff6-devel`に対してソースからビルドします。
+`tools/setup_linux_poppler.py`は[DebianのPopplerソース](https://sources.debian.org/src/poppler/22.12.0-2%2Bdeb12u2/)
+22.12.0-2+deb12u2を取得し、ソース記述ファイルのSHA-256・サイズと照合してから
+Debianのpatchを順に適用します。Qt pluginはRPMのまま使用します。
+使用するGLib APIと画像デコーダーを有効にし、Qtラッパー・ユーティリティ・署名検証・HTTP取得など
+本体で使わないPopplerの機能はビルドしません。リンク切れのCairo開発用リンクは作業用prefix内で補います。
+PopplerのCMap等も同梱し、AppRunから`POPPLER_DATADIR`で配置先を渡す小さなpatchを適用します。
+使用ソース、patch、著作者・ライセンス原文、取得元・checksum・構成情報を保存します。
 この依存構成での17群成功を確認してからAppDirを生成します。
 Pythonは3.11を明示します。
 
@@ -113,7 +117,7 @@ Rockyのbaseos・appstream・extras・powertoolsは公式配布先`dl.rockylinux
 ミラー切替による長時間待機を避けます。DNFの接続・低速通信のtimeoutは20秒、retryは2回、
 Bootstrap step全体の上限は10分です。BootstrapとDNFの詳細ログも診断artifactへ保存します。
 
-Rocky標準のlibarchiveはRAR5対応APIを提供しないため、libarchive 3.8.10だけは
+Rocky標準のlibarchiveはRAR5対応APIを提供しないため、libarchive 3.8.10も
 公式ソースのSHA-256を検証して同じコンテナ内でビルドします。作業用prefixへ配置し、
 本体のヘッダー・リンク先・実行時ライブラリをその版へ揃えます。
 本体の構成前にRAR5 APIのコンパイル・リンク・呼出しを確認します。
@@ -141,7 +145,7 @@ Qt・Ravenをインストールしない環境で、AppImageの`--version`・`--
 
 - `KomaMimic-1.0.0-linux-x86_64.AppImage`と`SHA256SUMS`
 - 同梱ファイルのhash・必要glibc・依存RPM版/ライセンス/Source RPM等の`BUILD_MANIFEST.json`
-- `sources/`内の本体ソース・manifest、構築したlibarchiveとQtImageFormatsのソース
+- `sources/`内の本体ソース・manifest、構築したlibarchiveとpatch適用済みPopplerのソース
 
 圧縮用の中間artifactは7日間、取得候補と診断artifactは14日間保存します。
 Ubuntu側のログは**diagnostics-appimage-ubuntu22-x64**へ保存します。
