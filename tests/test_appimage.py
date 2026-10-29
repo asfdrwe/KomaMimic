@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import struct
 import subprocess
 import sys
 import tempfile
@@ -18,6 +19,40 @@ import setup_linux_poppler as poppler_build
 
 
 class AppImageTests(unittest.TestCase):
+    @unittest.skipUnless(sys.platform.startswith('linux') and shutil.which('cc'), 'requires native ELF compiler')
+    def test_elf_audit_rejects_displaced_initializer_and_unmapped_string_table(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / 'sample.c'
+            library = root / 'sample.so'
+            source.write_text('int sample(void) {return 7;}\n')
+            subprocess.run(['cc', '-shared', '-fPIC', str(source), '-o', str(library)], check=True)
+            appimage.audit_elf_layout(library)
+            original = library.read_bytes()
+            header = struct.unpack_from('<16sHHIQQQIHHHHHH', original)
+            changed = bytearray(original)
+            for index in range(header[10]):
+                segment = struct.unpack_from('<IIQQQQQQ', original, header[5] + index * header[9])
+                if segment[0] == 2:
+                    for offset in range(segment[2], segment[2] + segment[5], 16):
+                        if struct.unpack_from('<Q', original, offset)[0] == 12:
+                            struct.pack_into('<Q', changed, offset + 8, 1)
+            self.assertNotEqual(changed, original)
+            library.write_bytes(changed)
+            with self.assertRaisesRegex(ValueError, 'Invalid ELF initializer'):
+                appimage.audit_elf_layout(library)
+            changed = bytearray(original)
+            sections = [struct.unpack_from('<IIQQQQIIQQ', original, header[6] + i * header[11])
+                        for i in range(header[12])]
+            strings = sections[header[13]]
+            names = original[strings[4]:strings[4] + strings[5]]
+            for index, section in enumerate(sections):
+                if names[section[0]:].split(b'\0', 1)[0] == b'.dynstr':
+                    struct.pack_into('<Q', changed, header[6] + index * header[11] + 16, 1)
+            library.write_bytes(changed)
+            with self.assertRaisesRegex(ValueError, 'Invalid ELF section mapping'):
+                appimage.audit_elf_layout(library)
+
     @unittest.skipUnless(shutil.which('pkg-config'), 'requires pkg-config')
     def test_private_pc_dependency_closure_is_installed_and_requeried(self):
         with tempfile.TemporaryDirectory() as temporary:

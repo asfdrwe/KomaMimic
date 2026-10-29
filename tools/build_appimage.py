@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import re
 import shutil
+import struct
 import subprocess
 import tarfile
 import urllib.request
@@ -214,7 +215,53 @@ def collect_libraries(app, seeds, preferred=()):
     return libraries, alternatives
 
 
+def audit_elf_layout(path):
+    """Detect relocated sections/initializers that no longer match PT_LOAD."""
+    with Path(path).open('rb') as stream:
+        header = struct.unpack('<16sHHIQQQIHHHHHH', stream.read(64))
+        if header[0][:6] != b'\x7fELF\x02\x01':
+            raise ValueError('Expected little-endian ELF64: ' + str(path))
+        segments = []
+        for index in range(header[10]):
+            stream.seek(header[5] + index * header[9])
+            segments.append(struct.unpack('<IIQQQQQQ', stream.read(56)))
+        loads = [p for p in segments if p[0] == 1]
+        sections = []
+        for index in range(header[12]):
+            stream.seek(header[6] + index * header[11])
+            sections.append(struct.unpack('<IIQQQQIIQQ', stream.read(64)))
+        names = sections[header[13]]
+        stream.seek(names[4])
+        names = stream.read(names[5])
+        addresses = {}
+        for section in sections:
+            name = names[section[0]:].split(b'\0', 1)[0].decode()
+            addresses[name] = section[3]
+            if not section[2] & 2 or section[1] == 8 or not section[5]:
+                continue  # Non-allocated, NOBITS, or empty section.
+            if not any(p[3] <= section[3] and section[3] + section[5] <= p[3] + p[5]
+                       and section[4] - p[2] == section[3] - p[3]
+                       and (not section[2] & 4 or p[1] & 1) for p in loads):
+                raise ValueError(f'Invalid ELF section mapping {path}: {name}')
+        for segment in segments:
+            if segment[0] != 2:
+                continue
+            stream.seek(segment[2])
+            entries = stream.read(segment[5])
+            for offset in range(0, len(entries), 16):
+                tag, address = struct.unpack_from('<QQ', entries, offset)
+                if tag not in (12, 13) or not address:
+                    continue
+                name = '.init' if tag == 12 else '.fini'
+                if (name in addresses and address != addresses[name]) or not any(
+                        p[1] & 1 and p[3] <= address < p[3] + p[5] for p in loads):
+                    raise ValueError(f'Invalid ELF initializer {path}: {name} {address:#x}')
+
+
 def relocate_and_audit(app, max_glibc):
+    tool_version = output(['patchelf', '--version'])
+    if tuple(map(int, re.search(r'(\d+)\.(\d+)', tool_version).groups())) < (0, 18):
+        raise ValueError('patchelf >= 0.18 required to preserve ELF layout; found ' + tool_version)
     app = Path(app).resolve()
     binaries = [p for p in app.rglob('*') if p.is_file() and elf(p)]
     versions = set()
@@ -228,6 +275,7 @@ def relocate_and_audit(app, max_glibc):
         # intact; AppRun supplies usr/lib to their dynamic dependency search.
         if not binary.with_suffix('.chk').is_file():
             run(['patchelf', '--force-rpath', '--set-rpath', rpath, binary])
+        audit_elf_layout(binary)
         versions.update(glibc_versions(output(['readelf', '--version-info', binary])))
     if versions and max(versions) > max_glibc:
         raise ValueError(f'Payload needs GLIBC_{max(versions)}, limit is {max_glibc}')
@@ -286,6 +334,8 @@ def stage(build, destination, sources, max_glibc):
     copy(app / 'komamimic.png', app / '.DirIcon')
     (app / 'AppRun').write_text(APP_RUN)
     (app / 'AppRun').chmod(0o755)
+    for flag in ('--version', '--formats'):
+        run([app / 'AppRun', flag])
     manifest = dict(schema=1, status='CANDIDATE_REQUIRES_MANUAL_VALIDATION',
                     version=re.search(r'project\(KomaMimic VERSION ([0-9.]+)', (ROOT / 'CMakeLists.txt').read_text())[1],
                     # Container checkout and packaging users may differ. Trust
@@ -293,6 +343,7 @@ def stage(build, destination, sources, max_glibc):
                     commit=output(['git', '-c', 'safe.directory=' + str(ROOT),
                                    '-C', ROOT, 'rev-parse', 'HEAD']), required_glibc=required_glibc,
                     poppler_build=json.loads((sources / 'poppler-source.json').read_text()),
+                    patchelf_version=output(['patchelf', '--version']),
                     source_archives={p.name: digest(p) for p in sorted(sources.glob('*.tar.gz'))},
                     host_libraries=HOST_LIBRARIES.pattern, packages=packages,
                     libraries={n: str(p) for n, p in libraries.items()}, resolution_alternatives=alternatives,
@@ -367,10 +418,14 @@ def verify(image, probe, destination):
         result = output([app / 'usr/bin/validation_probe', fixtures], env=env)
     except subprocess.CalledProcessError:
         if shutil.which('gdb'):
+            # The host debugger must not load the payload's older C++/NSS DSOs.
+            debugger_env = {k: v for k, v in env.items() if not k.startswith('LD_')}
             subprocess.run(['gdb', '--batch', '-ex', 'set pagination off',
-                            '-ex', 'set debuginfod enabled off', '-ex', 'run',
+                            '-ex', 'set debuginfod enabled off',
+                            '-ex', 'set startup-with-shell off',
+                            '-ex', 'set environment LD_LIBRARY_PATH ' + env['LD_LIBRARY_PATH'], '-ex', 'run',
                             '-ex', 'thread apply all bt', '-ex', 'info sharedlibrary',
-                            '--args', str(app / 'usr/bin/validation_probe'), str(fixtures)], env=env, check=False)
+                            '--args', str(app / 'usr/bin/validation_probe'), str(fixtures)], env=debugger_env, check=False)
         raise
     report = json.loads(result)
     if not report['all_passed']:

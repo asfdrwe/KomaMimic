@@ -125,7 +125,7 @@ jobs:
             qt6-qttranslations qt6-qtwebengine-devel qt6-qtimageformats \
             libicu78-devel zlib-devel SDL2-devel curl tar 'libjpeg.so.62()(64bit)' \
             bzip2-devel xz-devel libzstd-devel lz4-devel openssl-devel libxml2-devel \
-            rx-glib2-devel rx-cairo rx-cairo-devel dbus-daemon patchelf patch \
+            rx-glib2-devel rx-cairo rx-cairo-devel dbus-daemon make bzip2 patch \
             libtiff6-devel libjpeg-turbo-devel freetype-devel fontconfig-devel libuuid-devel \
             libmount-devel libblkid-devel libselinux-devel pcre-devel libffi-devel \
             libpng-devel openjpeg2-devel lcms2-devel poppler-data
@@ -338,6 +338,26 @@ jobs:
           export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
           ctest --test-dir "$PROBE_DIR/build" --output-on-failure --parallel 2 \
             --no-tests=error --output-junit "$PROBE_DIR/ctest.xml" 2>&1 | tee "$PROBE_DIR/ctest.log"
+      - name: Build pinned patchelf for safe ELF relocation
+        run: |
+          exec > >(tee "$PROBE_DIR/patchelf-build.log") 2>&1
+          export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
+          archive="$PROBE_DIR/patchelf-0.18.0.tar.bz2"
+          curl --fail --location --retry 3 --connect-timeout 20 \
+            --output "$archive" https://github.com/NixOS/patchelf/releases/download/0.18.0/patchelf-0.18.0.tar.bz2
+          printf '%s  %s\n' 1952b2a782ba576279c211ee942e341748fdb44997f704dd53def46cd055470b "$archive" \
+            > "$PROBE_DIR/patchelf-SHA256SUMS.txt"
+          sha256sum --check "$PROBE_DIR/patchelf-SHA256SUMS.txt"
+          tar -xjf "$archive" -C "$PROBE_DIR"
+          mkdir "$PROBE_DIR/patchelf-build"
+          (
+            cd "$PROBE_DIR/patchelf-build"
+            "$PROBE_DIR/patchelf-0.18.0/configure" --prefix="$PROBE_DIR/patchelf-prefix"
+            make -j4
+            make install
+          )
+          "$PROBE_DIR/patchelf-prefix/bin/patchelf" --version
+          printf '%s\n' "$PROBE_DIR/patchelf-prefix/bin" >> "$GITHUB_PATH"
       - name: Stage relocatable AppDir and audit dependencies
         run: |
           export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
@@ -481,5 +501,7 @@ jobs:
             tmp/appimage-work/*.log
             tmp/appimage-work/verify/native-reader.json
             tmp/appimage-dist/BUILD_MANIFEST.json
+            tmp/appimage-dist/*.AppImage
           if-no-files-found: warn
           retention-days: 14
+          compression-level: 0
