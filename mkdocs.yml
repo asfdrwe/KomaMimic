@@ -1,5 +1,5 @@
-site_name: KomaMimicガイド
-site_description: KomaMimicの利用者・スクリプト開発者向けガイド
+site_name: KomaMimic Guide
+site_description: User and script developer guide / 利用者・スクリプト開発者向けガイド
 site_url: https://asfdrwe.github.io/KomaMimic/
 repo_url: https://github.com/asfdrwe/KomaMimic
 repo_name: GitHub
@@ -8,28 +8,47 @@ site_dir: site
 use_directory_urls: true
 theme:
   name: mkdocs
-  locale: ja
+  locale: en
 plugins:
   - search:
-      lang: ja
+      lang: [ja, en]
 markdown_extensions:
   - tables
   - fenced_code
 nav:
-  - はじめに: index.md
-  - インストール: user/install.md
-  - 利用ガイド:
-      - 基本操作: user/basic.md
-      - 表示と画像加工: user/views.md
-      - 文書を読む: user/documents.md
-      - 本棚と履歴: user/library.md
-      - 設定とキャッシュ: user/settings.md
-      - 対応形式: user/formats.md
-      - 設定の取り込み: user/migration.md
-      - macOSの違い: user/macos.md
-  - スクリプト開発:
-      - 導入と登録: scripts/index.md
-      - API 1仕様: scripts/api.md
-      - 最小例: scripts/examples.md
-      - 同梱スクリプト: scripts/bundled.md
-  - 更新履歴: changelog.md
+  - 日本語:
+      - はじめに: index.md
+      - インストール: user/install.md
+      - 利用ガイド:
+          - 基本操作: user/basic.md
+          - 表示と画像加工: user/views.md
+          - 文書を読む: user/documents.md
+          - 本棚と履歴: user/library.md
+          - 設定とキャッシュ: user/settings.md
+          - 対応形式: user/formats.md
+          - 設定の取り込み: user/migration.md
+          - macOSの違い: user/macos.md
+      - スクリプト開発:
+          - 導入と登録: scripts/index.md
+          - API 1仕様: scripts/api.md
+          - 最小例: scripts/examples.md
+          - 同梱スクリプト: scripts/bundled.md
+      - 更新履歴: changelog.md
+  - English:
+      - Introduction: en/index.md
+      - Installation: en/user/install.md
+      - User guide:
+          - Basic controls: en/user/basic.md
+          - Display and image processing: en/user/views.md
+          - Reading documents: en/user/documents.md
+          - Bookshelves and history: en/user/library.md
+          - Settings and caches: en/user/settings.md
+          - Supported formats: en/user/formats.md
+          - Importing settings: en/user/migration.md
+          - macOS differences: en/user/macos.md
+      - Script development:
+          - Installation and registration: en/scripts/index.md
+          - API 1 specification: en/scripts/api.md
+          - Minimal examples: en/scripts/examples.md
+          - Bundled scripts: en/scripts/bundled.md
+      - Changelog: en/changelog.md

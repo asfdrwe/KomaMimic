@@ -1,5 +1,7 @@
 # スクリプトの導入と登録
 
+日本語 | [English](../en/scripts/index.md)
+
 API 1のJavaScriptで画像reader、複数ページreader、画像filterを追加できます。
 汎用の文書reader・書庫reader・writer API、Susie/AviSynthの互換実行は提供しません。
 

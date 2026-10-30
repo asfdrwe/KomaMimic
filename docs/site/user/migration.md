@@ -1,5 +1,7 @@
 # MangaMeeyaの設定を取り込む
 
+日本語 | [English](../en/user/migration.md)
+
 「ファイル → MangaMeeyaの設定を取り込む…」でINIを選びます。
 元のINIは書き換えず、対応が分かっている項目だけを変換します。
 

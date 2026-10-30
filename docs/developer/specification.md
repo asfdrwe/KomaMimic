@@ -1,55 +1,68 @@
-# 仕様と実装上の境界
+# Specification and implementation boundaries
 
-## 操作と保存
+## Controls and persistence
 
-操作IDと保存キーは表示名・翻訳から独立させます。共通・読書・サムネイル・ツリーの
-割当範囲を維持し、入力欄の編集と競合させません。Returnは一覧決定、全画面の既定は
-Windows/LinuxのF11、macOSのControl+Command+Fです。
+Action IDs and storage keys are independent of display names and translations.
+Preserve common, reading, thumbnail, and tree assignment scopes without conflicting
+with text-field editing. Return confirms a list selection. The default full-screen
+shortcut is F11 on Windows/Linux and Control+Command+F on macOS.
 
-空の設定にだけマンガ向けの初期値を適用します。見開き・右開き・表紙単ページを有効にし、
-自動見開きと画像加工はオフ、先読みは前1/後0表示単位です。既存設定は保存値と互換の
-既定値を保持します。独自上部バーはなく、標準メニュー・下部読書バーを使います。
-実装は `defaultpreferences.*` と `shortcuts.*`、利用説明は[基本操作](../site/user/basic.md)です。
+Apply the manga-oriented defaults only to empty settings: spreads, right-to-left
+opening, and a separate cover page are enabled; automatic spreads and image
+processing are off; preloading is one display unit ahead and zero behind. Existing
+settings retain their saved values and compatible defaults. There is no custom top
+bar; use the standard menu and bottom reading toolbar. See `defaultpreferences.*`,
+`shortcuts.*`, and the [basic user guide](../site/en/user/basic.md).
 
-## 画像・書庫・出力
+## Images, archives, and output
 
-画像はQtの導入済みpluginと同梱script reader、書庫はlibarchive、PDFはPoppler GLib/Cairoを使います。
-外部の7z/lha/unrarやpdfimagesコマンドに読込を委譲しません。
-Unicodeの名前を優先し、Unicode情報がないZIP/LHAの初期文字コードはCP932です。
-形式の対応は[対応形式](../site/user/formats.md)を参照してください。
+Images use installed Qt plugins and bundled script readers; archives use libarchive;
+PDF uses Poppler GLib/Cairo. Loading is not delegated to external 7z/lha/unrar or
+pdfimages commands. Unicode names take priority. ZIP/LHA entries without Unicode
+information default to CP932. See [supported formats](../site/en/user/formats.md).
 
-論理編集と表示加工は通常原本を変更せず、保存・書出しで結果を作ります。
-実ファイルの改名・ごみ箱への移動は別の操作です。PDFの描画・画像取得は直列化し、
-操作ごとに文書・ページを解放します。ラスタPDF出力には元の文字やリンクを保持しません。
+Logical edits and display processing normally leave original inputs unchanged;
+saving and exporting produce the results. Renaming real files and moving them to
+the trash are separate actions. PDF rendering and image extraction are serialized,
+releasing documents and pages after each operation. Raster PDF output does not
+preserve original text or links.
 
-PDFは最大10万ページ、出力48メガピクセル、原寸の基準は最大辺2400px、
-倍率・DPIに応じた再描画は最大辺6144pxです。これはPoppler内部解析のメモリ制限ではありません。
+PDF limits are 100,000 pages and 48 megapixels of output. The original-size baseline
+has a maximum edge of 2400 px; rerendering for zoom or DPI has a maximum edge of
+6144 px. These do not limit memory used by Poppler's internal parsing.
 
-## 文書
+## Documents
 
-TXT・青空文庫ルビ・Markdown・EPUBは共通の文書ビューを使用します。
-表示設定の優先順は本別、形式別、全体です。本文位置を保存し、再組版後に復元します。
-書庫内のTXT/Markdownは文書ごとに識別して一覧・読書位置を管理します。
+TXT, Aozora Bunko ruby annotations, Markdown, and EPUB share a document view.
+Display settings take precedence in this order: per book, per format, global. Text
+positions are saved and restored after reflow. TXT/Markdown documents inside an
+archive have separate identities for listing and reading-position storage.
 
-本ごとの `koma-document://` originを持つ一時WebEngine profileで資源を配信し、
-外部通信・file URL・ダウンロードを拒否します。書籍のscriptは除去し、iframeのsandboxと
-CSPを使います。アプリの組版用JavaScriptと書籍の本文を区別します。
-Markdown画像は文書のディレクトリ内に限定し、canonical pathを検証します。
-DRM本文・画像は復号せず、未対応として診断します。
+Resources are served through a temporary WebEngine profile with a per-book
+`koma-document://` origin. External communication, file URLs, and downloads are
+blocked. Book scripts are removed; iframe sandboxing and CSP are used. Distinguish
+the application's layout JavaScript from the book's content. Markdown images are
+restricted to the document directory and checked using canonical paths. DRM-encrypted
+text and images are diagnosed as unsupported rather than decrypted.
 
-文書のページサムネイル・画像加工・ページ編集・ラスタ出力・印刷は対象外です。
-固定レイアウトと画像内の文字に文字サイズ変更を適用しません。
+Document page thumbnails, image processing, page editing, raster export, and printing
+are outside this view's scope. Font-size changes do not affect fixed layouts or text
+embedded in images.
 
-## スクリプトとOS
+## Scripts and OS integration
 
-スクリプトの公開仕様は[API 1](../site/scripts/api.md)です。
-workerごとに新しいQJSEngineを使用し、期限・入力・出力を検査します。
-OS全体を保護する汎用sandboxとは扱いません。
+The public script specification is [API 1](../site/en/scripts/api.md). Each worker
+uses a fresh QJSEngine, with checks on deadlines, inputs, and outputs. This is not a
+general sandbox that protects the entire operating system.
 
-Windowsの本体はGUI subsystemで新規コンソールを作りません。端末起動時は継承した出力先を
-維持し、必要に応じて親のconsoleへ接続します。workerはパイプを使いCREATE_NO_WINDOWで起動します。
-既存ウィンドウへの接続は、serverの公開待ちを含め期限付きで再試行します。
+The Windows application uses the GUI subsystem and does not create a console.
+When started from a terminal, it preserves inherited output handles and attaches
+to the parent console when needed. The worker uses pipes and `CREATE_NO_WINDOW`.
+Connecting to an existing window uses bounded retries, including waiting for the
+server to become available.
 
-自動消灯抑制は既定オフです。前面の読書中だけ取得し、最小化・他アプリへの移動・一覧・終了で解放します。
-Windowsは電源API、macOSはIOKit、Linuxは利用可能なD-Bus方式を使用します。
-macOSでは自動消灯を対象とします。実機の結果は[検証手順](platform-validation.md)で確認します。
+Automatic display-sleep inhibition is off by default. It is acquired only while
+reading in the foreground, and released on minimizing, switching to another app,
+returning to a list, or exiting. It uses Windows power APIs, IOKit on macOS, and an
+available D-Bus method on Linux. On macOS it targets automatic display sleep. See
+[native platform validation](platform-validation.md) for checking actual behavior.

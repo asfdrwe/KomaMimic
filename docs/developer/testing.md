@@ -1,7 +1,8 @@
-# 自動テスト
+# Automated tests
 
-Qt TestとPython 3.9以上が必要です。WindowsのSDK取得helperにはPython 3.10以上を使用します。
-以下はLinux/macOSの例です。テスト用のbuildはREADMEのアプリ専用buildとは分けます。
+Qt Test and Python 3.9+ are required. The Windows SDK setup helper needs Python
+3.10+. The examples below are for Linux/macOS. Keep test builds separate from the
+application-only builds in the README.
 
 ```sh
 python3 tools/check_source.py
@@ -11,7 +12,7 @@ cmake --build build-test --parallel 4
 ctest --test-dir build-test --output-on-failure --parallel 2 --no-tests=error
 ```
 
-WindowsはREADMEの環境を準備し、別のbuildで実行します。
+On Windows, prepare the README environment and use a separate build:
 
 ```powershell
 cmake --preset windows-fast -B build-windows-test -DBUILD_TESTING=ON
@@ -19,37 +20,39 @@ cmake --build build-windows-test --config Release --parallel 4
 ctest --test-dir build-windows-test -C Release --output-on-failure --parallel 2 --no-tests=error
 ```
 
-Qtとvcpkg DLLのPATH、Qt pluginの探索先もビルド手順と同じように設定してください。
+Set PATH for the Qt and vcpkg DLLs and configure Qt plugin discovery as in the build
+instructions.
 
-## 試験範囲
+## Test scopes
 
-`full` は17群です。reader、UI、feature、format、PDF、CLI、script、PIC、document、
-power、evolution、cache、i18n、archive_text、legacy_settingsに、C localeのformatと
-Pythonのdistribution検査を加えます。
+`full` contains 17 groups: reader, UI, feature, format, PDF, CLI, script, PIC,
+document, power, evolution, cache, i18n, archive_text, legacy_settings, plus format
+checks under the C locale and Python distribution checks.
 
-`platform` は9群です。CLI・UI・PDF・script・document・power・cache・i18n・distributionを選び、
-一部のQt群はOS連携に必要な関数に限定します。Windows-fastの既定はこちらです。
-cache群は、ZIP読込・画像取得の48箇所の中止タイミングでプロセスが終了する回帰試験に限定します。
-9群の成功を全機能の17群成功と記録しないでください。
+`platform` contains nine groups: CLI, UI, PDF, script, document, power, cache, i18n,
+and distribution. Some Qt groups run only the functions needed for OS integration.
+This is the Windows-fast default. Its cache group is limited to the regression
+that verifies process exit at 48 cancellation points during ZIP reading and image
+extraction. Do not report nine passing platform groups as 17 passing full groups.
 
 ```sh
 ctest --test-dir build-test -R '^(ui|script)_tests$' --output-on-failure
 ```
 
-## 実行条件と結果の読み方
+## Execution conditions and interpreting results
 
-CTestのQt試験はoffscreenを設定し、一時設定と自作入力を使います。
-実WebEngineやローカルIPC、D-Busが使えない実行環境では、理由付きskipになる場合があります。
-CTestの成功件数、Qtのpass/fail/skip、Pythonの実行件数を区別して記録してください。
-Qtがskipした場合に実画面確認を完了したことにはなりません。
-Linuxの専用D-Bus試験には `dbus-daemon` が必要です。
+CTest runs Qt tests offscreen with temporary settings and original synthetic inputs.
+If real WebEngine, local IPC, or D-Bus is unavailable, tests may skip with a reason.
+Record CTest successes, Qt pass/fail/skip counts, and Python test counts separately.
+A Qt skip does not complete a GUI check. The dedicated Linux D-Bus test requires
+`dbus-daemon`.
 
-`distribution_tests` は公開ソースの再出力、未分類データの拒否、再現可能なソースarchive、
-合成fixtureの読込・RGBA照合、検証・配置helperを検査します。
-Git追跡検査の試験では一時ディレクトリ内だけに小さなGit repositoryを作ります。
-作業中の公開フォルダを初期化する処理ではありません。
+`distribution_tests` checks public source re-export, rejection of unclassified data,
+reproducible source archives, synthetic fixture loading and RGBA comparisons, and
+validation/deployment helpers. Git tracking tests create small repositories only
+inside temporary directories; they do not initialize the active public source tree.
 
-## ログ付き検証
+## Validation with logs
 
 ```sh
 python3 tools/prepare_validation.py --output validation-kit
@@ -59,5 +62,6 @@ python3 tools/run_validation.py run --build-dir build-test \
   --jobs 4 --test-scope full
 ```
 
-出力先は毎回新しい名前を使います。結果JSON・CTestログ・依存版・source hashを保持し、
-古い失敗ログや別のbuildの成功と混ぜません。実機試験は[別手順](platform-validation.md)です。
+Use a new output name for each run. Keep result JSON, CTest logs, dependency versions,
+and source hashes; do not mix them with old failure logs or successes from another
+build. Native manual checks have a [separate procedure](platform-validation.md).

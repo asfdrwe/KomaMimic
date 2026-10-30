@@ -1,8 +1,10 @@
-# アイコン
+# Icons
 
-SVG原本は `assets/icons/komamimic.svg`、symbol版は `komamimic-symbol.svg` です。
-PNG各サイズ・Windows ICO・macOS ICNSを `assets/icons/`、desktop定義を `assets/` に置きます。
-これらはKomaMimic独自のGPL-3.0-onlyのassetです。
+The original SVG is `assets/icons/komamimic.svg`; the symbol variant is
+`komamimic-symbol.svg`. PNG sizes, the Windows ICO, and the macOS ICNS are in
+`assets/icons/`; the desktop entry is in `assets/`. These are original KomaMimic
+assets licensed under GPL-3.0-only.
 
-再生成にはCairoSVGとPillowを使います。`python3 tools/generate_icons.py` はリポジトリ内の
-既存画像を更新し、`--check` は変更せずに比較します。作業コピーで実行してください。
+Regeneration requires CairoSVG and Pillow. `python3 tools/generate_icons.py`
+updates images in the repository; `--check` compares them without changing files.
+Run it in a working copy.

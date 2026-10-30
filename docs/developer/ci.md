@@ -1,289 +1,340 @@
-# CIの構成と確立手順
+# CI configuration and operation
 
-## 文書サイトとGitHub Pages
+## Documentation and GitHub Pages
 
-`.github/workflows/pages.yml`は、mainへの`docs/site/**`の変更、MkDocs設定・依存指定・
-文書workflow・公開選別関連ツールの変更で起動します。PRでは検査とbuildだけを実行し、
-mainへのpushとmainを選んだ手動実行では成功後にGitHub Pagesへ公開します。
-生成対象は`docs/site/`で、`docs/developer/`はサイトへ含めません。
+`.github/workflows/pages.yml` runs on changes to `docs/site/**` on main, MkDocs
+configuration and dependencies, the documentation workflow, and public-source
+selection tools. Pull requests run checks and builds only. Pushes to main and manual
+runs selecting main publish to GitHub Pages after a successful build.
+`docs/site/` contains the Japanese guide and its English translation under `en/`;
+`docs/developer/` is not included in the site. One MkDocs build produces both
+languages, with matching-page language links and shared screenshot assets.
 
-初回はリポジトリのSettings → Pages → Build and deployment → Sourceで
-**GitHub Actions**を選びます。その後workflowを手動commit・pushし、Actionsの
-**Documentation and Pages**でbuild・deployの成功を確認します。
-手動起動する場合はRun workflowでmainを選びます。
-公開先は https://asfdrwe.github.io/KomaMimic/ です。
+For initial setup, select **GitHub Actions** under repository Settings → Pages →
+Build and deployment → Source. Commit and push the workflow manually, then check
+both build and deploy in **Documentation and Pages**. For a manual run, select main
+under Run workflow. The public URL is https://asfdrwe.github.io/KomaMimic/ ; the
+English guide is at https://asfdrwe.github.io/KomaMimic/en/ .
 
-各Actionはcommit SHAで固定しています。buildはcontentsのread権限だけを使い、
-deployだけにpagesとid-tokenのwrite権限を与えます。PATをworkflowのsecretとして追加する必要はありません。
-ローカル確認例（リポジトリ直下）：
+Actions are pinned to commit SHAs. The build has read-only contents permission;
+only deploy receives pages and id-token write permissions. No PAT needs to be added
+as a workflow secret. Local checks, from the repository root:
 
 ```sh
 python3 tools/check_source.py --tracked
 python3 -m mkdocs build --strict --site-dir ../tmp/site-preview
 ```
 
-GitHub設定の参考：[カスタムworkflowでのPages公開](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)。
+See GitHub's [custom Pages workflow documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
-## 本体ビルドCI
+## Application build CI
 
-以下が本体ビルド・自動テスト用workflowの構成です。ローカルに定義を用意した段階と、
-GitHubで実際に各jobが成功した段階を区別して確認します。
+The application build and automated-test workflow is
+`.github/workflows/build.yml`. Distinguish local workflow definitions from actual
+successful jobs on GitHub. It accepts main pushes, pull requests, and manual runs,
+with read-only contents permission.
 
-定義は `.github/workflows/build.yml` です。mainへのpush、pull request、
-手動実行を入口に、contentsの権限をreadへ限定しています。
-現在の定義と、GitHub上で実行済みの結果を区別してください。
-
-| job | 内容 | 保存するもの |
+| Job | Work | Saved output |
 |---|---|---|
-| source-checks | Git追跡ファイルと公開選択、翻訳、リンク、action pin、actionlint、ソースarchiveの再現性 | ソース配布候補 |
-| linux | Fedora 44 container、Release build、CLI、full CTest 17群 | 構成・試験ログ、JUnit XML |
-| macos | macOS 15 arm64、Homebrew依存、Release build、CLI、full CTest 17群、署名・配置・DMG検査 | .app ZIP・公証なしDMG候補・ソース・checksum、構成・試験・配置ログ、JUnit XML |
-| windows | Windows 2022/MSVC、公式Qt SDK、Release専用vcpkg、platform検証9群、runtime配置・配布ZIP検査 | 配布ZIP候補・ソース・checksum、別artifactの自作PDB、構成・試験・配置ログ、JUnit XML、結果JSON |
+| source-checks | Tracked files versus public selection, translations, links, action pins, actionlint, source archive reproducibility | Source distribution candidate |
+| linux | Fedora 44 container, Release build, CLI, 17 full CTest groups | Configuration/test logs, JUnit XML |
+| macos | macOS 15 arm64, Homebrew dependencies, Release build, CLI, 17 full CTest groups, signing/deployment/DMG checks | .app ZIP, unnotarized DMG candidate, source, checksums, configuration/test/deployment logs, JUnit XML |
+| windows | Windows 2022/MSVC, official Qt SDK, Release-only vcpkg, nine platform groups, runtime deployment and distribution ZIP checks | Distribution ZIP candidate, source, checksums, separate artifact of application PDBs, configuration/test/deployment logs, JUnit XML, result JSON |
 
-共通検査の成功後、3OSのjobを並列実行します。OSごとは独立したjobなので、
-あるOSの失敗を理由に他のOSのjobをキャンセルしません。同じブランチ・PRに新しいcommitが
-来た場合は古い実行を取り消します。
+After common checks pass, the three OS jobs run in parallel. A failure on one OS
+does not cancel another OS's job. A new commit on the same branch or PR cancels
+older runs.
 
-push・PRの自動起動は、ビルド・検証の入力に変更がある場合に限定します。
-対象は`src/`・`cmake/`・`scripts/`・`translations/`・`assets/`・`examples/`・`tests/`・`tools/`と、
-`CMakeLists.txt`・`CMakePresets.json`・`vcpkg*.json`・`.gitattributes`・
-`.github/actions/`・Build自身のworkflowです。
-`tests/fixtures/README.md`と`tools/public_source.json`は対象から除きます。
-文書・MkDocs設定・文書の公開対象登録だけの変更では本体workflowを起動しません。
-公開対象登録の検査はDocumentation and Pagesで実行します。
-コード等を同時に変更した場合は本体workflowも起動します。手動実行は変更パスに関係なく使用できます。
-新しいビルド入力を上記以外の場所へ追加する場合は、Buildの`paths`も更新してください。
+Automatic push/PR runs are limited to changes in build or validation inputs:
+`src/`, `cmake/`, `scripts/`, `translations/`, `assets/`, `examples/`, `tests/`,
+`tools/`, `CMakeLists.txt`, `CMakePresets.json`, `vcpkg*.json`, `.gitattributes`,
+`.github/actions/`, and the Build workflow itself. `tests/fixtures/README.md` and
+`tools/public_source.json` are excluded. Changes only to documents, MkDocs settings,
+or documentation source registration do not run the application workflow. Public
+selection is checked by Documentation and Pages. A simultaneous code change also
+runs Build. Manual runs are available regardless of changed paths. Update Build's
+`paths` when adding build inputs outside these locations.
 
-| 変更内容 | 本体ビルド・テスト | MkDocs・Pages |
+| Change | Application build/tests | MkDocs/Pages |
 |---|---|---|
-| `docs/developer/**`だけ | 省略 | 省略 |
-| `docs/site/**`だけ（画像を含む） | 省略 | 実行（PRでは公開しない） |
-| `mkdocs.yml`・`requirements-docs.txt`・`tools/public_source.json`だけ | 省略 | 実行（PRでは公開しない） |
-| `README.md`だけ | 省略 | 省略 |
-| Build自身のworkflow | 実行 | 省略 |
-| Rocky AppImageのworkflowだけ | 省略 | 省略（AppImageは手動実行） |
-| 本体コードだけ | 実行 | 省略 |
-| 本体コードと`docs/site/**` | 実行 | 実行 |
+| Only `docs/developer/**` | Skipped | Skipped |
+| Only `docs/site/**`, including images | Skipped | Runs; PRs do not publish |
+| Only `mkdocs.yml`, `requirements-docs.txt`, or `tools/public_source.json` | Skipped | Runs; PRs do not publish |
+| Only `README.md` | Skipped | Skipped |
+| Build workflow itself | Runs | Skipped |
+| Only Rocky AppImage workflow | Skipped | Skipped; AppImage is manual |
+| Only application code | Runs | Skipped |
+| Application code and `docs/site/**` | Runs | Runs |
 
-MkDocs設定・依存指定・文書workflow・公開選別関連ツールの変更もサイトworkflowの対象です。
-これらは`docs/**`外なので本体workflowも起動します。
+The site workflow also watches its own definition, documentation dependencies, and
+public-selection tools. Application Build runs for selection-tool code changes;
+documentation configuration alone follows the table above.
 
-失敗はjobの失敗として扱い、診断artifactは成功・失敗にかかわらず14日間保存します。
-CTest全体の成功と、Qtのpass/fail/skip、Pythonの件数を区別して確認してください。
-Linux/macOSはCTestのLastTest.logとctest.xml、Windowsはdiagnostics内のctest.log・
-LastTest.log・ctest.xml・automatic.jsonを確認します。Windowsのplatform成功をfull成功と扱いません。
-Windowsの短い作業パス`D:/kfb`にあるvcpkgログは、`results/vcpkg-build-logs/`へportごとの
-構成を保ってコピーしてから保存します。artifactへ渡すパスはリポジトリ内へ揃えます。
-ログにはCI上のパスや自作fixtureを使用し、個人の読書データは使用しません。
+Failures remain job failures. Diagnostics are saved for 14 days on both success and
+failure. Distinguish overall CTest success from Qt pass/fail/skip counts and Python
+test counts. On Linux/macOS, inspect LastTest.log and ctest.xml. On Windows, inspect
+ctest.log, LastTest.log, ctest.xml, and automatic.json in diagnostics. Windows
+platform success is not full-scope success.
 
-ソース配布候補・Windows配布ZIP候補・macOS配布候補はActionsのartifactとして保存します。WindowsのZIPには本体とworker、
-依存DLL、Qt plugin・WebEngine資源・翻訳、収集した通知文書を含めます。自作PDBは別artifactです。
-このBuild内のLinux jobはログ保存までです。Linux AppImageは下記の独立workflowで生成します。
-このworkflowはtag・GitHub Releaseの作成や自動公開を行いません。
+Windows vcpkg logs under the short path `D:/kfb` are copied into
+`results/vcpkg-build-logs/`, retaining each port's directory layout. Uploaded paths
+are kept inside the repository. Logs use CI paths and synthetic fixtures, not
+personal reading data.
 
-初回は管理者がworkflowと本文を手動commit・pushし、Actionsの**Build**で各jobを確認します。
-同じ画面のRun workflowからmainを選んで手動実行もできます。PATの追加は不要です。
+Source, Windows ZIP, and macOS candidates are Actions artifacts. The Windows ZIP
+contains the application, worker, dependency DLLs, Qt plugins, WebEngine resources,
+translations, and collected notices; application PDBs are a separate artifact.
+The Linux job in Build saves logs only. The separate workflow below creates the
+Linux AppImage. Build does not create tags, GitHub Releases, or automatic releases.
 
-GitHub Actionsはcommit SHAで固定しています。WindowsはQt SDKとvcpkgのbinary cacheを分け、
-設定・manifest・runner image等をkeyへ含めます。Qtをソースから再構築しません。
-Fedoraのroot containerでのWebEngine sandbox無効化は試験プロセスに限った設定です。
-通常の利用環境への設定方法として案内しません。
+For initial setup, the administrator commits and pushes the workflow and documents,
+then checks jobs under **Build**. Run workflow can also run main manually. No PAT
+is required. Actions are pinned to commit SHAs. Windows keeps separate Qt SDK and
+vcpkg binary caches, keyed by configuration, manifests, runner image, and other
+inputs. Qt is not rebuilt from source. Disabling WebEngine's sandbox in the root
+Fedora container applies only to test processes; it is not a setting recommended
+for normal users.
 
-## Windows x86_64の配布ZIP候補
+## Windows x86_64 distribution ZIP candidates
 
-BuildのWindows jobは、既存の公式Qt 6.11.2 SDKとRelease専用vcpkgのcacheをそのまま使います。
-platform検証後に`stage_validation.py`で配置し、`package_windows.py pack`で配布用の構成へまとめます。
-本体・worker・全plugin/依存DLLのAMD64 PEと通常・遅延importを検査し、Windows標準DLLと
-明示したMSVC前提条件以外の未解決依存を拒否します。アプリで使わない位置情報・QML debugging・
-SQLite以外のDB pluginは候補から除きます。F3のツリーでは、特定ドライブのフォルダーを選ぶ前に
-全ファイルシステムrootが列挙されることもplatformのUI試験で確認します。
+The Windows job retains the official Qt 6.11.2 SDK and Release-only vcpkg caches.
+After platform validation, `stage_validation.py` deploys the runtime and
+`package_windows.py pack` assembles the distribution layout. It checks AMD64 PE
+architecture and normal/delay imports for the application, worker, plugins, and
+all dependency DLLs. Unresolved dependencies are rejected except Windows system
+DLLs and explicit MSVC prerequisites. Unused positioning, QML debugging, and
+non-SQLite database plugins are excluded. Platform UI tests also check that the F3
+tree enumerates all filesystem roots before selecting a folder on a specific drive.
 
-MSVCランタイムDLLをSDKから追加コピーすることはせず、Microsoft公式の
-[Visual C++ v14 x64再頒布可能パッケージ](https://aka.ms/vs/17/release/vc_redist.x64.exe)を前提条件とします。
-ZIP内の`配布情報.txt`にも記載します。CI runnerにはランタイムがあるため、
-この検査だけでランタイム未導入環境への対応を確認したとは扱いません。
+The packager does not copy additional MSVC runtime DLLs from the SDK. Microsoft's
+[official Visual C++ v14 x64 Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe)
+is a prerequisite, also noted in the ZIP's `配布情報.txt`. The CI runner already has
+the runtime; these checks alone do not test a machine where it is absent.
 
-作成したZIPを別フォルダーへ再展開し、全payload hashとPEを再検査します。
-Qt/vcpkgをPATHから除き、Qt/SDL等のoverrideを取り除いた環境で本体の版・形式一覧、
-workerによる12サンプルの全RGBA比較とnative reader probeを実行します。
-probeは検査時だけ展開先へ追加し、配布ZIPには含めません。失敗時は配布artifactを保存しません。
-この検査では同梱した`platforms/qwindows.dll`を使い、`QT_QPA_PLATFORM=windows`を指定します。
-SDKの試験用offscreen pluginには依存しません。probeのQt初期化と各caseの進捗はstderrへ逐次出力し、
-120秒の上限に達した場合も`native-readers-stderr.log`へ途中の診断を残します。
+The generated ZIP is re-extracted elsewhere and all payload hashes and PE files
+are checked again. With Qt/vcpkg removed from PATH and Qt/SDL overrides removed,
+the application prints its version and formats, the worker decodes 12 samples with
+full RGBA comparisons, and a native reader probe runs. The probe is added only for
+validation and is absent from the ZIP. Failure prevents distribution artifact upload.
+The deployed `platforms/qwindows.dll` is used with `QT_QPA_PLATFORM=windows`; this
+does not rely on the SDK's offscreen test plugin. The probe streams Qt initialization
+and per-case progress to stderr, retaining partial diagnostics in
+`native-readers-stderr.log` even if the 120-second timeout is reached.
 
-成功時のartifactは以下です（14日間保存）。
+Successful artifacts, retained for 14 days:
 
-- **komamimic-windows-x86_64-zip**：`KomaMimic-1.0.0-windows-x86_64.zip`、
-  `BUILD_MANIFEST.json`、`SHA256SUMS`と`sources/`内の本体ソースtar.gz・manifest・checksum。
-- **komamimic-windows-x86_64-symbols**：自作exeのPDBと対応するexeのhash/版/commit、symbols ZIPのchecksum。
-- **diagnostics-windows-msvc-x64**：従来の診断に加え、ZIP再展開後のCLI・worker・reader検査ログ。
+- **komamimic-windows-x86_64-zip**: `KomaMimic-1.0.0-windows-x86_64.zip`,
+  `BUILD_MANIFEST.json`, `SHA256SUMS`, and application source tar.gz, manifest, and
+  checksums in `sources/`.
+- **komamimic-windows-x86_64-symbols**: application PDBs, matching executable hashes,
+  version and commit, and symbols ZIP checksums.
+- **diagnostics-windows-msvc-x64**: existing diagnostics plus CLI/worker/reader logs
+  from the re-extracted ZIP.
 
-ZIPには版・commit・ソース内容・dirty状態・依存import・同梱ファイルhashを記録します。
-インストール済みvcpkgのcopyright等と、Qt SDK内に存在する法的文書・attribution/SPDXを原文で収集します。
-Qt通知を発見できたかもmanifestに記録しますが、発見した文書だけで全通知が揃ったとは判断しません。
-**最終的な第三者通知と必要な対応ソースの照合、取得物のGUI確認は別途必要です。**
-利用者向けWindows導入文書は、この構成のActions取得物を確認してから追加します。
-このjobはタグ・Releaseを作成しません。
+The ZIP records version, commit, source contents, dirty status, dependency imports,
+and bundled file hashes. Installed vcpkg copyright files and legal documents,
+attribution, and SPDX data present in the Qt SDK are copied in their original form.
+The manifest records whether Qt notices were found; finding some documents does not
+establish that all notices are complete. **Final third-party-notice and required
+corresponding-source review, and GUI checks of downloaded artifacts, are separate.**
+The [Windows installation guide](../site/en/user/install.md#windows-zip) describes
+the reviewed artifact layout. This job does not create tags or Releases.
 
-## macOS arm64の.appと公証なしDMG候補
+## macOS arm64 app and unnotarized DMG candidates
 
-BuildのmacOS jobは、従来のHomebrew依存とRelease build・full CTest 17群を使います。
-`stage_validation.py`で.appを配置し、`package_macos.py`で配布用の.app ZIPとDMGへまとめます。
-共通の起動条件・read権限・concurrency、Windowsの依存cacheと他OSのjobは維持します。
-macOS jobの上限は配置・圧縮・再展開検査を含め60分です。
+The macOS job retains Homebrew dependencies, a Release build, and 17 full CTest
+groups. `stage_validation.py` deploys the app; `package_macos.py` creates its
+distribution app ZIP and DMG. Shared triggers, read permissions, concurrency,
+Windows dependency caches, and other OS jobs are preserved. The macOS timeout is
+60 minutes, covering deployment, compression, and re-extraction checks.
 
-配置には`macdeployqt`を使い、Qt・非Qt依存、WebEngine helper・資源、画像/SQLite plugin、
-日本語catalog、実行時ロードするSDL3とその内部symlinkを含めます。
-検査用probeも同じdeployment処理を通してHomebrewへのload pathを修正し、.appの外へ退避します。
-束外へ解決されるrpath（相対指定も含む）を削除し、束内rpathを追加します。
-実行時ロード専用のライブラリでも、削除したSDK向けrunpathを束内Frameworks向けへ置き換えます。
-配置・検査のパス解釈は共通です。変更したcodeを内側から署名し直す際、
-WebEngine helper等のentitlementsを保持して一致を検査します。
+Deployment uses `macdeployqt` and includes Qt/non-Qt dependencies, WebEngine helpers
+and resources, image/SQLite plugins, Japanese catalogs, and runtime-loaded SDL3
+with its internal symlink. The validation probe passes through the same deployment
+process to repair Homebrew load paths, then is moved outside the app. Rpaths that
+resolve outside the bundle, including relative ones, are removed and internal
+rpaths added. Even for a library used only by runtime loading, a deleted SDK runpath
+is replaced with one pointing to the bundled Frameworks. Deployment and auditing
+share path interpretation. Modified code is signed from the inside out, preserving
+and checking WebEngine helper and other entitlements.
 
-packはstageのhash・symlinkと現在のソース内容を照合し、Homebrew依存とその推移的依存の
-元の通知文書・SBOM・receipt/formulaを収集します。appへ通知とbuild情報を加えた後、
-外側をad-hoc署名し直します。全Mach-Oにarm64を要求し、本体/workerはarm64単独とします。
-全load commandとrpathの解決先、codesignのdeep/strict検証、symlinkの束内完結も検査します。
+Packaging checks stage hashes, symlinks, and current source contents, then collects
+original notices, SBOMs, and receipts/formulae for Homebrew dependencies and their
+transitive dependencies. After notices and build information are added, the outer
+app is ad-hoc signed again. Every Mach-O must include arm64; the application and
+worker must be arm64-only. All load-command and rpath targets, deep/strict codesign
+verification, and symlink confinement within the bundle are checked.
 
-配布用.appは`ditto`でZIPに包み、再展開した実物のhash・実行mode・symlink・署名を確認します。
-DMGはHFS+・UDZOで作り、KomaMimic.appとApplicationsリンク、配布情報、manifestを入れます。
-`hdiutil verify`後にread-onlyでmountして全payloadと署名を再検査し、作業用フォルダーへコピーします。
-そのコピーをHomebrewをPATHから除き、DYLD/Qt/SDL overrideを除いた環境で起動し、版・形式一覧、workerの
-12サンプル全RGBAとnative reader probeを検査します。QPAは同梱するcocoaを使います。
-probeは検査時だけ追加し、除去後にpayloadと署名が元に戻っていることを確認します。
-dyldがHomebrewのライブラリをロードしていないことも診断logで確認し、失敗時もDMGをdetachします。
+`ditto` wraps the app in a ZIP; re-extraction checks hashes, executable modes,
+symlinks, and signatures. The DMG uses HFS+ and UDZO, and contains KomaMimic.app, an
+Applications link, distribution information, and the manifest. After `hdiutil verify`,
+it is mounted read-only and its payload and signatures are checked again. The app
+is copied to a working folder and launched with Homebrew removed from PATH and
+DYLD/Qt/SDL overrides cleared. Checks cover version, formats, 12 worker samples with
+full RGBA comparisons, and a native reader probe using the bundled cocoa QPA plugin.
+The probe is temporary; payload and signatures are checked after its removal.
+Diagnostic logs also check that dyld did not load Homebrew libraries. The DMG is
+detached on failure as well as success.
 
-成功時のartifact **komamimic-macos-arm64-dmg** に次を14日間保存します。
+The successful **komamimic-macos-arm64-dmg** artifact retains these for 14 days:
 
 - `KomaMimic-1.0.0-macos-arm64.dmg`
-- `KomaMimic-1.0.0-macos-arm64.app.zip`（中はKomaMimic.app一式）
-- `BUILD_MANIFEST.json`・`HOMEBREW.json`・`SHA256SUMS`
-- `sources/`内の本体ソースtar.gz・manifest・checksum
+- `KomaMimic-1.0.0-macos-arm64.app.zip`, containing the complete KomaMimic.app
+- `BUILD_MANIFEST.json`, `HOMEBREW.json`, `SHA256SUMS`
+- Application source tar.gz, manifest, and checksums under `sources/`
 
-.appを直接artifactへ渡すと実行modeやsymlinkを保持できないため、DMG/ZIPの内側へ収めます。
-失敗時は配布artifactを保存せず、**diagnostics-macos15-arm64**へ配置・署名・otool・
-圧縮・mount・CLI/worker/readerのlog/JSONと、保持したentitlementsを保存します。
+Uploading an app directly would lose executable modes and symlinks, so it is stored
+inside a DMG/ZIP. Failure prevents distribution artifact upload. Deployment,
+signing, otool, compression, mounting, CLI/worker/reader logs and JSON, and preserved
+entitlements are saved in **diagnostics-macos15-arm64**.
 
-**Developer ID署名・Appleの公証・notarytool/staplerの実行は行いません。** Apple用secretは不要です。
-manifestにもad-hoc/公証なし/手動未確認を記録します。codesign成功をGatekeeper通過と扱いません。
-ブラウザーで取得した実物のFinder起動は管理者が最小限確認し、その後にmacOS導入文書を追加します。
-最終的な全依存通知・必要な対応ソースの照合は別工程です。タグ・Releaseの公開は行いません。
+**No Developer ID signing, Apple notarization, notarytool, or stapler is used.**
+Apple secrets are unnecessary. The manifest records ad-hoc signing, no notarization,
+and pending manual verification at generation time. Codesign success is not
+Gatekeeper approval. The administrator separately checks Finder startup of a
+browser-downloaded artifact; the verified steps are in the
+[macOS installation guide](../site/en/user/install.md#macos-dmg).
+The final audit of all dependency notices and required corresponding source remains
+separate. This job does not publish tags or Releases.
 
-Linuxでは整合性・依存解決・失敗時のdetach/成果物gate等を模擬試験できますが、
-macdeployqt/codesign/lipo/ditto/hdiutil/cocoaでの実動作はmacOS Actionsでの確認範囲です。
+Linux can run simulated checks of consistency, dependency resolution, detach on
+failure, and artifact gating. Actual macdeployqt/codesign/lipo/ditto/hdiutil/cocoa
+behavior must be checked in macOS Actions.
 
-## Rocky 8でのLinux AppImage生成
+## Linux AppImage generation on Rocky 8
 
-`.github/workflows/rocky8-probe.yml`は、手動実行専用のAppImage workflowです。
-Actionsの **Linux AppImage (Rocky 8) → Run workflow → main** から起動します。
-Ubuntu 24.04 runner上のRocky Linux 8.10 x86_64コンテナ
-（`rockylinux/rockylinux:8.10`）内で、Rocky・EPEL・Ravenの
-RPMを導入し、GCC Toolset 12によるRelease build、CLI確認、full CTest 17群を実行します。
-QtとQt WebEngineはRavenのRPMを使い、ソースからのビルドは行いません。
-Ravenはbase・extras・rx-devel・multimediaを有効にします。multimediaは
-Qt WebEngineが要求するFFmpeg・OpenH264・libvpx等の依存を解決するために必要です。
-GLibとCairoは`rx-glib2-devel`・`rx-cairo-devel`を導入します。これらのRPMに含まれるpkg-configファイルの
-配置先を取得して標準版より優先し、選択された版・配置先を構成ログへ記録します。
-これらの`libdir`も`CMAKE_LIBRARY_PATH`へ渡し、Cairo等のライブラリをリンク時に探索できるようにします。
-実行用RPMだけでは`.pc`の間接依存が揃わないため、UUID・mount・blkid・SELinux・PCRE・libffiの
-開発用RPMも導入します。Poppler helperの`--install-missing-pc-deps`はCIコンテナ専用です。
-ソース取得前に使用する全モジュールの`--cflags --libs`を検査し、不足する`.pc`について
-DNFの`pkgconfig(名前)`提供機能でパッケージを導入して再検査します。間接依存を含めて解決するまで
-繰り返しますが、解消しない依存・版不一致・16回の上限では停止します。フラグの省略や警告の抑制はしません。
-このオプションなしではパッケージを追加しません。導入後のRPM一覧も保存します。
-Poppler install後は本体と同じpkg-config情報でPoppler・Cairo・GLibを使う小さなC++プログラムを
-コンパイル・リンク・実行してから本体の構成へ進みます。
-実行時の探索順もRXのGLib・Cairoをシステムの`/usr/lib64`より先にし、構成時と実行時で版が
-入れ替わらないようにします。上の小さなプログラムではロードしたライブラリの版も表示します。
-Cairoは`rx-cairo`と`rx-cairo-devel`から実在する共有ライブラリを取得し、FindPkgConfigの
-`pkgcfg_lib_POPPLER_cairo`へ絶対パスを指定します。開発用`libcairo.so`がリンク切れの場合も、
-RPM内のバージョン付き実ファイルを使用できます。リンクの参照先をログに記録し、構成前に
-選択したライブラリのロードと実際のCairoバージョンを確認します。
-JPEG ABI 62の実ライブラリも提供RPMから取得し、その配置先を実行時とリンク時の
-間接依存探索（`-rpath-link`）に追加します。ICUはQtが使う78に揃え、`libicu78-devel`の
-ヘッダーと共有ライブラリを明示指定します。主要な共有ライブラリは本体build前に
-`ldd`で未解決依存がないことも確認します。
-Releaseの最適化を保持して`-g1`の診断情報を付けます。CTestが失敗した場合だけ、
-自作fixtureを生成し直して`validation_probe`をGDBで実行し、呼び出し履歴と読込ライブラリを
-`probe-debug.log`へ保存します。この診断の結果で元のCTest失敗を成功扱いにはしません。
+`.github/workflows/rocky8-probe.yml` is a manually dispatched AppImage workflow.
+Start it with **Linux AppImage (Rocky 8) → Run workflow → main**. On an Ubuntu 24.04
+runner, it uses a Rocky Linux 8.10 x86_64 container (`rockylinux/rockylinux:8.10`),
+installs Rocky, EPEL, and Raven RPMs, and runs a GCC Toolset 12 Release build, CLI
+checks, and 17 full CTest groups. Qt and WebEngine use Raven RPMs, not source builds.
+Raven base, extras, rx-devel, and multimedia are enabled; multimedia resolves
+WebEngine dependencies such as FFmpeg, OpenH264, and libvpx.
 
-Qt WebEngine本体とQt TIFF pluginはTIFF ABI 6を要求します。同一プロセスへABI 5も
-読み込まないよう、Popplerも`libtiff6-devel`に対してソースからビルドします。
-`tools/setup_linux_poppler.py`は[DebianのPopplerソース](https://sources.debian.org/src/poppler/22.12.0-2%2Bdeb12u2/)
-22.12.0-2+deb12u2を取得し、ソース記述ファイルのSHA-256・サイズと照合してから
-Debianのpatchを順に適用します。Qt pluginはRPMのまま使用します。
-使用するGLib APIと画像デコーダーを有効にし、Qtラッパー・ユーティリティ・署名検証・HTTP取得など
-本体で使わないPopplerの機能はビルドしません。リンク切れのCairo開発用リンクは作業用prefix内で補います。
-PopplerのCMap等も同梱し、AppRunから`POPPLER_DATADIR`で配置先を渡す小さなpatchを適用します。
-使用ソース、patch、著作者・ライセンス原文、取得元・checksum・構成情報を保存します。
-この依存構成での17群成功を確認してからAppDirを生成します。
-Pythonは3.11を明示します。
+GLib and Cairo use `rx-glib2-devel` and `rx-cairo-devel`. Their pkg-config directories
+are discovered and preferred over system versions, with selected versions and
+locations logged during configuration. Their `libdir` values also enter
+`CMAKE_LIBRARY_PATH` so libraries such as Cairo can be found at link time.
+Runtime RPMs alone do not satisfy transitive `.pc` requirements, so UUID, mount,
+blkid, SELinux, PCRE, and libffi development RPMs are installed too.
 
-Rockyのbaseos・appstream・extras・powertoolsは公式配布先`dl.rockylinux.org`を直接使用し、
-ミラー切替による長時間待機を避けます。DNFの接続・低速通信のtimeoutは20秒、retryは2回、
-Bootstrap step全体の上限は10分です。BootstrapとDNFの詳細ログも診断artifactへ保存します。
+The Poppler helper's `--install-missing-pc-deps` option is for CI containers only.
+Before downloading source, it checks `--cflags --libs` for every required module,
+uses DNF's `pkgconfig(name)` provider lookup for missing `.pc` dependencies, and
+rechecks until transitive dependencies are resolved. Unresolved dependencies,
+version mismatches, or the 16-iteration limit stop the process; flags are not
+omitted and warnings are not suppressed. Without this option, no packages are
+added. The post-install RPM list is retained. After installing Poppler, a small
+C++ program is compiled, linked, and run with the application's pkg-config data for
+Poppler, Cairo, and GLib before configuring the application.
 
-Rocky標準のlibarchiveはRAR5対応APIを提供しないため、libarchive 3.8.10も
-公式ソースのSHA-256を検証して同じコンテナ内でビルドします。作業用prefixへ配置し、
-本体のヘッダー・リンク先・実行時ライブラリをその版へ揃えます。
-本体の構成前にRAR5 APIのコンパイル・リンク・呼出しを確認します。
-取得したソースと著作権・ライセンス原文、ビルドログも診断artifactに保存します。
+Runtime discovery also prefers RX GLib/Cairo over `/usr/lib64`, preventing version
+changes between configuration and execution. The small program prints loaded
+library versions. Cairo is selected from actual shared libraries in `rx-cairo` and
+`rx-cairo-devel`, with an absolute `pkgcfg_lib_POPPLER_cairo` value for FindPkgConfig.
+A versioned RPM file works even if the development `libcairo.so` link is broken.
+The selected target is logged, and loading and the actual Cairo version are checked
+before configuration.
 
-依存導入・構成・ビルド・試験のログと導入RPM一覧を
-`diagnostics-rocky8-raven-x64` artifactへ14日間保存します。
-このworkflowは既存3OSのBuildとは独立し、pushでは起動しません。Releaseやtagは作成しません。
+The real JPEG ABI 62 library is located through its RPM, and its directory is added
+to runtime discovery and transitive link-time discovery (`-rpath-link`). ICU matches
+Qt's version 78, explicitly selecting headers and shared libraries from
+`libicu78-devel`. Major shared libraries are checked for unresolved dependencies
+with `ldd` before the application build. Release optimization is retained with
+`-g1` diagnostic information. Only if CTest fails, synthetic fixtures are regenerated
+and `validation_probe` runs under GDB, recording backtraces and loaded libraries in
+`probe-debug.log`. Diagnostics never convert the original CTest failure into success.
 
-Rocky jobではテスト成功後に`tools/build_appimage.py stage`を実行し、本体とworker、
-Qt plugin・WebEngine helper/resources/locales・日本語翻訳・依存共有ライブラリをAppDirへ配置します。
-RPATHを相対化し、非同梱とするglibc・ローダー・ホストのOpenGL/EGLライブラリを除き、
-ビルド環境のライブラリを参照していないことを確認します。TIFF ABI 5/6の混在を拒否し、
-全payload ELFのglibc要求がUbuntu 22.04相当の2.35以下であることを検査します。
-通常のAppRunにはsandbox無効化を設定しません。
-RPATHの書換えにはSHA-256固定の公式ソースから構築したpatchelf 0.19.2を使います。
-0.18.0にも[初期化コードの移動に関する問題](https://github.com/NixOS/patchelf/issues/639)があるため、
-builderは0.19.2未満を拒否し、全ELFのsection・LOAD segment・初期化関数の対応を検査します。
-`-Wl,-init/-fini`で`.text`内の独自関数を指定したELFも有効です。
-NSSは32bit/64bitが共存するホストでもx86_64の実体だけを選択し、glibcのlibmvecは同梱しません。
-配置後のAppRunで`--version`と`--formats`を実行してから圧縮へ進みます。
+Qt WebEngine and the Qt TIFF plugin require TIFF ABI 6. Poppler is also built from
+source against `libtiff6-devel`, avoiding simultaneous loading of ABI 5 and 6.
+`tools/setup_linux_poppler.py` obtains
+[Debian's Poppler source](https://sources.debian.org/src/poppler/22.12.0-2%2Bdeb12u2/)
+22.12.0-2+deb12u2, checks sizes and SHA-256 values against the source description,
+and applies Debian patches in order. Qt plugins remain RPM-provided. The build
+enables the GLib API and image decoders used by the app, but excludes unused Qt
+wrappers, utilities, signature verification, HTTP fetching, and other features.
+Broken Cairo development links are supplemented inside the working prefix.
+Poppler CMaps and other data are bundled; a small patch lets AppRun select their
+location with `POPPLER_DATADIR`. Source, patches, original author/license notices,
+origins, checksums, and configuration are retained. AppDir generation starts only
+after all 17 groups pass with these dependencies. Python 3.11 is selected explicitly.
 
-続くUbuntu 22.04コンテナのjobは、Rockyで作ったAppDirのhashを再確認し、
-appimagetoolと静的runtimeで1ファイルへまとめます。アプリや依存の再コンパイルはしません。
-appimagetoolは[公式リリース1.9.1](https://github.com/AppImage/appimagetool/releases/tag/1.9.1)のURLへ固定し、
-`tools/appimage-tools.json`のSHA-256で検証します。runtimeも固定SHA-256で検証し、
-その上流continuous assetが更新されてhashが変わった場合は停止します。
-更新時は公式release assetと照合し、実物で圧縮・起動検査を済ませてから設定を更新します。
-不一致のエラーには期待値と実際のhashを表示します。
-Qt・Ravenをインストールしない環境で、AppImageの`--version`・`--formats`、展開後のworker、
-生成fixtureのnative reader probeを検査します。CIではFUSEを必要としないextract-and-runを使います。
+Rocky baseos, appstream, extras, and powertools use `dl.rockylinux.org` directly to
+avoid long mirror-switching delays. DNF connection/low-speed timeouts are 20 seconds
+with two retries; the Bootstrap step has a ten-minute limit. Bootstrap and detailed
+DNF logs are saved in diagnostics.
 
-成功後のartifact **komamimic-linux-x86_64-appimage** に以下を保存します。
+Rocky's system libarchive lacks the RAR5 API, so libarchive 3.8.10 is built in the
+same container after verifying the official source SHA-256. It is installed into
+a working prefix, and application headers, link targets, and runtime libraries all
+use that version. Compilation, linking, and invocation of the RAR5 API are checked
+before application configuration. Downloaded source, original copyright/license
+notices, and build logs are retained in diagnostics.
 
-- `KomaMimic-1.0.0-linux-x86_64.AppImage`と`SHA256SUMS`
-- `~/.local/share/applications/`用の`komamimic.desktop`と、
-  `~/.local/share/icons/hicolor/256x256/apps/`用の`komamimic.png`（256×256）
-- 同梱ファイルのhash・必要glibc・依存RPM版/ライセンス/Source RPM等の`BUILD_MANIFEST.json`
-- `sources/`内の本体ソース・manifest、構築したlibarchiveとpatch適用済みPopplerのソース
+Dependency installation, configuration, build/test logs, and installed RPM versions
+are kept in **diagnostics-rocky8-raven-x64** for 14 days. This workflow is independent
+of the three-OS Build workflow and does not run on push or create Releases or tags.
 
-外付けのdesktop entryは、その版のAppImageを`~/.local/bin/`から起動します。
-AppImage内のdesktop entryは従来のまま保持します。外付け2ファイルのhashをmanifestへ記録し、
-AppImage・manifestと合わせて`SHA256SUMS`へ含めます。Ubuntu側でdesktop-file-validateと
-checksum検査を通してからartifactへ保存します。利用者の配置・更新・削除は
-[インストール文書](../site/user/install.md)を参照してください。
+After tests pass, the Rocky job runs `tools/build_appimage.py stage`, deploying the
+application, worker, Qt plugins, WebEngine helpers/resources/locales, Japanese
+translations, and dependency shared libraries into AppDir. It makes RPATHs relative,
+excludes glibc, the loader, and host OpenGL/EGL libraries, and checks for references
+to build-environment libraries. It rejects TIFF ABI 5/6 mixing and checks that all
+payload ELF files require at most glibc 2.35, the Ubuntu 22.04 baseline. Normal
+AppRun does not disable the sandbox.
 
-圧縮用の中間artifactは7日間、取得候補と診断artifactは14日間保存します。
-Ubuntu側のログは**diagnostics-appimage-ubuntu22-x64**へ保存します。
-RPMに含まれるライセンス文書もAppImage内へコピーしますが、正式公開前には依存の対応ソース・
-通知の網羅性とAppImage runtime自体の通知も確認します。Actionsの成功はGUI手動確認の代替ではありません。
-取得物のFedora等での確認、導入・削除文書と正式Releaseは後続です。
+RPATH rewriting uses patchelf 0.19.2 built from checksum-pinned official source.
+Version 0.18.0 also has an [initialization-code relocation issue](https://github.com/NixOS/patchelf/issues/639),
+so the builder rejects versions below 0.19.2 and checks sections, LOAD segments, and
+initialization functions in every ELF. An ELF specifying custom functions within
+`.text` through `-Wl,-init/-fini` is valid. On hosts with both 32-bit and 64-bit NSS,
+only x86_64 libraries are selected. glibc's libmvec is not bundled. Deployed AppRun
+must pass `--version` and `--formats` before compression.
 
-## GitHub上で確立する順序
+The following Ubuntu 22.04 container job rechecks Rocky AppDir hashes and packages
+it with appimagetool and a static runtime. It does not rebuild the application or
+dependencies. appimagetool uses the [official 1.9.1 release URL](https://github.com/AppImage/appimagetool/releases/tag/1.9.1)
+and the SHA-256 in `tools/appimage-tools.json`. The runtime also has a pinned SHA-256;
+if its upstream continuous asset changes, a mismatch stops packaging. Updates require
+checking the official release asset and testing actual compression/startup before
+changing the configuration. Mismatch errors show expected and actual hashes.
 
-1. 利用者が公開フォルダを確認し、手動でrepository作成・commit・pushを行います。
-2. Webとghで各jobの結果・依存版・skip・ログを確認し、失敗を解消します。
-3. macOSの.appとLinuxの配布形式を含め、必要なartifactの生成を整えます。
-4. 配布対象の依存通知・対応ソースを揃え、Actionsの取得物を実機で確認します。
-5. 取得物に基づく導入・削除手順を作成し、ReleaseとPagesの公開を別に確認します。
+In an environment without Qt or Raven installed, checks cover AppImage `--version`
+and `--formats`, the extracted worker, and the native reader probe on generated
+fixtures. CI uses extract-and-run without FUSE.
 
-本体ビルド定義にはRelease作成はありません。Pages公開は上記の文書専用workflowで行います。
-将来の公開jobはPR検証から分離し、必要なjobにだけ書込み権限を与えます。
-手動テストをheadless CIの成功から代替したことにはしません。
+The successful **komamimic-linux-x86_64-appimage** artifact contains:
+
+- `KomaMimic-1.0.0-linux-x86_64.AppImage` and `SHA256SUMS`
+- `komamimic.desktop` for `~/.local/share/applications/`, and a 256×256
+  `komamimic.png` for `~/.local/share/icons/hicolor/256x256/apps/`
+- `BUILD_MANIFEST.json` with bundled hashes, required glibc, dependency RPM versions,
+  licenses, Source RPMs, and related data
+- Application source/manifest and built libarchive and patched Poppler source in `sources/`
+
+The external desktop entry launches that version's AppImage from `~/.local/bin/`.
+The internal entry is retained. Both external files are hashed in the manifest and
+included in `SHA256SUMS` with the AppImage and manifest. Ubuntu runs
+`desktop-file-validate` and checksum checks before upload. See the
+[installation guide](../site/en/user/install.md) for placement, updates, and removal.
+
+Intermediate compression artifacts are retained for seven days; candidates and
+diagnostics for 14 days. Ubuntu logs are in **diagnostics-appimage-ubuntu22-x64**.
+RPM license documents are copied into the AppImage, but a public release also needs
+an audit of dependency corresponding source, notice completeness, and notices for
+the AppImage runtime itself. Actions success does not replace manual GUI checks.
+Native downloaded-artifact checks and installation instructions are completed
+separately from final Release publication.
+
+## Release preparation sequence
+
+1. The administrator reviews public contents and manually creates the repository, commits, and pushes.
+2. Inspect job results, dependency versions, skips, and logs through GitHub and gh; resolve failures.
+3. Establish the required artifacts, including macOS app and Linux packages.
+4. Assemble dependency notices and required corresponding source, and test downloaded Actions artifacts on real systems.
+5. Maintain installation/removal instructions based on those artifacts; verify Release and Pages publication separately.
+
+The application build definition does not create Releases. Pages uses the separate
+documentation workflow above. Any future release job must be separated from PR
+validation, granting write permissions only where required. Headless CI success
+does not substitute for manual checks.

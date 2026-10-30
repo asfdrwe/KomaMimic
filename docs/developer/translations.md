@@ -1,12 +1,16 @@
-# UIの翻訳
+# UI translations
 
-UIは日本語・英語に対応し、環境設定の表示言語で選択します。
-カタログは `translations/`、読込は `src/i18n.*` です。Qt Linguist Toolsで
-ビルド時にコンパイルし、アプリへ埋め込みます。Qt共通ダイアログ用のqttranslationsも必要です。
+The UI supports Japanese and English, selectable in Preferences. Catalogs are in
+`translations/`; `src/i18n.*` loads them. Qt Linguist Tools compiles and embeds them
+in the application at build time. Qt's qttranslations package is also needed for
+standard dialogs.
 
-翻訳対象は表示文字列です。操作ID・設定キー・APIのフィールド名・ファイル名を翻訳しません。
-placeholder、HTML、改行、数値の意味を維持し、メニューのshortcut表記を確認します。
-`python3 tools/check_translations.py` と `i18n_tests` で検査し、言語を変更して
-再起動したGUIでメニュー・環境設定・エラーを確認してください。
+Translate display strings, not action IDs, settings keys, API field names, or file
+names. Preserve placeholders, HTML, newlines, and numeric meaning, and check menu
+shortcut labels. Run `python3 tools/check_translations.py` and `i18n_tests`, then
+restart the GUI in the selected language to check menus, Preferences, and errors.
 
-文書は日本語原稿を確定して英訳を揃えます。
+Core developer documentation is maintained in English. The user and script
+developer guide keeps Japanese source pages and English translations under
+`docs/site/en/`. Update the matching translation when changing the Japanese guide.
+English pages reuse the Japanese screenshots and identify them as Japanese UI.

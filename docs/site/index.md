@@ -1,5 +1,7 @@
 # KomaMimicガイド
 
+日本語 | [English](en/index.md)
+
 KomaMimicはWindows・macOS・Linuxで使える漫画・画像ビューアです。
 フォルダや書庫を表紙一覧から選び、単ページ・見開き・全画面で読めます。
 PDF・TXT・Markdown・EPUBと、JavaScriptによる画像reader・filterにも対応します。

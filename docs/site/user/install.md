@@ -1,5 +1,7 @@
 # インストール
 
+日本語 | [English](../en/user/install.md)
+
 ## Windows（ZIP版）
 
 Windows版はx86_64（64bit Intel/AMD）向けのZIP版です。

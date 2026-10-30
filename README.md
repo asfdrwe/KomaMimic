@@ -12,18 +12,23 @@ affiliated with the original project and does not include its code, artwork, or 
 
 ## Screenshots
 
+The first screenshot shows the English UI; the second shows the Japanese UI.
+The English guide reuses Japanese UI screenshots and labels them on each page.
+
 ![readme-en.png](docs/site/assets/screenshots/readme-en.png)
 
 ![readme-ja.png](docs/site/assets/screenshots/readme-ja.png)
 
 ## Documentation
 
-- [User and script developer guide (Japanese)](https://asfdrwe.github.io/KomaMimic/)
-- [Core developer documentation (Japanese draft)](docs/developer/index.md)
+- [User and script developer guide (English)](https://asfdrwe.github.io/KomaMimic/en/)
+- [日本語ユーザ＆スクリプト開発者ガイド](https://asfdrwe.github.io/KomaMimic/)
+- [Installation, updates, and removal](docs/site/en/user/install.md)
+- [Core developer documentation (English)](docs/developer/index.md)
 - [Contributing](#contributing)
 
-The Japanese guide is the source for the planned English translation. GitHub Pages
-URLs and English pages will be linked when they are available.
+The user and script developer guide is available in Japanese and English, with
+links between matching pages. Core developer documentation is maintained in English.
 
 ## Build from source
 
@@ -193,17 +198,17 @@ changes. The PIC/PIC2 scripts retain the original 0BSD terms and use the combine
 SPDX expression `GPL-3.0-only AND 0BSD`. Details and the original notice appear
 [below](#picpic2-decoding-derived-from-wuimg).
 
-The project is currently reviewing its public source and preparing to establish
-CI. Windows validation artifacts are separate from a general release. A public
-binary release requires dependency notices, corresponding source, and checks of
-the actual downloaded artifacts.
+CI builds and verifies Windows x86_64 ZIP, macOS arm64 app/DMG, and Linux x86_64
+AppImage candidates. Downloaded candidates have also been checked on their target
+operating systems. Final dependency-notice and corresponding-source review, and
+tag-triggered Release publication, are separate from candidate packaging.
 
 ## Third-party libraries and code
 
 KomaMimic is [GPL-3.0-only](LICENSE). Dependencies and adapted code retain their
 original terms; see the [distribution requirements](#distribution). This is an
-overview of dependencies, not an exact version inventory for a distribution bundle
-that has yet to be created.
+overview of dependencies; consult the package's build manifest and bundled notices
+for the versions and components actually included.
 
 | Component | Purpose and licensing references |
 |---|---|

@@ -1,5 +1,7 @@
 # 動く最小例
 
+日本語 | [English](../en/scripts/examples.md)
+
 例のソースは `examples/scripts/` にあります。いずれも自作の小さな入力を使い、
 既存の画像形式との重複を避けています。ソースはGPL-3.0-onlyです。
 

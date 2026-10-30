@@ -1,5 +1,7 @@
 # macOSで異なる操作
 
+日本語 | [English](../en/user/macos.md)
+
 ## キーとメニュー
 
 | 操作 | macOSの初期操作 |

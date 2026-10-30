@@ -1,46 +1,55 @@
-# 開発環境とビルド
+# Development environment and builds
 
-アプリだけのCMakeビルドは[README](../../README.md)のOS別手順を使います。
-ここでは開発時の探索・出力先を補足します。C++20、CMake 3.22以上、Qt 6.5以上を使用し、
-Qt QmlとWebEngineWidgetsは必須です。画像表示だけの別ビルドは提供しません。
+Use the OS-specific [README](../../README.md) instructions for an application-only
+CMake build. This page adds details about dependency discovery and development
+output directories. Use C++20, CMake 3.22+, and Qt 6.5+. Qt Qml and WebEngineWidgets
+are required; there is no separate image-only build.
 
-## 出力先
+## Output directories
 
-公開リポジトリの隣にある `../tmp/` を使います。ビルド・fixture・結果・stageを分け、
-異なるgeneratorやtoolchainのCMakeCacheを流用しません。CMakeCacheを別のソースへコピーせず、
-ソースを移動したら新しいbuildを構成してください。同じソースと依存での増分ビルドは再利用できます。
+Use `../tmp/` next to the public repository. Keep builds, fixtures, results, and
+stages separate. Do not reuse a CMakeCache across generators or toolchains, or copy
+it to another source tree. Configure a fresh build after moving the source. An
+incremental build can be reused with the same source location and dependencies.
 
 ## Windows
 
-Visual Studio 2022/MSVC x64と公式Qt SDKを使います。通常は `windows-fast` presetで、
-非Qt依存のみを `cmake/windows-fast/vcpkg.json` のbaselineとRelease専用tripletで構築します。
-`VCPKG_ROOT` と `KOMAMIMIC_QT_ROOT` を設定してください。Qt全体のソースビルドへ切り替えません。
-Qtの取得設定は `tools/windows-fast.json`、取得・検査は `tools/setup_windows.py` です。
+Use Visual Studio 2022/MSVC x64 and the official Qt SDK. Normally, use the
+`windows-fast` preset. Only non-Qt dependencies are built with the baseline in
+`cmake/windows-fast/vcpkg.json` and the Release-only triplet. Set `VCPKG_ROOT` and
+`KOMAMIMIC_QT_ROOT`. Do not switch to building all of Qt from source.
+`tools/windows-fast.json` configures SDK acquisition; `tools/setup_windows.py`
+downloads and verifies it.
 
-`VCPKG_BINARY_SOURCES` で専用のbinary cacheを指定できます。既存のQt SDK・vcpkg checkout・
-buildtreeを再利用するときは、baseline・triplet・compiler・SDKの一致を確認します。
-Releaseでも自コードのPDBを生成します。PDBとexeは同じbuildの組を保持してください。
-起動時にはQt、`vcpkg_installed/x64-windows-release/bin`、Qt pluginsを探索できる必要があります。
-通常のbuildだけでは公式Qt SDKのDLL・plugin・WebEngine資源をexeの隣へコピーしません。
-READMEのPowerShellで探索先を設定して起動するか、Explorerから起動する場合は
-`stage_validation.py`で作った検証用フォルダのexeを使用します。具体例はREADMEを参照してください。
+Use `VCPKG_BINARY_SOURCES` to select a dedicated binary cache. Before reusing a Qt
+SDK, vcpkg checkout, or build tree, check the baseline, triplet, compiler, and SDK.
+Release builds generate PDBs for the application's own code. Keep each PDB with the
+executable from the same build.
+
+At runtime, Qt, `vcpkg_installed/x64-windows-release/bin`, and Qt plugins must be
+discoverable. A normal build does not copy official Qt SDK DLLs, plugins, or
+WebEngine resources next to the executable. Set the search paths in PowerShell as
+shown in the README, or use the executable in a `stage_validation.py` validation
+folder when launching from Explorer. See the README for examples.
 
 ## macOS
 
-初回対象はApple Silicon/arm64です。Homebrew、compiler、依存のアーキテクチャを揃えます。
-CMakeの `cmake/Homebrew.cmake` が関連formulaのprefixを調べます。明示した
-`CMAKE_PREFIX_PATH` 等を優先し、分割したQt moduleの探索にも使います。
-`brew link --force` は不要です。自動探索を使わない場合は
-`-DKOMAMIMIC_USE_HOMEBREW=OFF` と必要なprefixを指定します。
+The initial target is Apple Silicon/arm64. Match the architectures of Homebrew,
+the compiler, and all dependencies. `cmake/Homebrew.cmake` discovers the prefixes of
+relevant formulae, including split Qt modules, while respecting explicit settings
+such as `CMAKE_PREFIX_PATH`. No `brew link --force` is needed. To disable automatic
+discovery, pass `-DKOMAMIMIC_USE_HOMEBREW=OFF` and provide the required prefixes.
 
 ## Linux
 
-Fedora 44の依存例はREADMEにあります。他のdistributionでは同等の開発パッケージが必要です。
-Qt DBusは消灯抑制に使います。ない場合はその機能だけ利用不可になります。
-別Qtを使う場合は新しいbuildで `-DCMAKE_PREFIX_PATH=/path/to/Qt/6.x/gcc_64` を指定します。
+The README lists Fedora 44 dependencies. Other distributions require equivalent
+development packages. Qt DBus provides display-sleep inhibition; without it, only
+that feature is unavailable. To select another Qt installation, configure a new
+build with `-DCMAKE_PREFIX_PATH=/path/to/Qt/6.x/gcc_64`.
 
-## 開発ビルドと配布物
+## Development builds and distribution packages
 
-本体と `komamimic-script-worker` を同じ出力先で保持します。
-CMakeのinstall ruleだけではQt/WebEngine/codec等の依存を配布用に揃えられません。
-テストは[自動テスト](testing.md)、配置は[パッケージング](packaging.md)を参照してください。
+Keep the application and `komamimic-script-worker` in the same output location.
+CMake install rules alone do not assemble Qt, WebEngine, codecs, and other runtime
+dependencies for distribution. See [automated tests](testing.md) and
+[packaging](packaging.md).

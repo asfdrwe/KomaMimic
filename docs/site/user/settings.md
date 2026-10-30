@@ -1,5 +1,7 @@
 # 設定・読書データ・キャッシュ
 
+日本語 | [English](../en/user/settings.md)
+
 ## 設定と読書データ
 
 通常起動ではOS標準の設定場所に `settings.ini` を保存します。

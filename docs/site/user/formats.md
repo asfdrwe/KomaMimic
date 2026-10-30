@@ -1,5 +1,7 @@
 # 対応形式と制限
 
+日本語 | [English](../en/user/formats.md)
+
 | 種類 | 主な対応 |
 |---|---|
 | 画像 | JPEG、PNG、BMP、GIF、WebP、TIFFなど、導入済みQt画像pluginが扱う形式 |

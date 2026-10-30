@@ -1,5 +1,7 @@
 # 同梱readerとfilter
 
+日本語 | [English](../en/scripts/bundled.md)
+
 同梱packageはアプリに組み込まれ、追加設定なしで使えます。
 編集用ソースはリポジトリの `scripts/readers/` にあります。
 単独のファイル・フォルダ・書庫・サムネイルで共通のreaderを使用します。

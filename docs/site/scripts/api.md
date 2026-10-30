@@ -1,5 +1,7 @@
 # JavaScript API 1
 
+日本語 | [English](../en/scripts/api.md)
+
 アプリの版とは独立したAPI番号で、manifestの `apiVersion` は `1` です。
 ES module、Node.jsのrequire、Promiseを返す非同期関数は使いません。
 通常の関数として `decode`、必要な場合は `inspect` または `filter` を定義します。

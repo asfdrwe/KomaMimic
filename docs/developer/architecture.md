@@ -1,38 +1,41 @@
-# 基本構造
+# Architecture
 
-KomaMimicはQt WidgetsのGUI、読込・編集を担うコア、JavaScriptを処理する
-別実行ファイルから構成されます。文書表示にはQt WebEngineを使用します。
+KomaMimic consists of a Qt Widgets GUI, a core that loads and edits books, and a
+separate executable that runs JavaScript. Document rendering uses Qt WebEngine.
 
-| 領域 | 入口 | 役割 |
+| Area | Entry points | Responsibility |
 |---|---|---|
-| 起動・CLI・IPC | `src/main.cpp`、`startup.cpp` | 引数、設定、既存ウィンドウへの転送 |
-| 本・書庫 | `book.*`、`archivepath.*`、`archivenames.*` | 入力の識別、ページ列、名前・文字コード |
-| GUI | `mainwindow*`、`pageview.*`、`thumbnailgrid.*` | 一覧、読書、メニュー、全画面 |
-| 操作 | `shortcuts.*`、`readerfeatures.*`、`readerinput.*` | 操作ID、キー・マウス・ゲームパッド |
-| 文書 | `documentsource.*`、`publication.*`、`documentview.*`、`documentsettings.*` | TXT/Markdown/EPUB、資源、組版、読書位置 |
-| 画像・出力 | `imageprocessing.*`、`bookexport.*`、`media.*`、`pdfsource.*` | 加工、アニメーション、保存、PDF |
-| スクリプト | `scriptreader.*`、`scriptworker.cpp`、`scripts/readers/` | 登録、検査、workerとの通信、API 1 |
-| 永続化 | `librarystore.*`、`thumbnailcache.*` | 本棚・履歴、サムネイルのディスク保存 |
-| OS連携 | `idleinhibitor.*`、`power_*`、`inhibitprotocol.*` | 読書中の自動消灯抑制 |
-| 移行 | `legacysettings.*`、`legacysettingsdialog.cpp` | INIの変換計画、確認、バックアップ |
-| 配布 | `tools/`、`cmake/` | ソース選別、検証セット、runtime配置 |
+| Startup, CLI, IPC | `src/main.cpp`, `startup.cpp` | Arguments, settings, forwarding to an existing window |
+| Books and archives | `book.*`, `archivepath.*`, `archivenames.*` | Input identification, page sequences, names and encodings |
+| GUI | `mainwindow*`, `pageview.*`, `thumbnailgrid.*` | Lists, reading, menus, full screen |
+| Controls | `shortcuts.*`, `readerfeatures.*`, `readerinput.*` | Action IDs, keyboard, mouse, gamepad |
+| Documents | `documentsource.*`, `publication.*`, `documentview.*`, `documentsettings.*` | TXT/Markdown/EPUB, resources, layout, reading position |
+| Images and output | `imageprocessing.*`, `bookexport.*`, `media.*`, `pdfsource.*` | Processing, animation, saving, PDF |
+| Scripts | `scriptreader.*`, `scriptworker.cpp`, `scripts/readers/` | Registration, validation, worker communication, API 1 |
+| Persistence | `librarystore.*`, `thumbnailcache.*` | Bookshelves and history, thumbnail disk storage |
+| OS integration | `idleinhibitor.*`, `power_*`, `inhibitprotocol.*` | Preventing automatic display sleep while reading |
+| Migration | `legacysettings.*`, `legacysettingsdialog.cpp` | INI conversion plans, review, backup |
+| Distribution | `tools/`, `cmake/` | Public source selection, validation kits, runtime deployment |
 
-## 入力から表示まで
+## From input to display
 
-GUIからの要求は本の識別とページ選択を経て、画像読込または文書解析へ進みます。
-画像はnative codec、PDF、またはscript workerで復号し、表示用加工とキャッシュへ渡します。
-TXT/Markdown/EPUBはPublicationと文書設定を使ってWebEngineへ表示します。
+A GUI request identifies the book and selects pages, then loads images or parses a
+document. Images are decoded by native codecs, the PDF backend, or a script worker,
+then passed to display processing and caching. TXT/Markdown/EPUB use Publication and
+document settings to render in WebEngine.
 
-非同期処理は世代番号と取消を確認し、古い本の結果で現在の表示を更新しません。
-サムネイルは本体の画像処理やEPUB表紙抽出と共通の識別を使います。
-キャッシュhitでも原本の変更検査を迂回させないことが必要です。
+Asynchronous work checks generation numbers and cancellation so results for an old
+book cannot update the current display. Thumbnails share identification with core
+image processing and EPUB cover extraction. A cache hit must not bypass checks for
+changes to the original input.
 
-## 変更時に維持する境界
+## Boundaries to preserve
 
-- Bookの論理ページ列・表示名・原本byte列・書庫entryを区別します。
-- 文書の本文位置と画像のページ番号・見開き設定を分離します。
-- 入力欄の操作と読書用ショートカットの有効範囲を分離します。
-- JavaScriptへQObject・任意のfilesystem/network/process能力を公開しません。
-- 設定・履歴は実行時データです。テストは一時プロファイルを使用します。
+- Keep Book's logical page sequence, display names, original bytes, and archive entries distinct.
+- Separate document text positions from image page numbers and spread settings.
+- Keep text-field editing separate from the scope of reading shortcuts.
+- Do not expose QObject or arbitrary filesystem, network, or process capabilities to JavaScript.
+- Settings and history are runtime data. Tests use temporary profiles.
 
-具体的な制限は[仕様](specification.md)、変更結果の確認は[自動テスト](testing.md)を参照してください。
+See the [specification](specification.md) for limits and [automated tests](testing.md)
+for verifying changes.

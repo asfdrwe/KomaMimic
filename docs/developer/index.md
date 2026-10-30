@@ -1,15 +1,16 @@
-# 本体開発者向け文書
+# Core developer documentation
 
-本体の変更・検証・配布を行う開発者向けの日本語文書です。
-利用者とスクリプト開発者には[専用の文書](../site/index.md)があります。
+These documents cover changes, validation, and distribution of the application core.
+Users and script developers have a [separate guide](../site/en/index.md), also available
+[in Japanese](../site/index.md).
 
-1. [基本構造](architecture.md)
-2. [仕様と実装上の境界](specification.md)
-3. [開発環境とビルド](building.md)
-4. [自動テスト](testing.md)・[実機検証](platform-validation.md)
-5. [パッケージング](packaging.md)
+1. [Architecture](architecture.md)
+2. [Specification and implementation boundaries](specification.md)
+3. [Development environment and builds](building.md)
+4. [Automated tests](testing.md) and [native platform validation](platform-validation.md)
+5. [Packaging](packaging.md)
 6. [CI](ci.md)
-7. [翻訳](translations.md)・[アイコン](icons.md)
-8. [更新履歴](changelog.md)
+7. [UI translations](translations.md) and [icons](icons.md)
+8. [Changelog](changelog.md)
 
-各手順はリポジトリのルートを基準にします。
+Run commands from the repository root unless stated otherwise.

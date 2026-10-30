@@ -1,87 +1,107 @@
-# パッケージング
+# Packaging
 
-この文書は開発者向けの配置手順と残る配布工程です。利用者向けのインストール・
-アンインストール手順は、GitHub Actionsで生成した成果物を確認してから作成します。
+This page describes developer deployment procedures and distribution requirements.
+User installation, update, and removal instructions are in the
+[installation guide](../site/en/user/install.md), based on reviewed Actions artifacts.
 
-## ソース
+## Source
 
 ```sh
 python3 tools/check_source.py
 python3 tools/prepare_release.py --output ../tmp/source-release-01
 ```
 
-公開選択だけを含むtar.gz、SOURCE_MANIFEST.json、SHA256SUMSを新規出力します。
-同じsource・epoch・生成環境では時刻・所有者・modeを正規化して再現可能にします。
-この処理はGitのcommit・tag・pushやGitHub Releaseの公開を行いません。
+This creates a new tar.gz, SOURCE_MANIFEST.json, and SHA256SUMS containing only the
+public selection. Timestamps, owners, and modes are normalized for reproducibility
+with the same source, epoch, and generation environment. It does not commit, tag,
+push, or publish a GitHub Release.
 
-## 検証用runtime
+## Validation runtimes
 
 ```sh
 python3 tools/stage_validation.py --build-dir ../tmp/build-native --output ../tmp/stage-native-01
 ```
 
-| OS | 現在の配置処理 | 確認するもの |
+| OS | Current deployment | Checks |
 |---|---|---|
-| Windows x64 | Qt deploymentと非Qt DLL、配布ZIP候補、別ZIPの自作PDB | 全PEの通常/遅延import、再展開後のCLI/worker/reader、WebEngine資源、画像/SQLite plugin、翻訳 |
-| macOS arm64 | .app ZIP・公証なしDMG、macdeployqt、依存再配置、ad-hoc署名 | helper、dylib、Qt resources、entitlements、codesign/otool/architecture、再展開・mount後の読込、Finder起動 |
-| Linux x64 | Rocky 8でbuild/test後、AppDirの依存を再配置しAppImage化 | 本体/worker、desktop/icon、Qt plugin、WebEngine資源、glibc要件、別環境での読込 |
+| Windows x64 | Qt deployment and non-Qt DLLs, distribution ZIP candidate, separate ZIP of the application's own PDBs | Normal/delay imports of all PE files, CLI/worker/readers after re-extraction, WebEngine resources, image/SQLite plugins, translations |
+| macOS arm64 | .app ZIP and unnotarized DMG, macdeployqt, dependency relocation, ad-hoc signing | Helpers, dylibs, Qt resources, entitlements, codesign/otool/architectures, reading after re-extraction and mounting, Finder startup |
+| Linux x64 | Build/test on Rocky 8, relocate AppDir dependencies, create AppImage | Application/worker, desktop entry/icon, Qt plugins, WebEngine resources, glibc requirements, reading in another environment |
 
-sdl2-compatがSDL3を実行時ロードする構成では、静的な依存検査だけでは不足します。
-macOSのhelperはSDL3を明示配置し、実行時に要求される名前も用意します。
-macOSのad-hoc署名とAppleの公証は別です。初回配布の公証は行わない方針です。
-LinuxのActions生成は[CIのAppImage workflow](ci.md#rocky-8でのlinux-appimage生成)を参照してください。
-`tools/build_appimage.py`がCMake install後の依存・資源配置、相対RPATH、glibc要求の検査、
-hash固定したツールによる圧縮、取得候補の検査を行います。AppImage内は検証待ちの候補と表示します。
-Qt WebEngineとQt TIFF pluginはRPMを使用し、PopplerをTIFF ABI 6に対してビルドします。
-Popplerのデータ、適用patchと対応ソースも同梱します。TIFF ABI 5/6の混在は生成時に拒否します。
+Static dependency checks alone are insufficient when sdl2-compat loads SDL3 at
+runtime. The macOS helper deploys SDL3 explicitly and supplies the names requested
+at runtime. Ad-hoc signing and Apple notarization are separate; the initial macOS
+distribution is not notarized.
 
-## Windows配布ZIP候補
+See the [AppImage workflow](ci.md#linux-appimage-generation-on-rocky-8).
+`tools/build_appimage.py` deploys dependencies and resources after CMake install,
+checks relative RPATHs and glibc requirements, compresses with checksum-pinned tools,
+and checks the candidate. The AppImage identifies itself as a candidate awaiting
+verification. Qt WebEngine and the Qt TIFF plugin use RPMs; Poppler is built against
+TIFF ABI 6. Poppler data, applied patches, and corresponding source are bundled.
+Packaging rejects a mixture of TIFF ABI 5 and 6.
 
-Windows上で、同じソースをビルド・platform検証した後に実行します。出力先は新規フォルダーにします。
+## Windows distribution ZIP candidates
+
+Run on Windows after building and platform-testing the same source. Use new output
+directories.
 
 ```powershell
 python tools/stage_validation.py --build-dir ../tmp/build-windows-fast --output ../tmp/stage-windows-01
 python tools/package_windows.py pack --build-dir ../tmp/build-windows-fast --stage ../tmp/stage-windows-01 --output ../tmp/windows-zip-01
 ```
 
-`KomaMimic-1.0.0-windows-x86_64.zip`は、単一フォルダー内の`komamimic.exe`から起動する構成です。
-worker、依存DLL、Qt plugin・WebEngine資源・翻訳・読込スクリプト・通知原文・build情報を含みます。
-自作PDBは`symbols/`の別ZIPです。Windows標準DLLと、Microsoft公式Visual C++ v14 x64
-再頒布可能パッケージを前提条件として扱い、SDK内の任意のMSVC DLLを追加同梱しません。
+`KomaMimic-1.0.0-windows-x86_64.zip` launches through `komamimic.exe` in a single
+folder. It includes the worker, dependency DLLs, Qt plugins, WebEngine resources,
+translations, reader scripts, original notices, and build information. The
+application's own PDBs are in a separate ZIP under `symbols/`. Windows system DLLs
+and Microsoft's official Visual C++ v14 x64 Redistributable are prerequisites;
+arbitrary MSVC DLLs from the SDK are not added to the package.
 
-stageの全hashと公開ソース内容を照合してから圧縮し、再展開した実物をSDK/vcpkgのPATHなしで検査します。
-本体ソースとchecksumも新規出力します。手順・artifactの構成と未確認範囲は
-[WindowsのCI](ci.md#windows-x86_64の配布zip候補)を参照してください。
-本体のソース出力と、同梱した第三者依存の必要な対応ソースの収集は別工程です。
+All stage hashes and public source contents are checked before compression. The
+actual re-extracted package is tested without Qt/vcpkg PATH entries. Application
+source and checksums are also generated. See [Windows CI](ci.md#windows-x86_64-distribution-zip-candidates)
+for the procedure, artifact layout, and checks that need separate confirmation.
+Exporting application source and collecting required corresponding source for
+bundled third-party dependencies are separate tasks.
 
-## macOS arm64の配布候補
+## macOS arm64 distribution candidates
 
-ネイティブarm64のRelease buildを`BUILD_TESTING=ON`、`CMAKE_OSX_ARCHITECTURES=arm64`で作り、
-full検証後に同じソースで実行します。各出力先は新規フォルダーにします。
+Create a native arm64 Release build with `BUILD_TESTING=ON` and
+`CMAKE_OSX_ARCHITECTURES=arm64`. After full validation, run with the same source,
+using new output directories.
 
 ```sh
 python3 tools/stage_validation.py --build-dir ../tmp/build-macos --output ../tmp/stage-macos-01
 python3 tools/package_macos.py --build-dir ../tmp/build-macos --stage ../tmp/stage-macos-01 --output ../tmp/macos-dmg-01
 ```
 
-stageには、本体/workerと同じdeployment処理でload pathを修正した検査用probeも保存します。
-配布用.appへはprobeを含めません。元のstageのhash・symlink・ソース内容を確認した後に、
-通知/build情報を加えて外側を署名し直します。実行modeとframeworkの内部symlinkを保持した
-`.app.zip`と、KomaMimic.app/Applicationsリンクを入れた`.dmg`を作ります。
-DMGの検証・read-only mount・コピー後のCLI/worker/native readerまで通った場合だけ
-checksumと本体ソースを出力します。
+The stage also retains a validation probe whose load paths are repaired by the same
+deployment pass as the application and worker. The distribution app excludes that
+probe. After verifying stage hashes, symlinks, and source contents, the packager adds
+notices and build information, then reseals the outer app. It creates an `.app.zip`
+that preserves executable modes and internal framework symlinks, and a `.dmg` with
+KomaMimic.app and an Applications link. Checksums and application source are emitted
+only after DMG verification, read-only mounting, and CLI/worker/native-reader checks
+on a copied installation all pass.
 
-署名はad-hocで、公証は行いません。Developer ID・公証に必要なcredentialを要求しません。
-処理・artifact・macOSで確認する範囲は[macOSのCI](ci.md#macos-arm64のappと公証なしdmg候補)を参照してください。
-取得物をブラウザーからダウンロードした際のFinder/Gatekeeper確認と、全依存通知/対応ソースの
-最終照合は別途行います。利用者向けmacOS導入文書は取得物の確認後に追加します。
+Signing is ad-hoc; no notarization is performed. No Developer ID or notarization
+credentials are required. See [macOS CI](ci.md#macos-arm64-app-and-unnotarized-dmg-candidates)
+for the process, artifacts, and native checks. Browser-downloaded Finder/Gatekeeper
+checks and the final audit of dependency notices and corresponding source are
+separate. The user guide documents the verified
+[macOS installation procedure](../site/en/user/install.md#macos-dmg).
 
-## 正式配布への条件
+## Requirements for public distribution
 
-CIの各OSビルド・試験・配置・artifactを確立し、実際の取得物で起動と主要操作を確認します。
-同梱した依存の正確な版、ライセンスと著作権表示、必要な対応ソース、patch、ビルド情報、
-checksumを揃えます。詳細はREADMEの[配布条件](../../README.md#distribution)と
-[第三者通知](../../README.md#third-party-libraries-and-code)です。
-検証ZIPができたことだけで一般向け配布の準備完了とはしません。
+Verify each OS's CI build, tests, deployment, and artifacts, then confirm startup
+and key operations using the downloaded artifacts. Assemble exact bundled dependency
+versions, license and copyright notices, required corresponding source, patches,
+build information, and checksums. See the README's
+[distribution requirements](../../README.md#distribution) and
+[third-party notices](../../README.md#third-party-libraries-and-code).
+A working validation ZIP alone does not complete general distribution preparation.
 
-この結果をもとに、OS別インストール・更新・アンインストールと初回起動の文書を書きます。
+Keep OS-specific installation, update, removal, and first-launch instructions aligned
+with the reviewed artifacts. Tag-triggered Release publication and the final
+dependency/source audit remain separate from candidate packaging.
