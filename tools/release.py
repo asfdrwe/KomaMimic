@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Validate a stable tag, assemble tested artifacts, and publish a complete release.
 
-Only the explicit publish subcommand contacts GitHub. Validation and assembly are
+Only the explicit publish/resume subcommands contact GitHub. Validation and assembly are
 read-only with respect to Git and never create tags or modify existing outputs.
 """
 import argparse
@@ -16,6 +16,7 @@ import stat
 import subprocess
 import tarfile
 import tempfile
+from urllib.parse import quote
 import zipfile
 
 from export_source import public_files
@@ -305,17 +306,34 @@ class GitHub:
             raise ValueError('Invalid repository')
         self.repository = repository
 
-    def command(self, *args):
-        subprocess.run(['gh', *args, '--repo', self.repository], check=True, timeout=900)
-
-    def api(self, endpoint, missing=False):
-        result = subprocess.run(['gh', 'api', 'repos/' + self.repository + endpoint],
-                                capture_output=True, text=True, timeout=120)
+    def api(self, endpoint, missing=False, *, method='GET', data=None, input_file=None):
+        target = 'repos/' + self.repository + endpoint
+        if endpoint.startswith('https://'):
+            if not endpoint.startswith('https://uploads.github.com/repos/' + self.repository + '/'):
+                raise ValueError('Unexpected upload endpoint')
+            target = endpoint
+        command = ['gh', 'api', target, '--method', method]
+        options = dict(capture_output=True, text=True, timeout=900 if input_file else 120)
+        if data is not None:
+            command += ['--input', '-', '-H', 'Content-Type: application/json']
+            options['input'] = json.dumps(data)
+        if input_file is not None:
+            command += ['--input', str(input_file), '-H', 'Content-Type: application/octet-stream',
+                        '-H', 'Content-Length: ' + str(input_file.stat().st_size)]
+        result = subprocess.run(command, **options)
         if result.returncode:
-            if missing and '(HTTP 404)' in result.stderr:
+            if missing and method == 'GET' and '(HTTP 404)' in result.stderr:
                 return None
             raise RuntimeError('GitHub API failed: ' + result.stderr.strip())
         return json.loads(result.stdout)
+
+    def get_release(self, release_id):
+        if type(release_id) is not int or release_id <= 0:
+            raise ValueError('Invalid release ID')
+        record = self.api('/releases/' + str(release_id))
+        if record.get('id') != release_id:
+            raise ValueError('Release ID changed')
+        return record
 
     def tag_commit(self, tag):
         record = self.api('/git/ref/tags/' + tag)['object']
@@ -349,14 +367,23 @@ class GitHub:
             page += 1
 
     def create(self, tag, commit, notes):
-        self.command('release', 'create', tag, '--draft', '--verify-tag', '--target', commit,
-                     '--title', 'KomaMimic ' + tag, '--notes-file', str(notes))
+        # publish() has verified the existing remote tag. Keep the authoritative
+        # creation response instead of immediately searching tag/list indexes.
+        return self.api('/releases', method='POST', data=dict(
+            tag_name=tag, target_commitish=commit, name='KomaMimic ' + tag,
+            body=notes.read_text(encoding='utf-8'), draft=True, prerelease=False))
 
-    def upload(self, tag, path):
-        self.command('release', 'upload', tag, str(path))  # Never --clobber.
+    def upload(self, release_id, path):
+        if type(release_id) is not int or release_id <= 0:
+            raise ValueError('Invalid release ID')
+        self.api('https://uploads.github.com/repos/' + self.repository + '/releases/'
+                 + str(release_id) + '/assets?name=' + quote(path.name, safe=''),
+                 method='POST', input_file=path)  # A duplicate name fails; never replace.
 
-    def publish(self, tag):
-        self.command('release', 'edit', tag, '--draft=false', '--verify-tag')
+    def publish(self, release_id):
+        if type(release_id) is not int or release_id <= 0:
+            raise ValueError('Invalid release ID')
+        self.api('/releases/' + str(release_id), method='PATCH', data=dict(draft=False))
 
     def asset_digest(self, asset, directory):
         if asset.get('digest'):
@@ -394,16 +421,23 @@ def check_draft_commit(record, commit):
         raise ValueError('Existing draft belongs to another commit')
 
 
-def publish(directory, tag, commit, github):
+def publish(directory, tag, commit, github, existing_release_id=None):
     expected = verify_bundle(directory, tag, commit)
     if github.tag_commit(tag) != commit:
         raise ValueError('Remote tag moved or differs from the build')
-    record = github.release(tag)
+    record = (github.get_release(existing_release_id) if existing_release_id is not None
+              else github.release(tag))
     if record is None:
-        github.create(tag, commit, directory / 'RELEASE_NOTES.md')
-        record = github.release(tag)
+        if existing_release_id is not None:
+            raise ValueError('Existing release was not found')
+        record = github.create(tag, commit, directory / 'RELEASE_NOTES.md')
     if record is None or record['tag_name'] != tag or record.get('prerelease'):
         raise ValueError('Unexpected release record')
+    release_id = record.get('id')
+    if type(release_id) is not int or release_id <= 0:
+        raise ValueError('Missing release ID')
+    if existing_release_id is not None and release_id != existing_release_id:
+        raise ValueError('Release ID changed')
     if not record['draft']:
         check_remote_assets(github, record, directory, expected)
         print('Matching release is already published; no changes made')
@@ -411,17 +445,19 @@ def publish(directory, tag, commit, github):
     check_draft_commit(record, commit)
     uploaded = check_remote_assets(github, record, directory, expected, subset=True)
     for name in sorted(expected.keys() - uploaded):
-        github.upload(tag, directory / name)
-    record = github.release(tag)
-    if not record or not record['draft'] or record['tag_name'] != tag or record.get('prerelease'):
+        print('Uploading verified asset: ' + name, flush=True)
+        github.upload(release_id, directory / name)
+    record = github.get_release(release_id)
+    if (not record or record.get('id') != release_id or not record['draft']
+            or record['tag_name'] != tag or record.get('prerelease')):
         raise ValueError('Draft changed during upload')
     check_draft_commit(record, commit)
     check_remote_assets(github, record, directory, expected)
     if github.tag_commit(tag) != commit:
         raise ValueError('Remote tag moved during upload')
-    github.publish(tag)
-    record = github.release(tag)
-    if not record or record['draft'] or record['tag_name'] != tag:
+    github.publish(release_id)
+    record = github.get_release(release_id)
+    if not record or record.get('id') != release_id or record['draft'] or record['tag_name'] != tag:
         raise ValueError('Release was not published')
     check_remote_assets(github, record, directory, expected)
     print('Published complete release: ' + tag)
@@ -444,6 +480,10 @@ def main():
             command.add_argument('--bundle', type=Path, required=True)
         if name == 'publish':
             command.add_argument('--repo', required=True)
+    resume = commands.add_parser('resume', help='Administrator recovery using an existing release ID and verified bundle')
+    resume.add_argument('--bundle', type=Path, required=True)
+    resume.add_argument('--repo', required=True)
+    resume.add_argument('--release-id', type=int, required=True)
     args = parser.parse_args()
     if args.command == 'validate':
         info = validate_checkout(ROOT, args.tag, args.commit, args.require_tag)
@@ -455,6 +495,18 @@ def main():
         assemble(ROOT, args.inputs.resolve(), args.output.resolve(), args.tag, args.commit)
     elif args.command == 'verify':
         verify_bundle(args.bundle.resolve(), args.tag, args.commit)
+    elif args.command == 'resume':
+        # An older, already-built tag may need a repaired publisher from a newer
+        # checkout. Identity comes from the complete bundle and the remote tag,
+        # not this checkout's HEAD. Never create a release in recovery mode.
+        directory = args.bundle.resolve()
+        identity = json.loads(file_at(directory, 'RELEASE_MANIFEST.json').read_text(encoding='utf-8'))
+        tag, commit = identity.get('tag', ''), identity.get('commit', '')
+        if not re.fullmatch('v' + VERSION, tag) or not re.fullmatch(COMMIT, commit):
+            raise ValueError('Invalid recovery bundle identity')
+        if args.release_id <= 0:
+            raise ValueError('Invalid release ID')
+        publish(directory, tag, commit, GitHub(args.repo), existing_release_id=args.release_id)
     else:
         if os.environ.get('GITHUB_EVENT_NAME') != 'push' or os.environ.get('GITHUB_REF') != 'refs/tags/' + str(args.tag):
             raise ValueError('Publishing is only enabled for the matching tag push')

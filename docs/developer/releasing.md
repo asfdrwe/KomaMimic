@@ -103,10 +103,16 @@ default branch before tagging it. The administrator then creates and pushes the
 matching tag. No Apple secret or PAT is required for this path; the publish job
 uses `GITHUB_TOKEN`.
 
-`tools/release.py` creates a draft with `gh release create --verify-tag --draft`.
-It uploads without `--clobber`, checks asset names, uploaded states, sizes, and
-SHA-256 digests, and only then removes draft status. If GitHub omits a digest, it
-downloads the asset and checks its bytes. It does not pass a latest-release override.
+`tools/release.py` checks the existing remote tag, creates a draft through the
+Release API, and retains the creation response's numeric Release ID. Subsequent
+uploads, reads, and publication use that ID. This avoids relying on a newly
+created draft appearing immediately in a tag search or release listing. A draft's
+`untagged-...` browser URL does not mean that its selected tag is incorrect.
+
+Uploads never replace an existing asset. The helper checks asset names, uploaded
+states, sizes, and SHA-256 digests, and only then removes draft status. If GitHub
+omits a digest, it downloads the asset and checks its bytes. It does not pass a
+latest-release override or create/move a Git tag as a separate operation.
 
 A failure before publication leaves no public Release; an upload failure can
 leave a partial draft. Re-run the failed jobs in the same run to reuse successful
@@ -115,7 +121,25 @@ assets are uploaded. Conflicting assets or a draft explicitly recording another 
 process. A matching already-published Release is left unchanged; different
 published assets are never replaced. Do not move a public tag to retry a build.
 
+If an older tag's run fails only in publication, re-running that run still uses
+the helper stored at that tag. After repairing the helper, an administrator can
+resume publication of the **original verified bundle** to an existing Release ID:
+
+```sh
+python3 tools/release.py resume --repo OWNER/REPOSITORY \
+  --release-id 123456 --bundle ../tmp/release-recovery/bundle
+```
+
+This command publishes after verification; it is not a dry run. Use authenticated
+`gh` or an existing `GH_TOKEN` with repository contents write access. Download the
+`komamimic-release-bundle` artifact from the failed tag run first. The command
+requires the specified Release to exist and checks its tag, commit metadata,
+remote tag commit, and all asset hashes. It never creates a replacement Release
+or overwrites conflicting assets. The helper checkout may be newer than the
+bundle; the built application's source, manifests, and tag remain unchanged.
+No native rebuild or tag replacement is required for a publisher-only repair.
+
 References: [reusable workflows](https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows),
-[GitHub CLI release creation](https://cli.github.com/manual/gh_release_create),
-[asset upload](https://cli.github.com/manual/gh_release_upload), and
-[release editing](https://cli.github.com/manual/gh_release_edit).
+[Release API](https://docs.github.com/en/rest/releases/releases),
+[asset upload API](https://docs.github.com/en/rest/releases/assets#upload-a-release-asset), and
+[GitHub CLI API requests](https://cli.github.com/manual/gh_api).

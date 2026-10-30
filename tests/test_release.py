@@ -41,8 +41,14 @@ class FakeGitHub:
 
     def create(self, tag, commit, notes):
         self.events.append('create-draft')
-        self.record = dict(tag_name=tag, target_commitish=commit, draft=True,
+        self.record = dict(id=42, tag_name=tag, target_commitish=commit, draft=True,
                            prerelease=False, assets=[])
+        return copy.deepcopy(self.record)
+
+    def get_release(self, release_id):
+        if not self.record or self.record['id'] != release_id:
+            raise ValueError('Unknown release ID')
+        return copy.deepcopy(self.record)
 
     def upload(self, tag, path):
         self.events.append('upload:' + path.name)
@@ -306,6 +312,17 @@ class ReleaseTests(unittest.TestCase):
         release.publish(self.output, TAG, COMMIT, remote)
         self.assertEqual(events, remote.events)
 
+    def test_created_draft_survives_missing_immediate_tag_lookup(self):
+        self.assemble()
+        remote = FakeGitHub()
+        # GitHub creation returns the draft, but a subsequent tag/list lookup
+        # can still miss it. Keep the create response and verify by its ID.
+        remote.release = mock.Mock(return_value=None)
+        release.publish(self.output, TAG, COMMIT, remote)
+        self.assertFalse(remote.record['draft'])
+        self.assertEqual(remote.release.call_count, 1)
+        self.assertEqual(remote.events.count('create-draft'), 1)
+
     def test_failed_upload_stays_draft_and_can_resume_without_replacing_assets(self):
         self.assemble()
         remote = FakeGitHub()
@@ -369,18 +386,33 @@ class ReleaseTests(unittest.TestCase):
                                                          {'object': {'type': 'commit', 'sha': COMMIT}}]):
             self.assertEqual(remote.tag_commit(TAG), COMMIT)
 
-    def test_github_commands_require_existing_tag_and_do_not_clobber(self):
+    def test_github_create_preserves_response_and_uses_structured_json(self):
         remote = release.GitHub('owner/repository')
-        with mock.patch.object(release.subprocess, 'run') as run:
-            remote.create(TAG, COMMIT, Path('notes.md'))
-            remote.upload(TAG, Path('asset.zip'))
-            remote.publish(TAG)
+        notes = self.base / 'notes.md'
+        text = 'Release notes\n日本語 "quotes", $(literal), `literal`\n'
+        notes.write_text(text, encoding='utf-8')
+        asset = self.base / 'asset +.zip'
+        asset.write_bytes(b'raw binary fixture\0\xff')
+        record = dict(id=42, tag_name=TAG, draft=True, prerelease=False)
+        result = subprocess.CompletedProcess([], 0, json.dumps(record), '')
+        with mock.patch.object(release.subprocess, 'run', return_value=result) as run:
+            self.assertEqual(remote.create(TAG, COMMIT, notes), record)
+            remote.upload(42, asset)
+            remote.publish(42)
         create, upload, publish = [c.args[0] for c in run.call_args_list]
-        self.assertIn('--verify-tag', create)
-        self.assertIn('--draft', create)
-        self.assertIn('--notes-file', create)
+        self.assertEqual(create, ['gh', 'api', 'repos/owner/repository/releases',
+                                  '--method', 'POST', '--input', '-', '-H', 'Content-Type: application/json'])
+        self.assertEqual(json.loads(run.call_args_list[0].kwargs['input']), dict(
+            tag_name=TAG, target_commitish=COMMIT, draft=True, prerelease=False,
+            name='KomaMimic ' + TAG, body=text))
+        self.assertEqual(upload[2], 'https://uploads.github.com/repos/owner/repository/releases/42/assets?name=asset%20%2B.zip')
+        self.assertEqual(upload[3:], ['--method', 'POST', '--input', str(asset),
+                                     '-H', 'Content-Type: application/octet-stream',
+                                     '-H', 'Content-Length: ' + str(asset.stat().st_size)])
         self.assertNotIn('--clobber', upload)
-        self.assertIn('--verify-tag', publish)
+        self.assertEqual(publish, ['gh', 'api', 'repos/owner/repository/releases/42',
+                                  '--method', 'PATCH', '--input', '-', '-H', 'Content-Type: application/json'])
+        self.assertEqual(json.loads(run.call_args_list[2].kwargs['input']), {'draft': False})
         self.assertNotIn('--latest', publish)
 
     def test_missing_remote_digest_is_checked_using_downloaded_bytes(self):
@@ -405,7 +437,7 @@ class ReleaseTests(unittest.TestCase):
     def test_draft_lookup_falls_back_to_paginated_authenticated_listing(self):
         remote = release.GitHub('owner/repository')
         others = [{'tag_name': 'v0.0.' + str(i)} for i in range(100)]
-        draft = dict(tag_name=TAG, draft=True, target_commitish='main', assets=[])
+        draft = dict(id=42, tag_name=TAG, draft=True, target_commitish='main', assets=[])
         with mock.patch.object(remote, 'api', side_effect=[None, others, [draft]]) as api:
             self.assertEqual(remote.release(TAG), draft)
         self.assertEqual(api.call_args_list[-1].args[0], '/releases?per_page=100&page=2')
@@ -427,6 +459,118 @@ class ReleaseTests(unittest.TestCase):
                 mock.patch.object(release, 'GitHub') as github, self.assertRaisesRegex(ValueError, 'only enabled'):
             release.main()
         github.assert_not_called()
+
+    def test_get_release_uses_exact_numeric_id_and_rejects_wrong_response(self):
+        remote = release.GitHub('owner/repository')
+        with mock.patch.object(remote, 'api', return_value={'id': 42}) as api:
+            self.assertEqual(remote.get_release(42), {'id': 42})
+            api.assert_called_once_with('/releases/42')
+        with mock.patch.object(remote, 'api', return_value={'id': 43}), self.assertRaisesRegex(ValueError, 'ID changed'):
+            remote.get_release(42)
+        for value in (0, -1, True, '42', '../42'):
+            with self.subTest(value=value), mock.patch.object(remote, 'api') as api, self.assertRaisesRegex(ValueError, 'Invalid release ID'):
+                remote.get_release(value)
+            api.assert_not_called()
+
+    def test_missing_created_id_stops_before_upload(self):
+        self.assemble()
+        remote = FakeGitHub()
+        def create(tag, commit, notes):
+            return dict(tag_name=TAG, draft=True, prerelease=False, assets=[])
+        remote.create = create
+        with self.assertRaisesRegex(ValueError, 'Missing release ID'):
+            release.publish(self.output, TAG, COMMIT, remote)
+        self.assertEqual(remote.events, [])
+
+    def test_resume_uses_only_existing_id_and_keeps_uploaded_assets(self):
+        self.assemble()
+        remote = FakeGitHub()
+        remote.create(TAG, COMMIT, self.output / 'RELEASE_NOTES.md')
+        existing = 'RELEASE_NOTES.md'
+        remote.upload(42, self.output / existing)
+        remote.release = mock.Mock(side_effect=AssertionError('Must not search by tag in recovery'))
+        release.publish(self.output, TAG, COMMIT, remote, existing_release_id=42)
+        self.assertEqual(remote.events.count('create-draft'), 1)
+        self.assertEqual(remote.events.count('upload:' + existing), 1)
+        self.assertFalse(remote.record['draft'])
+
+    def test_resume_refuses_missing_draft_wrong_tag_and_wrong_commit(self):
+        self.assemble()
+        remote = FakeGitHub()
+        with self.assertRaisesRegex(ValueError, 'Unknown release ID'):
+            release.publish(self.output, TAG, COMMIT, remote, existing_release_id=42)
+        self.assertEqual(remote.events, [])
+        for tag, commit in (('v1.1.0', COMMIT), (TAG, 'b' * 40)):
+            remote.create(tag, commit, self.output / 'RELEASE_NOTES.md')
+            events = list(remote.events)
+            with self.subTest(tag=tag, commit=commit), self.assertRaises(ValueError):
+                release.publish(self.output, TAG, COMMIT, remote, existing_release_id=42)
+            self.assertEqual(remote.events, events)
+
+    def test_explicit_resume_can_use_older_bundle_without_local_head_or_event_override(self):
+        self.assemble()
+        remote = FakeGitHub()
+        remote.create(TAG, COMMIT, self.output / 'RELEASE_NOTES.md')
+        argv = ['release.py', 'resume', '--bundle', str(self.output), '--repo', 'owner/repository', '--release-id', '42']
+        with mock.patch.object(sys, 'argv', argv), mock.patch.object(release, 'GitHub', return_value=remote), \
+                mock.patch.object(release, 'validate_checkout', side_effect=AssertionError('Old bundle is independent of helper checkout')):
+            release.main()
+        self.assertFalse(remote.record['draft'])
+
+    def test_failed_creation_api_is_not_misreported_as_absent_release(self):
+        remote = release.GitHub('owner/repository')
+        response = subprocess.CompletedProcess([], 1, '', 'not found (HTTP 404)')
+        with mock.patch.object(release.subprocess, 'run', return_value=response), self.assertRaisesRegex(RuntimeError, 'API failed'):
+            remote.api('/releases', missing=True, method='POST', data={})
+
+    def test_upload_refuses_unexpected_host_before_invoking_cli(self):
+        remote = release.GitHub('owner/repository')
+        with mock.patch.object(release.subprocess, 'run') as run, self.assertRaisesRegex(ValueError, 'upload endpoint'):
+            remote.api('https://example.com/repos/owner/repository/assets', method='POST', input_file=Path('asset.zip'))
+        run.assert_not_called()
+
+    def test_rest_adapter_end_to_end_when_draft_indexes_are_empty(self):
+        self.assemble()
+        record, requests = {}, []
+        def api_server(command, **options):
+            self.assertEqual(command[:2], ['gh', 'api'])
+            endpoint = command[2]
+            method = command[command.index('--method') + 1]
+            requests.append((method, endpoint))
+            if endpoint.endswith('/git/ref/tags/' + TAG):
+                result = {'object': {'type': 'commit', 'sha': COMMIT}}
+            elif endpoint.endswith('/releases/tags/' + TAG):
+                if not record or record['draft']:
+                    return subprocess.CompletedProcess(command, 1, '', 'not found (HTTP 404)')
+                result = record
+            elif endpoint.endswith('/releases?per_page=100&page=1'):
+                result = []  # The just-created draft is absent from this index.
+            elif method == 'POST' and endpoint.endswith('/releases'):
+                self.assertFalse(record)
+                record.update(json.loads(options['input']), id=42, assets=[])
+                result = record
+            elif method == 'POST' and '/releases/42/assets?' in endpoint:
+                path = Path(command[command.index('--input') + 1])
+                self.assertIn('Content-Length: ' + str(path.stat().st_size), command)
+                record['assets'].append(dict(name=path.name, state='uploaded', size=path.stat().st_size,
+                                              digest='sha256:' + release.digest(path)))
+                result = record['assets'][-1]
+            elif endpoint.endswith('/releases/42'):
+                if method == 'PATCH':
+                    record.update(json.loads(options['input']))
+                result = record
+            else:
+                self.fail('Unexpected API request: ' + repr(command))
+            return subprocess.CompletedProcess(command, 0, json.dumps(result), '')
+        remote = release.GitHub('owner/repository')
+        with mock.patch.object(release.subprocess, 'run', side_effect=api_server):
+            release.publish(self.output, TAG, COMMIT, remote)
+            self.assertFalse(record['draft'])
+            mutations = [r for r in requests if r[0] != 'GET']
+            self.assertEqual(mutations[-1], ('PATCH', 'repos/owner/repository/releases/42'))
+            self.assertEqual(len(record['assets']), len(list(self.output.iterdir())))
+            release.publish(self.output, TAG, COMMIT, remote)
+        self.assertEqual([r for r in requests if r[0] != 'GET'], mutations)
 
 
 if __name__ == '__main__':
