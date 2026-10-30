@@ -8,7 +8,7 @@ Users and script developers have a [separate guide](../site/en/index.md), also a
 2. [Specification and implementation boundaries](specification.md)
 3. [Development environment and builds](building.md)
 4. [Automated tests](testing.md) and [native platform validation](platform-validation.md)
-5. [Packaging](packaging.md)
+5. [Packaging](packaging.md) and [tagged releases](releasing.md)
 6. [CI](ci.md)
 7. [UI translations](translations.md) and [icons](icons.md)
 8. [Changelog](changelog.md)

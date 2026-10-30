@@ -179,7 +179,7 @@ Startup and basic operation have also been checked on Fedora 44.
 ### Download and extraction
 
 Download the Linux AppImage from [GitHub Releases](https://github.com/asfdrwe/KomaMimic/releases).
-Download `komamimic-linux-x86_64-appimage.zip` and extract it.
+Download `KomaMimic-1.0.0-linux-x86_64.zip` and extract it.
 
 The executable is `KomaMimic-1.0.0-linux-x86_64.AppImage`. The adjacent `sources/`
 contains source files; you do not need to extract or build them to run the app.

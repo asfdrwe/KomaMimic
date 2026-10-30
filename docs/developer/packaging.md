@@ -103,5 +103,6 @@ build information, and checksums. See the README's
 A working validation ZIP alone does not complete general distribution preparation.
 
 Keep OS-specific installation, update, removal, and first-launch instructions aligned
-with the reviewed artifacts. Tag-triggered Release publication and the final
-dependency/source audit remain separate from candidate packaging.
+with the reviewed artifacts. The [tagged Release workflow](releasing.md) reuses
+candidate build and validation jobs, then publishes verified assets. Complete the
+final dependency/source audit before creating a public tag.

@@ -29,10 +29,12 @@ def load_tests(loader, tests, pattern):
     from test_validation import ValidationTests
     from test_windows_package import WindowsPackageTests
     from test_macos_package import MacPackageTests
+    from test_release import ReleaseTests
     ValidationTests.probe = PROBE
     tests.addTests(loader.loadTestsFromTestCase(ValidationTests))
     tests.addTests(loader.loadTestsFromTestCase(WindowsPackageTests))
     tests.addTests(loader.loadTestsFromTestCase(MacPackageTests))
+    tests.addTests(loader.loadTestsFromTestCase(ReleaseTests))
     return tests
 
 
@@ -95,6 +97,18 @@ class DistributionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unclassified'):
             export(self.project, output)
         self.assertFalse(output.exists())
+
+    def test_reusable_workflow_references_require_reviewed_local_files(self):
+        workflow = self.project / '.github/workflows/reference-check.yml'
+        for reference in ('./.github/workflows/build.yml', './.github/workflows/rocky8-probe.yml'):
+            workflow.write_text('jobs:\n  build:\n    uses: ' + reference + '\n', encoding='utf-8')
+            with contextlib.redirect_stdout(io.StringIO()):
+                check(self.project)
+        for reference in ('./.github/workflows/missing.yml', './.github/workflows/../../private.yml',
+                          'actions/checkout@main', 'other/repository/.github/workflows/build.yml@main'):
+            workflow.write_text('jobs:\n  build:\n    uses: ' + reference + '\n', encoding='utf-8')
+            with self.subTest(reference=reference), contextlib.redirect_stdout(io.StringIO()), self.assertRaisesRegex(ValueError, 'Unpinned action'):
+                check(self.project)
 
     def test_asset_tampering_stops_export_before_writing(self):
         asset = load_policy(self.project)['reviewed_assets'][0]['path']

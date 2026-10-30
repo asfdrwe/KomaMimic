@@ -41,13 +41,14 @@ on:
       - '.github/actions/**'
       - '.github/workflows/build.yml'
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
   group: build-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 env:
   QT_QPA_PLATFORM: offscreen

@@ -83,7 +83,11 @@ def check(root):
         raise ValueError('No public workflows found')
     for path in workflows:
         for action in re.findall(r'uses:\s*(\S+)', path.read_text(encoding='utf-8')):
-            if not re.fullmatch(r'actions/[a-z-]+@[0-9a-f]{40}', action):
+            pinned_action = re.fullmatch(r'actions/[a-z-]+@[0-9a-f]{40}', action)
+            # A local reusable workflow is loaded from this exact commit.
+            local_workflow = (re.fullmatch(r'\./\.github/workflows/[A-Za-z0-9_-]+\.ya?ml', action)
+                              and root / action[2:] in selected_set)
+            if not pinned_action and not local_workflow:
                 raise ValueError(f'Unpinned action in {path.name}: {action}')
     print(f'Public source: {len(selected)} files ({len(binary_assets)} reviewed binary assets); links, hashes, versions and action pins OK')
 

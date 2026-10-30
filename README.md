@@ -200,8 +200,11 @@ SPDX expression `GPL-3.0-only AND 0BSD`. Details and the original notice appear
 
 CI builds and verifies Windows x86_64 ZIP, macOS arm64 app/DMG, and Linux x86_64
 AppImage candidates. Downloaded candidates have also been checked on their target
-operating systems. Final dependency-notice and corresponding-source review, and
-tag-triggered Release publication, are separate from candidate packaging.
+operating systems. The [Release workflow](docs/developer/releasing.md) rebuilds and
+verifies all packages for stable `vMAJOR.MINOR.PATCH` tags, then publishes a complete
+GitHub Release with one application source archive and checksums. Manual Release
+workflow runs assemble the same files without publishing. Complete the final
+dependency-notice and corresponding-source review before tagging a public release.
 
 ## Third-party libraries and code
 

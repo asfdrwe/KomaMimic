@@ -162,7 +162,7 @@ Ubuntu 22.04相当（glibc 2.35）以降の環境を基準に、自動検査を�
 ### 入手と展開
 
 [GitHubのReleases](https://github.com/asfdrwe/KomaMimic/releases)で配布するLinux用AppImageを取得します。
-`komamimic-linux-x86_64-appimage.zip`をダウンロードし、ZIPを展開してください。
+`KomaMimic-1.0.0-linux-x86_64.zip`をダウンロードし、ZIPを展開してください。
 
 実行するファイルは `KomaMimic-1.0.0-linux-x86_64.AppImage` です。
 同じ場所の `sources/` は対応ソースであり、起動のために展開・ビルドする必要はありません。

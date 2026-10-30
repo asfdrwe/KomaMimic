@@ -2,13 +2,14 @@ name: Linux AppImage (Rocky 8)
 
 on:
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
 
 concurrency:
-  group: rocky8-probe-${{ github.ref }}
-  cancel-in-progress: true
+  group: rocky8-probe-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
   rocky8:

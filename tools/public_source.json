@@ -59,6 +59,7 @@
     "docs/developer/index.md",
     "docs/developer/packaging.md",
     "docs/developer/platform-validation.md",
+    "docs/developer/releasing.md",
     "docs/developer/specification.md",
     "docs/developer/testing.md",
     "docs/developer/translations.md",

@@ -1,0 +1,138 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]*.[0-9]*.[0-9]*'
+  # Build and assemble the selected ref without creating or publishing a Release.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate version, source, documentation and release logic
+    if: ${{ github.event_name == 'workflow_dispatch' || !github.event.deleted }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      commit: ${{ steps.version.outputs.commit }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-docs.txt
+      - name: Check stable tag and matching source version
+        id: version
+        env:
+          RELEASE_EVENT: ${{ github.event_name }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_COMMIT: ${{ github.sha }}
+        shell: bash
+        run: |
+          if [ "$RELEASE_EVENT" = push ]; then
+            python tools/release.py validate --tag "$RELEASE_TAG" --commit "$RELEASE_COMMIT" \
+              --require-tag --github-output "$GITHUB_OUTPUT"
+          else
+            python tools/release.py validate --commit "$RELEASE_COMMIT" --github-output "$GITHUB_OUTPUT"
+          fi
+      - name: Check source and release failure paths
+        run: |
+          python tools/check_source.py --tracked
+          python -m unittest discover -s tests -p test_release.py
+      - name: Check Japanese and English documentation
+        run: |
+          python -m pip install -r requirements-docs.txt
+          python -m mkdocs build --strict --site-dir tmp/release-site
+
+  build:
+    name: Reuse three-OS Build and native package checks
+    needs: validate
+    uses: ./.github/workflows/build.yml
+
+  appimage:
+    name: Reuse Rocky build and Ubuntu AppImage checks
+    needs: validate
+    uses: ./.github/workflows/rocky8-probe.yml
+
+  assemble:
+    name: Verify provenance and assemble release assets
+    needs: [validate, build, appimage]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+      RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: komamimic-source
+          path: tmp/release-input/source
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: komamimic-windows-x86_64-zip
+          path: tmp/release-input/windows
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: komamimic-macos-arm64-dmg
+          path: tmp/release-input/macos
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: komamimic-linux-x86_64-appimage
+          path: tmp/release-input/linux
+      - name: Assemble and verify a single source and release checksum set
+        run: |
+          python3 tools/release.py assemble --tag "$RELEASE_TAG" --commit "$RELEASE_COMMIT" \
+            --inputs tmp/release-input --output tmp/release-bundle
+          python3 tools/release.py verify --tag "$RELEASE_TAG" --commit "$RELEASE_COMMIT" \
+            --bundle tmp/release-bundle
+          (cd tmp/release-bundle && sha256sum --check SHA256SUMS)
+      - name: Save complete release bundle (also available after manual dry runs)
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: komamimic-release-bundle
+          path: tmp/release-bundle/*
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+
+  publish:
+    name: Upload draft assets, verify, then publish
+    needs: [validate, build, appimage, assemble]
+    if: ${{ github.event_name == 'push' && github.ref_type == 'tag' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+      RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: komamimic-release-bundle
+          path: tmp/release-bundle
+      - name: Publish only the matching existing tag and complete verified assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          python3 tools/release.py publish --tag "$RELEASE_TAG" --commit "$RELEASE_COMMIT" \
+            --bundle tmp/release-bundle --repo "$GH_REPO"

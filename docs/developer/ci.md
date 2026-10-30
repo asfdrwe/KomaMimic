@@ -45,6 +45,10 @@ After common checks pass, the three OS jobs run in parallel. A failure on one OS
 does not cancel another OS's job. A new commit on the same branch or PR cancels
 older runs.
 
+Both Build and the AppImage workflow also accept `workflow_call` from the
+[Release workflow](releasing.md). Their normal triggers remain unchanged. Release
+tag runs are not cancelled, and their concurrency groups differ from the caller's.
+
 Automatic push/PR runs are limited to changes in build or validation inputs:
 `src/`, `cmake/`, `scripts/`, `translations/`, `assets/`, `examples/`, `tests/`,
 `tools/`, `CMakeLists.txt`, `CMakePresets.json`, `vcpkg*.json`, `.gitattributes`,
@@ -203,7 +207,7 @@ behavior must be checked in macOS Actions.
 
 ## Linux AppImage generation on Rocky 8
 
-`.github/workflows/rocky8-probe.yml` is a manually dispatched AppImage workflow.
+`.github/workflows/rocky8-probe.yml` is a manually dispatched and reusable AppImage workflow.
 Start it with **Linux AppImage (Rocky 8) → Run workflow → main**. On an Ubuntu 24.04
 runner, it uses a Rocky Linux 8.10 x86_64 container (`rockylinux/rockylinux:8.10`),
 installs Rocky, EPEL, and Raven RPMs, and runs a GCC Toolset 12 Release build, CLI
@@ -273,7 +277,8 @@ notices, and build logs are retained in diagnostics.
 
 Dependency installation, configuration, build/test logs, and installed RPM versions
 are kept in **diagnostics-rocky8-raven-x64** for 14 days. This workflow is independent
-of the three-OS Build workflow and does not run on push or create Releases or tags.
+of the three-OS Build workflow. It has no direct push trigger and creates no Releases
+or tags; the Release workflow calls it automatically for a version-tag build.
 
 After tests pass, the Rocky job runs `tools/build_appimage.py stage`, deploying the
 application, worker, Qt plugins, WebEngine helpers/resources/locales, Japanese
@@ -334,7 +339,8 @@ separately from final Release publication.
 4. Assemble dependency notices and required corresponding source, and test downloaded Actions artifacts on real systems.
 5. Maintain installation/removal instructions based on those artifacts; verify Release and Pages publication separately.
 
-The application build definition does not create Releases. Pages uses the separate
-documentation workflow above. Any future release job must be separated from PR
-validation, granting write permissions only where required. Headless CI success
-does not substitute for manual checks.
+The application build definition does not create Releases. The separate
+[Release workflow](releasing.md) publishes only after all required jobs succeed for
+a matching stable tag. Its manual mode only assembles artifacts. Write permission
+is restricted to its final publish job. Pages uses the documentation workflow
+above. Headless CI success does not substitute for manual checks.
