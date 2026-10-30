@@ -514,11 +514,13 @@ Load command 3
             old = '/opt/homebrew/opt/qtbase/lib/QtGui.framework/Versions/A/QtGui'
             records = {
                 gui: dict(identifier=old, dependencies=['/usr/lib/libSystem.B.dylib']),
-                helper: dict(identifier='', dependencies=[old]),
+                helper: dict(identifier='', dependencies=[old],
+                             rpaths=['@loader_path/' + '../' * 10 + 'SDK/lib']),
                 poppler: dict(identifier='/opt/homebrew/opt/poppler/lib/libpoppler.165.dylib', dependencies=[])}
             plan = stage.macos_relocation_plan(app, records)
             helper_change = next(r for r in plan if r['binary'].endswith('/QtWebEngineProcess'))
             self.assertEqual(helper_change['arguments'][:2], ['-change', old])
+            self.assertIn('-delete_rpath', helper_change['arguments'])
             new_name = helper_change['arguments'][2]
             target = (helper.parent / new_name[len('@loader_path/'):]).resolve()
             self.assertEqual(target, gui)

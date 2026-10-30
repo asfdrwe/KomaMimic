@@ -21,7 +21,8 @@ import sys
 from export_source import public_files
 from prepare_release import prepare
 from run_validation import ROOT, cache_values, execute, save_json
-from stage_validation import (inspect_macos, macos_probe_environment,
+from stage_validation import (inspect_macos, macos_bundle_or_system_path,
+                              macos_expand_path as expand_path, macos_probe_environment,
                               signing_entitlements, system_library)
 
 RUNTIME_FORMULAE = ('qtbase', 'qtdeclarative', 'qttools', 'qttranslations', 'qtwebengine',
@@ -64,23 +65,6 @@ def inventory(app):
     return records
 
 
-def executable_directory(app, binary):
-    for parent in binary.parents:
-        if parent.suffix == '.app':
-            return parent / 'Contents/MacOS'
-        if parent == app:
-            break
-    return app / 'Contents/MacOS'
-
-
-def expand_path(value, app, binary):
-    for token, directory in (('@loader_path', binary.parent),
-                              ('@executable_path', executable_directory(app, binary))):
-        if value == token or value.startswith(token + '/'):
-            return (directory / value[len(token):].lstrip('/')).resolve()
-    return Path(value).resolve() if value.startswith('/') else None
-
-
 def audit_dependencies(app, records):
     """Resolve every normal/weak/reexport load, including @rpath, inside the app."""
     app = app.resolve()
@@ -88,7 +72,7 @@ def audit_dependencies(app, records):
         rpaths = []
         for value in record.get('rpaths', []):
             path = expand_path(value, app, binary)
-            if path is None or not (path.is_relative_to(app) or system_library(str(path))):
+            if not macos_bundle_or_system_path(path, app):
                 raise ValueError('External or unsupported rpath: ' + value + ' in ' + str(binary))
             rpaths.append(path)
         for name in record['dependencies']:

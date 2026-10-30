@@ -135,7 +135,9 @@ macOS jobの上限は配置・圧縮・再展開検査を含め60分です。
 配置には`macdeployqt`を使い、Qt・非Qt依存、WebEngine helper・資源、画像/SQLite plugin、
 日本語catalog、実行時ロードするSDL3とその内部symlinkを含めます。
 検査用probeも同じdeployment処理を通してHomebrewへのload pathを修正し、.appの外へ退避します。
-外部の絶対rpathを削除し、必要な束内rpathを追加します。変更したcodeを内側から署名し直す際、
+束外へ解決されるrpath（相対指定も含む）を削除し、束内rpathを追加します。
+実行時ロード専用のライブラリでも、削除したSDK向けrunpathを束内Frameworks向けへ置き換えます。
+配置・検査のパス解釈は共通です。変更したcodeを内側から署名し直す際、
 WebEngine helper等のentitlementsを保持して一致を検査します。
 
 packはstageのhash・symlinkと現在のソース内容を照合し、Homebrew依存とその推移的依存の

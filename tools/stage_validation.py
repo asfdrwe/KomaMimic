@@ -121,6 +121,28 @@ def system_library(name):
     return name in ('/usr/lib', '/System/Library') or name.startswith(('/usr/lib/', '/System/Library/'))
 
 
+def macos_executable_directory(app, binary):
+    for parent in binary.parents:
+        if parent.suffix == '.app':
+            return parent / 'Contents/MacOS'
+        if parent == app:
+            break
+    return app / 'Contents/MacOS'
+
+
+def macos_expand_path(value, app, binary):
+    """Interpret dyld paths identically for relocation and package auditing."""
+    for token, directory in (('@loader_path', binary.parent),
+                              ('@executable_path', macos_executable_directory(app, binary))):
+        if value == token or value.startswith(token + '/'):
+            return (directory / value[len(token):].lstrip('/')).resolve()
+    return Path(value).resolve() if value.startswith('/') else None
+
+
+def macos_bundle_or_system_path(path, app):
+    return path is not None and (path.is_relative_to(app) or system_library(str(path)))
+
+
 def inspect_macos(app, report):
     """Read real binaries once, refusing links outside the staged app."""
     app = app.resolve()
@@ -142,7 +164,8 @@ def inspect_macos(app, report):
 
 def macos_relocation_plan(app, records):
     """Only reconnect dependencies to matching binaries already in this app."""
-    frameworks = app.resolve() / 'Contents/Frameworks'
+    app = app.resolve()
+    frameworks = app / 'Contents/Frameworks'
     identifiers = {}
     for path, record in records.items():
         if record['identifier']:
@@ -173,10 +196,16 @@ def macos_relocation_plan(app, records):
             replacement = '@loader_path/' + Path(os.path.relpath(target, path.parent)).as_posix()
             args += ['-change', name, replacement]
         # Do not let a missing bundled dependency fall back to the build SDK.
+        needs_rpath = any(name.startswith('@rpath/') for name in record['dependencies'])
         for rpath in dict.fromkeys(record.get('rpaths', [])):
-            if rpath.startswith('/') and not system_library(rpath):
+            target = macos_expand_path(rpath, app, path)
+            # Even an absolute path inside this stage breaks when the app moves.
+            absolute_bundle_or_sdk = rpath.startswith('/') and not system_library(rpath)
+            if absolute_bundle_or_sdk or not macos_bundle_or_system_path(target, app):
                 args += ['-delete_rpath', rpath]
-        if any(name.startswith('@rpath/') for name in record['dependencies']):
+                # dlopen users such as SDL2 may not have an @rpath load command.
+                needs_rpath = True
+        if needs_rpath:
             rpath = '@loader_path/' + Path(os.path.relpath(frameworks, path.parent)).as_posix()
             if rpath not in record.get('rpaths', []):
                 args += ['-add_rpath', rpath]

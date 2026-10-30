@@ -130,6 +130,82 @@ class MacPackageTests(unittest.TestCase):
         text = 'cmd LC_RPATH\npath /opt/homebrew/lib (offset 12)\n'
         self.assertEqual(stage_tool.macho_commands(text + text)['rpaths'], ['/opt/homebrew/lib'])
 
+    def test_reported_sdl2_relative_homebrew_rpath_is_removed(self):
+        binary = self.app / 'Contents/Frameworks/libSDL2-2.0.0.dylib'
+        binary.write_bytes(b'SDL2 fixture')
+        library = self.app / 'Contents/Frameworks/libSDL3.dylib'
+        external = '@loader_path/../../../../opt/sdl3/lib'
+        records = {
+            binary: dict(identifier='', dependencies=['@rpath/libSDL3.dylib'], rpaths=[external]),
+            library: dict(identifier='', dependencies=[], rpaths=[])}
+        with self.assertRaisesRegex(ValueError, 'External or unsupported rpath'):
+            package.audit_dependencies(self.app, records)
+        plan = stage_tool.macos_relocation_plan(self.app, records)
+        arguments = next(item['arguments'] for item in plan if item['binary'].endswith(binary.name))
+        self.assertIn('-delete_rpath', arguments)
+        self.assertEqual(arguments[arguments.index('-delete_rpath') + 1], external)
+        replacement = arguments[arguments.index('-add_rpath') + 1]
+        records[binary]['rpaths'] = [replacement]
+        package.audit_dependencies(self.app, records)
+        # SDL2 can use dlopen without any static @rpath dependency. It still
+        # needs the replacement runpath to find the deployed SDL3 runtime.
+        records[binary]['dependencies'] = ['/usr/lib/libSystem.B.dylib']
+        records[binary]['rpaths'] = [external]
+        plan = stage_tool.macos_relocation_plan(self.app, records)
+        arguments = next(item['arguments'] for item in plan if item['binary'].endswith(binary.name))
+        self.assertIn('-add_rpath', arguments)
+        self.assertEqual(arguments[arguments.index('-add_rpath') + 1], '@loader_path/.')
+
+    def test_relative_rpaths_use_loader_and_nearest_app_executable_context(self):
+        frameworks = self.app / 'Contents/Frameworks'
+        library = frameworks / 'libSDL3.dylib'
+        helper = (frameworks / 'QtWebEngineCore.framework/Versions/A/Helpers/'
+                  'QtWebEngineProcess.app/Contents/MacOS/QtWebEngineProcess')
+        helper.parent.mkdir(parents=True)
+        helper.write_bytes(b'helper fixture')
+        sdl2 = frameworks / 'libSDL2-2.0.0.dylib'
+        sdl2.write_bytes(b'SDL2 fixture')
+        moved = self.root / 'moved/install/KomaMimic.app'
+        shutil.copytree(self.app, moved)
+        for binary, executable in ((self.app / 'Contents/MacOS/komamimic', self.app / 'Contents/MacOS'),
+                                   (sdl2, self.app / 'Contents/MacOS'), (helper, helper.parent)):
+            for token, origin in (('@loader_path', binary.parent), ('@executable_path', executable)):
+                with self.subTest(binary=binary.name, token=token):
+                    external = token + '/' + Path(os.path.relpath(self.root / 'SDK/lib', origin)).as_posix()
+                    internal = token + '/' + Path(os.path.relpath(frameworks, origin)).as_posix()
+                    paths = [external, internal, frameworks.as_posix(), 'relative/sdk/lib', '@unknown/lib']
+                    if sys.platform != 'win32':
+                        paths += ['/usr/lib', '/System/Library/Frameworks']
+                    records = {
+                        binary: dict(identifier='', dependencies=['@rpath/libSDL3.dylib'], rpaths=paths),
+                        library: dict(identifier='@rpath/libSDL3.dylib', dependencies=[], rpaths=[])}
+                    plan = stage_tool.macos_relocation_plan(self.app, records)
+                    arguments = next(item['arguments'] for item in plan
+                                     if item['binary'] == binary.relative_to(self.app).as_posix())
+                    retained, deleted = list(paths), []
+                    operations = iter(arguments)
+                    for option in operations:
+                        value = next(operations)
+                        if option == '-delete_rpath':
+                            retained.remove(value)
+                            deleted.append(value)
+                        elif option == '-add_rpath':
+                            retained.append(value)
+                        else:
+                            self.fail('Unexpected load path operation: ' + option)
+                    self.assertIn(external, deleted)
+                    self.assertIn('relative/sdk/lib', deleted)
+                    self.assertIn('@unknown/lib', deleted)
+                    self.assertIn(frameworks.as_posix(), deleted)
+                    self.assertNotIn(internal, deleted)
+                    if sys.platform != 'win32':
+                        self.assertNotIn('/usr/lib', deleted)
+                        self.assertNotIn('/System/Library/Frameworks', deleted)
+                    records[binary]['rpaths'] = retained
+                    package.audit_dependencies(self.app, records)
+                    moved_records = {moved / path.relative_to(self.app): record for path, record in records.items()}
+                    package.audit_dependencies(moved, moved_records)
+
     def test_audit_rejects_missing_arm64_and_missing_resources(self):
         binary = self.app / 'Contents/MacOS/komamimic'
         records = {binary: dict(identifier='', dependencies=['/usr/lib/libSystem.B.dylib'], rpaths=[])}
