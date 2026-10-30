@@ -19,6 +19,7 @@ affiliated with the original project and does not include its code, artwork, or 
 ## Documentation
 
 - [User and script developer guide (Japanese)](https://asfdrwe.github.io/KomaMimic/)
+- [Installation: Windows ZIP and Linux AppImage (Japanese)](docs/site/user/install.md)
 - [Core developer documentation (Japanese draft)](docs/developer/index.md)
 - [Contributing](#contributing)
 
