@@ -52,6 +52,24 @@ ZIP内から直接起動せず、展開したフォルダーから起動しま�
 ショートカットを作る場合は、この`komamimic.exe`を参照先にします。
 起動後の操作は[基本操作](basic.md)を参照してください。
 
+#### SmartScreenの警告が表示された場合
+
+現在のWindows版はコード署名を行っていません。ダウンロードしたアプリを初めて起動すると、
+Microsoft Defender SmartScreenの「WindowsによってPCが保護されました」という警告が表示されることがあります。
+
+公式のReleasesから取得し、上記のチェックサムが一致することを確認したうえで起動する場合は、次のように操作します。
+
+1. 警告画面の**詳細情報**を選びます。
+
+    ![SmartScreenの警告画面。「詳細情報」を選びます](../assets/screenshots/windows-smartscreen-warning.png)
+
+2. アプリが`komamimic.exe`であることを確認し、**実行**を選びます。
+   この版では、発行元は「不明な発行元」と表示されます。
+
+    ![アプリ名と発行元を確認し、「実行」を選びます](../assets/screenshots/windows-smartscreen-run.png)
+
+警告の仕組みについては、[MicrosoftのSmartScreenの説明](https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation)を参照してください。
+
 ### 更新
 
 1. KomaMimicを終了し、[設定フォルダーをバックアップ](settings.md)します。

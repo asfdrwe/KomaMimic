@@ -281,6 +281,16 @@
       "path": "docs/site/assets/screenshots/macos-gk4.png",
       "license": "GPL-3.0-only",
       "sha256": "dbc6148de478aebc73072a1d22c1a5d1cc804e83a5eea31f3e7244c76cd71364"
+    },
+    {
+      "path": "docs/site/assets/screenshots/windows-smartscreen-warning.png",
+      "license": "GPL-3.0-only",
+      "sha256": "5890e0f46661e4465711de1fc380bb43e0f3c4cb1cb0b0802c7dd4da83bac661"
+    },
+    {
+      "path": "docs/site/assets/screenshots/windows-smartscreen-run.png",
+      "license": "GPL-3.0-only",
+      "sha256": "7892cf7fe38dc1c271c0f3f7d73df9e52328de855b049962fcb5bc23fe5a0d7d"
     }
   ]
 }

@@ -56,6 +56,27 @@ subfolders are required. Run from the extracted folder, not directly inside the
 ZIP. Any shortcut should target this `komamimic.exe`. See [basic controls](basic.md)
 after startup.
 
+#### SmartScreen warning
+
+The current Windows build is not code-signed. On first launch of the downloaded
+app, Microsoft Defender SmartScreen may display **Windows protected your PC**.
+
+If you downloaded the package from the official Releases page, verified the
+checksum above, and choose to launch it, follow these steps. The screenshots show
+the Japanese Windows UI.
+
+1. Select **More info** (**詳細情報**) in the warning dialog.
+
+    ![SmartScreen warning: select More info](../../assets/screenshots/windows-smartscreen-warning.png)
+
+2. Check that the app is `komamimic.exe`, then select **Run anyway** (**実行**).
+   This version displays **Unknown publisher** (**不明な発行元**) as its publisher.
+
+    ![Check the app name and publisher, then select Run anyway](../../assets/screenshots/windows-smartscreen-run.png)
+
+See [Microsoft's SmartScreen explanation](https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation)
+for how the warning works.
+
 ### Updating
 
 1. Quit KomaMimic and [back up the settings folder](settings.md).
