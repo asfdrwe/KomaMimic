@@ -627,7 +627,7 @@ Load command 3
             self.require_macos_symlinks(directory)
             build, qt, translations, images = (directory / name for name in ('build', 'qt', 'translations', 'images'))
             build.mkdir()
-            for name in ('komamimic', 'komamimic-script-worker'):
+            for name in ('komamimic', 'komamimic-script-worker', 'validation_probe'):
                 (build / name).write_bytes(b'\xcf\xfa\xed\xfe')
             (build / 'CMakeCache.txt').write_text('CMAKE_HOME_DIRECTORY:INTERNAL=' + ROOT.as_posix() + '\n')
             (qt / 'bin').mkdir(parents=True)
@@ -668,6 +668,11 @@ Load command 3
                     self.assertIn('staged-version failed', manifest['error'])
                 deploy_args = seen[0][0]
                 self.assertIn('-executable=' + str(app / 'Contents/Frameworks/libSDL3.0.dylib'), deploy_args)
+                self.assertIn('-executable=' + str(app / 'Contents/MacOS/validation_probe'), deploy_args)
+                self.assertEqual((output / 'validation_probe').read_bytes(), (build / 'validation_probe').read_bytes())
+                self.assertFalse((app / 'Contents/MacOS/validation_probe').exists())
+                self.assertIn('Contents/Frameworks/libSDL3.dylib',
+                              [p.removeprefix('KomaMimic.app/') for p in manifest['symlinks']])
                 command, env, timeout = seen[-1]
                 self.assertEqual(command, [str(app / 'Contents/MacOS/komamimic'), '--version'])
                 self.assertEqual(timeout, 30)

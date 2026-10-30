@@ -116,10 +116,10 @@ jobs:
           retention-days: 14
 
   macos:
-    name: macOS 15 arm64 / full tests
+    name: macOS 15 arm64 / full tests / app and DMG
     needs: source-checks
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 60
     defaults:
       run:
         shell: bash
@@ -127,6 +127,8 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
+      - name: Check native Apple Silicon environment
+        run: python3 -c 'import platform; assert platform.machine() == "arm64", platform.machine()'
       - name: Install dependencies
         run: brew install cmake ninja qtbase qtdeclarative qttools qttranslations qtwebengine qtimageformats libarchive icu4c sdl2-compat poppler pkgconf
       - run: cmake -S . -B build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DKOMAMIMIC_TEST_SCOPE=full -DCMAKE_OSX_ARCHITECTURES=arm64
@@ -134,6 +136,24 @@ jobs:
       - run: ./build-ci/komamimic --version
       - run: ./build-ci/komamimic --formats
       - run: ctest --test-dir build-ci --output-on-failure --parallel 2 --no-tests=error --output-junit "$GITHUB_WORKSPACE/build-ci/ctest.xml"
+      - name: Stage ad-hoc signed app and relocated reader probe
+        run: python3 tools/stage_validation.py --build-dir build-ci --output stage-macos
+      - name: Package and verify arm64 app and unnotarized DMG
+        run: python3 tools/package_macos.py --build-dir build-ci --stage stage-macos --output dist/macos
+      - name: Upload macOS distribution candidate
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: komamimic-macos-arm64-dmg
+          path: |
+            dist/macos/KomaMimic-*-macos-arm64.dmg
+            dist/macos/KomaMimic-*-macos-arm64.app.zip
+            dist/macos/BUILD_MANIFEST.json
+            dist/macos/HOMEBREW.json
+            dist/macos/SHA256SUMS
+            dist/macos/sources/
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -143,6 +163,14 @@ jobs:
             build-ci/CMakeFiles/CMakeConfigureLog.yaml
             build-ci/Testing/Temporary/*.log
             build-ci/ctest.xml
+            stage-macos/*.log
+            stage-macos/*.json
+            stage-macos/entitlements-before/
+            dist/macos/BUILD_MANIFEST.json
+            dist/macos/HOMEBREW.json
+            dist/macos/verification/*.log
+            dist/macos/verification/*.json
+            dist/macos/verification/*.plist
           if-no-files-found: warn
           retention-days: 14
 

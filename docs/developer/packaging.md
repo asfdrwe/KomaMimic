@@ -23,7 +23,7 @@ python3 tools/stage_validation.py --build-dir ../tmp/build-native --output ../tm
 | OS | 現在の配置処理 | 確認するもの |
 |---|---|---|
 | Windows x64 | Qt deploymentと非Qt DLL、配布ZIP候補、別ZIPの自作PDB | 全PEの通常/遅延import、再展開後のCLI/worker/reader、WebEngine資源、画像/SQLite plugin、翻訳 |
-| macOS arm64 | .app、macdeployqt、依存再配置、ad-hoc署名 | helper、dylib、Qt resources、entitlements、codesign/otool/architecture、Finder起動 |
+| macOS arm64 | .app ZIP・公証なしDMG、macdeployqt、依存再配置、ad-hoc署名 | helper、dylib、Qt resources、entitlements、codesign/otool/architecture、再展開・mount後の読込、Finder起動 |
 | Linux x64 | Rocky 8でbuild/test後、AppDirの依存を再配置しAppImage化 | 本体/worker、desktop/icon、Qt plugin、WebEngine資源、glibc要件、別環境での読込 |
 
 sdl2-compatがSDL3を実行時ロードする構成では、静的な依存検査だけでは不足します。
@@ -53,6 +53,28 @@ stageの全hashと公開ソース内容を照合してから圧縮し、再展�
 本体ソースとchecksumも新規出力します。手順・artifactの構成と未確認範囲は
 [WindowsのCI](ci.md#windows-x86_64の配布zip候補)を参照してください。
 本体のソース出力と、同梱した第三者依存の必要な対応ソースの収集は別工程です。
+
+## macOS arm64の配布候補
+
+ネイティブarm64のRelease buildを`BUILD_TESTING=ON`、`CMAKE_OSX_ARCHITECTURES=arm64`で作り、
+full検証後に同じソースで実行します。各出力先は新規フォルダーにします。
+
+```sh
+python3 tools/stage_validation.py --build-dir ../tmp/build-macos --output ../tmp/stage-macos-01
+python3 tools/package_macos.py --build-dir ../tmp/build-macos --stage ../tmp/stage-macos-01 --output ../tmp/macos-dmg-01
+```
+
+stageには、本体/workerと同じdeployment処理でload pathを修正した検査用probeも保存します。
+配布用.appへはprobeを含めません。元のstageのhash・symlink・ソース内容を確認した後に、
+通知/build情報を加えて外側を署名し直します。実行modeとframeworkの内部symlinkを保持した
+`.app.zip`と、KomaMimic.app/Applicationsリンクを入れた`.dmg`を作ります。
+DMGの検証・read-only mount・コピー後のCLI/worker/native readerまで通った場合だけ
+checksumと本体ソースを出力します。
+
+署名はad-hocで、公証は行いません。Developer ID・公証に必要なcredentialを要求しません。
+処理・artifact・macOSで確認する範囲は[macOSのCI](ci.md#macos-arm64のappと公証なしdmg候補)を参照してください。
+取得物をブラウザーからダウンロードした際のFinder/Gatekeeper確認と、全依存通知/対応ソースの
+最終照合は別途行います。利用者向けmacOS導入文書は取得物の確認後に追加します。
 
 ## 正式配布への条件
 

@@ -97,7 +97,7 @@ def macho(path):
 
 def macho_commands(text):
     """Separate LC_ID_DYLIB (this library's name) from actual load commands."""
-    identifiers, dependencies = set(), set()
+    identifiers, dependencies, rpaths = set(), set(), []
     command = ''
     loads = {'LC_LOAD_DYLIB', 'LC_LOAD_WEAK_DYLIB', 'LC_REEXPORT_DYLIB',
              'LC_LOAD_UPWARD_DYLIB', 'LC_LAZY_LOAD_DYLIB'}
@@ -108,13 +108,17 @@ def macho_commands(text):
         elif line.startswith('name ') and command in loads | {'LC_ID_DYLIB'}:
             name = line[5:].rsplit(' (offset ', 1)[0]
             (identifiers if command == 'LC_ID_DYLIB' else dependencies).add(name)
+        elif line.startswith('path ') and command == 'LC_RPATH':
+            value = line[5:].rsplit(' (offset ', 1)[0]
+            if value not in rpaths:  # otool repeats commands for universal slices.
+                rpaths.append(value)
     if len(identifiers) > 1:
         raise ValueError('Different install names across Mach-O architectures')
-    return dict(identifier=next(iter(identifiers), ''), dependencies=sorted(dependencies))
+    return dict(identifier=next(iter(identifiers), ''), dependencies=sorted(dependencies), rpaths=rpaths)
 
 
 def system_library(name):
-    return name.startswith(('/usr/lib/', '/System/Library/'))
+    return name in ('/usr/lib', '/System/Library') or name.startswith(('/usr/lib/', '/System/Library/'))
 
 
 def inspect_macos(app, report):
@@ -168,6 +172,14 @@ def macos_relocation_plan(app, records):
             target = candidates.pop()
             replacement = '@loader_path/' + Path(os.path.relpath(target, path.parent)).as_posix()
             args += ['-change', name, replacement]
+        # Do not let a missing bundled dependency fall back to the build SDK.
+        for rpath in dict.fromkeys(record.get('rpaths', [])):
+            if rpath.startswith('/') and not system_library(rpath):
+                args += ['-delete_rpath', rpath]
+        if any(name.startswith('@rpath/') for name in record['dependencies']):
+            rpath = '@loader_path/' + Path(os.path.relpath(frameworks, path.parent)).as_posix()
+            if rpath not in record.get('rpaths', []):
+                args += ['-add_rpath', rpath]
         if args:
             changes.append(dict(binary=path.relative_to(app.resolve()).as_posix(), arguments=args))
     return changes
@@ -253,8 +265,7 @@ def bundle_macos_sdl3(app, output):
 def macos_probe_environment():
     # Exercise the bundle without Qt/SDL overrides from the developer shell.
     env = {k: v for k, v in os.environ.items()
-           if not k.startswith(('DYLD_', 'SDL_', 'SDL2COMPAT_'))
-           and k not in ('QT_PLUGIN_PATH', 'QT_QPA_PLATFORM_PLUGIN_PATH', 'QML_IMPORT_PATH', 'QML2_IMPORT_PATH')}
+           if not k.startswith(('DYLD_', 'QT', 'QML', 'SDL_', 'SDL2COMPAT_', 'KOMA_PROBE_'))}
     env['PATH'] = '/usr/bin:/bin:/usr/sbin:/sbin'
     return env
 
@@ -271,6 +282,11 @@ def macos(build, output, call):
     resources.mkdir()
     for name in ('komamimic', 'komamimic-script-worker'):
         shutil.copy2(build / name, binaries / name)
+    # Deploy the test probe in the same pass, then keep it outside the sealed app.
+    # Copying an undeployed build probe later would retain Homebrew load paths.
+    probe = binaries / 'validation_probe'
+    if (build / probe.name).is_file():
+        shutil.copy2(build / probe.name, probe)
     version = re.search(r'project\(KomaMimic VERSION ([0-9.]+)', (ROOT / 'CMakeLists.txt').read_text(encoding='utf-8')).group(1)
     with (contents / 'Info.plist').open('wb') as stream:
         plistlib.dump(dict(CFBundleExecutable='komamimic', CFBundleName='KomaMimic',
@@ -297,6 +313,8 @@ def macos(build, output, call):
     command = [tool(qt, 'macdeployqt', 'macdeployqt6'), app, '-verbose=2', '-always-overwrite',
                '-codesign=-', '-executable=' + str(binaries / 'komamimic-script-worker'),
                '-executable=' + str(sdl3)]
+    if probe.is_file():
+        command.append('-executable=' + str(probe))
     call('macdeployqt', command)
     required([sdl3, sdl3.parent / 'libSDL3.dylib'])
     call('codesign-sdl3', ['codesign', '--force', '--sign', '-', sdl3])
@@ -305,6 +323,9 @@ def macos(build, output, call):
     # entitlements while signing changed code from the inside out.
     records = inspect_macos(app, output / 'otool-before-relocation.txt')
     relocate_macos(app, output, call, records)
+    if probe.is_file():
+        shutil.move(probe, output / probe.name)
+        call('codesign-probe', ['codesign', '--force', '--sign', '-', output / probe.name])
     # macdeployqt writes plugin paths but does not collect Qt's .qm catalogs.
     # Set the catalog path after deployment, then re-seal the outer bundle.
     qtconf = resources / 'qt.conf'
@@ -367,6 +388,9 @@ def stage(build, output):
         info['status'] = 'FAIL'
         info['error'] = str(error)
     finally:
+        if system == 'Darwin':
+            info['symlinks'] = {p.relative_to(output).as_posix(): os.readlink(p)
+                                for p in sorted(output.rglob('*')) if p.is_symlink()}
         info['files'] = [{'path': p.relative_to(output).as_posix(),
                           'sha256': hashlib.sha256(p.read_bytes()).hexdigest()}
                          for p in sorted(output.rglob('*')) if p.is_file() and not p.is_symlink()]

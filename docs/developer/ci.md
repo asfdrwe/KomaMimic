@@ -37,7 +37,7 @@ GitHubで実際に各jobが成功した段階を区別して確認します。
 |---|---|---|
 | source-checks | Git追跡ファイルと公開選択、翻訳、リンク、action pin、actionlint、ソースarchiveの再現性 | ソース配布候補 |
 | linux | Fedora 44 container、Release build、CLI、full CTest 17群 | 構成・試験ログ、JUnit XML |
-| macos | macOS 15 arm64、Homebrew依存、Release build、CLI、full CTest 17群 | 構成・試験ログ、JUnit XML |
+| macos | macOS 15 arm64、Homebrew依存、Release build、CLI、full CTest 17群、署名・配置・DMG検査 | .app ZIP・公証なしDMG候補・ソース・checksum、構成・試験・配置ログ、JUnit XML |
 | windows | Windows 2022/MSVC、公式Qt SDK、Release専用vcpkg、platform検証9群、runtime配置・配布ZIP検査 | 配布ZIP候補・ソース・checksum、別artifactの自作PDB、構成・試験・配置ログ、JUnit XML、結果JSON |
 
 共通検査の成功後、3OSのjobを並列実行します。OSごとは独立したjobなので、
@@ -76,9 +76,9 @@ Windowsの短い作業パス`D:/kfb`にあるvcpkgログは、`results/vcpkg-bui
 構成を保ってコピーしてから保存します。artifactへ渡すパスはリポジトリ内へ揃えます。
 ログにはCI上のパスや自作fixtureを使用し、個人の読書データは使用しません。
 
-ソース配布候補とWindows配布ZIP候補はActionsのartifactとして保存します。WindowsのZIPには本体とworker、
+ソース配布候補・Windows配布ZIP候補・macOS配布候補はActionsのartifactとして保存します。WindowsのZIPには本体とworker、
 依存DLL、Qt plugin・WebEngine資源・翻訳、収集した通知文書を含めます。自作PDBは別artifactです。
-このBuild内のLinux/macOS jobはログ保存までです。Linux AppImageは下記の独立workflowで生成します。
+このBuild内のLinux jobはログ保存までです。Linux AppImageは下記の独立workflowで生成します。
 このworkflowはtag・GitHub Releaseの作成や自動公開を行いません。
 
 初回は管理者がworkflowと本文を手動commit・pushし、Actionsの**Build**で各jobを確認します。
@@ -124,6 +124,51 @@ Qt通知を発見できたかもmanifestに記録しますが、発見した文�
 **最終的な第三者通知と必要な対応ソースの照合、取得物のGUI確認は別途必要です。**
 利用者向けWindows導入文書は、この構成のActions取得物を確認してから追加します。
 このjobはタグ・Releaseを作成しません。
+
+## macOS arm64の.appと公証なしDMG候補
+
+BuildのmacOS jobは、従来のHomebrew依存とRelease build・full CTest 17群を使います。
+`stage_validation.py`で.appを配置し、`package_macos.py`で配布用の.app ZIPとDMGへまとめます。
+共通の起動条件・read権限・concurrency、Windowsの依存cacheと他OSのjobは維持します。
+macOS jobの上限は配置・圧縮・再展開検査を含め60分です。
+
+配置には`macdeployqt`を使い、Qt・非Qt依存、WebEngine helper・資源、画像/SQLite plugin、
+日本語catalog、実行時ロードするSDL3とその内部symlinkを含めます。
+検査用probeも同じdeployment処理を通してHomebrewへのload pathを修正し、.appの外へ退避します。
+外部の絶対rpathを削除し、必要な束内rpathを追加します。変更したcodeを内側から署名し直す際、
+WebEngine helper等のentitlementsを保持して一致を検査します。
+
+packはstageのhash・symlinkと現在のソース内容を照合し、Homebrew依存とその推移的依存の
+元の通知文書・SBOM・receipt/formulaを収集します。appへ通知とbuild情報を加えた後、
+外側をad-hoc署名し直します。全Mach-Oにarm64を要求し、本体/workerはarm64単独とします。
+全load commandとrpathの解決先、codesignのdeep/strict検証、symlinkの束内完結も検査します。
+
+配布用.appは`ditto`でZIPに包み、再展開した実物のhash・実行mode・symlink・署名を確認します。
+DMGはHFS+・UDZOで作り、KomaMimic.appとApplicationsリンク、配布情報、manifestを入れます。
+`hdiutil verify`後にread-onlyでmountして全payloadと署名を再検査し、作業用フォルダーへコピーします。
+そのコピーをHomebrewをPATHから除き、DYLD/Qt/SDL overrideを除いた環境で起動し、版・形式一覧、workerの
+12サンプル全RGBAとnative reader probeを検査します。QPAは同梱するcocoaを使います。
+probeは検査時だけ追加し、除去後にpayloadと署名が元に戻っていることを確認します。
+dyldがHomebrewのライブラリをロードしていないことも診断logで確認し、失敗時もDMGをdetachします。
+
+成功時のartifact **komamimic-macos-arm64-dmg** に次を14日間保存します。
+
+- `KomaMimic-1.0.0-macos-arm64.dmg`
+- `KomaMimic-1.0.0-macos-arm64.app.zip`（中はKomaMimic.app一式）
+- `BUILD_MANIFEST.json`・`HOMEBREW.json`・`SHA256SUMS`
+- `sources/`内の本体ソースtar.gz・manifest・checksum
+
+.appを直接artifactへ渡すと実行modeやsymlinkを保持できないため、DMG/ZIPの内側へ収めます。
+失敗時は配布artifactを保存せず、**diagnostics-macos15-arm64**へ配置・署名・otool・
+圧縮・mount・CLI/worker/readerのlog/JSONと、保持したentitlementsを保存します。
+
+**Developer ID署名・Appleの公証・notarytool/staplerの実行は行いません。** Apple用secretは不要です。
+manifestにもad-hoc/公証なし/手動未確認を記録します。codesign成功をGatekeeper通過と扱いません。
+ブラウザーで取得した実物のFinder起動は管理者が最小限確認し、その後にmacOS導入文書を追加します。
+最終的な全依存通知・必要な対応ソースの照合は別工程です。タグ・Releaseの公開は行いません。
+
+Linuxでは整合性・依存解決・失敗時のdetach/成果物gate等を模擬試験できますが、
+macdeployqt/codesign/lipo/ditto/hdiutil/cocoaでの実動作はmacOS Actionsでの確認範囲です。
 
 ## Rocky 8でのLinux AppImage生成
 

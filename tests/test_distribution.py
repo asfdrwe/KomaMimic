@@ -28,9 +28,11 @@ PRIVATE_MARKER = b'PRIVATE ' + b'SENTINEL'
 def load_tests(loader, tests, pattern):
     from test_validation import ValidationTests
     from test_windows_package import WindowsPackageTests
+    from test_macos_package import MacPackageTests
     ValidationTests.probe = PROBE
     tests.addTests(loader.loadTestsFromTestCase(ValidationTests))
     tests.addTests(loader.loadTestsFromTestCase(WindowsPackageTests))
+    tests.addTests(loader.loadTestsFromTestCase(MacPackageTests))
     return tests
 
 
