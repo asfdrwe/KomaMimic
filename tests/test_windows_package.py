@@ -6,6 +6,7 @@ import io
 import json
 from pathlib import Path
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -210,7 +211,9 @@ class WindowsPackageTests(unittest.TestCase):
             return dict(returncode=0)
         def probe(command, **options):
             seen.append((command, options))
-            return mock.Mock(returncode=0, stdout='{"all_passed":true}', stderr='Qt diagnostic')
+            options['stdout'].write('{"all_passed":true}')
+            options['stderr'].write('Qt diagnostic')
+            return mock.Mock(returncode=0)
         with (mock.patch.dict(package.os.environ, dict(SystemRoot='C:/Windows', PATH='developer/sdk',
                              QT_PLUGIN_PATH='developer/plugins', QTWEBENGINE_DISABLE_SANDBOX='1', SDL_DYNAMIC_API='poison')),
                 mock.patch.object(package, 'execute', side_effect=execute),
@@ -222,8 +225,38 @@ class WindowsPackageTests(unittest.TestCase):
             self.assertNotIn('QT_PLUGIN_PATH', list(options['env']))
             self.assertNotIn('QTWEBENGINE_DISABLE_SANDBOX', list(options['env']))
             self.assertNotIn('SDL_DYNAMIC_API', list(options['env']))
+            self.assertEqual(options['env']['QT_QPA_PLATFORM'], 'windows')
+            self.assertTrue((self.directory / 'verify/extracted' / self.app.name / 'platforms/qwindows.dll').is_file())
             self.assertIn('extracted', ' '.join(map(str, command)))
         self.assertEqual((self.directory / 'verify/native-readers-stderr.log').read_text(), 'Qt diagnostic')
+
+    def test_native_probe_timeout_keeps_partial_diagnostics(self):
+        build = self.directory / 'build'
+        (build / 'Release').mkdir(parents=True)
+        (build / 'Release/validation_probe.exe').write_bytes(synthetic_pe())
+        self.manifest()
+        manifest = json.loads((self.app / 'BUILD_MANIFEST.json').read_text())
+        manifest['version'] = '1.0.0'
+        package.save_json(self.app / 'BUILD_MANIFEST.json', manifest)
+        archive = self.directory / 'runtime.zip'
+        package.write_zip(self.app, archive)
+        def execute(command, log, **options):
+            log.write_text('KomaMimic 1.0.0\n', encoding='utf-8')
+            return dict(returncode=0)
+        def timeout(command, **options):
+            options['stderr'].write('BEGIN QGuiApplication\nQt diagnostic\n')
+            options['stderr'].flush()
+            raise subprocess.TimeoutExpired(command, options['timeout'])
+        output = self.directory / 'verify'
+        with (mock.patch.dict(package.os.environ, dict(SystemRoot='C:/Windows')),
+              mock.patch.object(package, 'execute', side_effect=execute),
+              mock.patch.object(package.subprocess, 'run', side_effect=timeout)):
+            with self.assertRaisesRegex(RuntimeError, 'timed out'):
+                package.native_verify(archive, build, output)
+        self.assertIn('BEGIN QGuiApplication\nQt diagnostic\n',
+                      (output / 'native-readers-stderr.log').read_text())
+        self.assertIn('timed out after 120', (output / 'native-readers-stderr.log').read_text())
+        self.assertTrue((output / 'native-readers.json').is_file())
 
 
 if __name__ == '__main__':

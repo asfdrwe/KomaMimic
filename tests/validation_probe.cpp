@@ -11,7 +11,14 @@
 #include <cstdio>
 
 int main(int argc, char **argv) {
+    const auto progress = [](const QString &message) {
+        const auto bytes = message.toUtf8();
+        fprintf(stderr, "%s\n", bytes.constData());
+        fflush(stderr);
+    };
+    progress("BEGIN QGuiApplication");
     QGuiApplication app(argc, argv);
+    progress("PASS QGuiApplication: " + QGuiApplication::platformName());
     if (app.arguments().size() != 2) return 2;
     const QString root = app.arguments().at(1) + '/';
     QJsonArray results;
@@ -19,12 +26,14 @@ int main(int argc, char **argv) {
     const auto check = [&](const QString &name, bool ok, const QString &detail = {}) {
         results.append(QJsonObject{{"case", name}, {"pass", ok}, {"detail", detail}});
         failed |= !ok;
+        progress((ok ? "PASS " : "FAIL ") + name);
     };
     for (const auto &[name, count] : QVector<QPair<QString, int>>{
              {"images", 7}, {"books/01-first.zip", 6}, {"books/02-next.zip", 6},
              {"books/03-cp932.zip", 1}, {"日本語 空白/書庫 & 01.cbz", 6},
              {"books/05-pages.tar", 6}, {"books/06-pages.tar.gz", 6},
              {"animation/tiff/two-pages.tiff", 2}, {"documents/three-pages.pdf", 3}}) {
+        progress("BEGIN " + name);
         const auto opened = Book::open(root + name);
         bool ok = opened.book && opened.book->pages.size() == count;
         QString error = opened.error;
@@ -40,6 +49,7 @@ int main(int argc, char **argv) {
             check("cp932-name", opened.book->pages.first().name == QString("表紙ソ.png"), opened.book->pages.first().name);
     }
     OpenOptions pdfOptions; pdfOptions.pdfResources = true;
+    progress("BEGIN pdf-internal-images");
     const auto pdf = Book::open(root + "documents/three-pages.pdf", {}, pdfOptions);
     bool pdfOk = pdf.book && pdf.book->pages.size() == 3;
     if (pdfOk) for (int i = 0; i < 3; ++i) {
@@ -48,6 +58,7 @@ int main(int argc, char **argv) {
     }
     check("pdf-internal-images", pdfOk, pdf.error);
     for (const auto &name : {"animation/gif/two-frames.gif", "animation/apng/two-frames.apng"}) {
+        progress(QString("BEGIN ") + name);
         QFile input(root + name);
         if (!input.open(QIODevice::ReadOnly)) { check(name, false, input.errorString()); continue; }
         const auto decoded = decodeImage(input.readAll(), name);
@@ -58,6 +69,7 @@ int main(int argc, char **argv) {
         check(name, ok, decoded.error);
     }
     for (const auto &name : {"aozora-utf8.txt", "aozora-cp932.txt", "sample.md"}) {
+        progress(QString("BEGIN ") + name);
         OpenOptions options;
         if (QString(name).contains("cp932")) options.text.encoding = "CP932";
         const auto opened = Book::open(root + "documents/" + name, {}, options);
@@ -70,6 +82,7 @@ int main(int argc, char **argv) {
         check(name, ok, opened.error);
     }
     for (const auto &name : {"reflow.epub", "fixed.epub"}) {
+        progress(QString("BEGIN ") + name);
         const auto publication = readPublication(root + "documents/" + name, {});
         const auto readingSections = std::count_if(publication->sections.cbegin(), publication->sections.cend(),
                                                   [](const auto &section) { return !section.auxiliary; });
@@ -85,6 +98,7 @@ int main(int argc, char **argv) {
               QString::fromUtf8(QJsonDocument(QJsonObject{{"error", publication->error + cover.error},
                   {"sections", sections}, {"toc", publication->toc.size()}, {"cover", !cover.image.isNull()}}).toJson(QJsonDocument::Compact)));
     }
+    progress("BEGIN mixed-archive-entry-paths");
     const auto mixed = Book::open(root + "books/04-mixed-documents.zip");
     bool mixedOk = mixed.book && mixed.book->archiveDirectory && mixed.book->pages.size() == 3;
     if (mixedOk) for (int i = 0; i < mixed.book->pages.size(); ++i) {

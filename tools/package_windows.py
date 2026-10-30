@@ -241,8 +241,10 @@ def native_verify(package, build, output):
         raise ValueError('Windows SystemRoot is missing')
     env = {k: v for k, v in os.environ.items()
            if not k.upper().startswith(('QT', 'QML', 'SDL_', 'SDL2COMPAT_', 'KOMA_PROBE_'))}
+    # windeployqt ships qwindows.dll, not the SDK-only offscreen test plugin.
+    # CLI/worker checks use QCoreApplication and cannot catch this mismatch.
     env.update(PATH=os.pathsep.join((str(Path(system_root) / 'System32'), system_root)),
-               QT_QPA_PLATFORM='offscreen')
+               QT_QPA_PLATFORM='windows', QT_LOGGING_TO_CONSOLE='1')
     def run(name, command):
         record = execute(command, output / (name + '.log'), env=env, cwd=output, timeout=120)
         if record['returncode']:
@@ -259,12 +261,19 @@ def native_verify(package, build, output):
         return  # Standalone smoke check; full pack always supplies its reader probe.
     # The probe is a test executable, added only after checking the shipped inventory.
     shutil.copy2(build / 'Release/validation_probe.exe', app / 'validation_probe.exe')
-    result = subprocess.run([str(app / 'validation_probe.exe'), str(fixtures)],
-                            env=env, cwd=output, timeout=120, capture_output=True,
-                            text=True, encoding='utf-8', check=False)
-    (output / 'native-readers.json').write_text(result.stdout, encoding='utf-8')
-    (output / 'native-readers-stderr.log').write_text(result.stderr, encoding='utf-8')
-    if result.returncode or not json.loads(result.stdout)['all_passed']:
+    # Write directly to files so initialization failures and partial case progress
+    # survive a timeout; keep stdout machine-readable JSON, stderr diagnostics.
+    stdout_path = output / 'native-readers.json'
+    stderr_path = output / 'native-readers-stderr.log'
+    with stdout_path.open('w', encoding='utf-8') as stdout, stderr_path.open('w', encoding='utf-8') as stderr:
+        try:
+            result = subprocess.run([str(app / 'validation_probe.exe'), str(fixtures)],
+                                    env=env, cwd=output, timeout=120, stdout=stdout,
+                                    stderr=stderr, check=False)
+        except subprocess.TimeoutExpired as error:
+            stderr.write('\nNative reader probe timed out after 120 seconds.\n')
+            raise RuntimeError('Extracted ZIP native readers timed out; see ' + str(stderr_path)) from error
+    if result.returncode or not json.loads(stdout_path.read_text(encoding='utf-8'))['all_passed']:
         raise ValueError('Extracted ZIP native readers failed')
 
 

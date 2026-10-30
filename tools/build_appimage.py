@@ -375,8 +375,10 @@ def stage(build, destination, sources, max_glibc):
 def download(entry, target):
     with urllib.request.urlopen(entry['url'], timeout=120) as source, target.open('wb') as destination:
         shutil.copyfileobj(source, destination)
-    if digest(target) != entry['sha256']:
-        raise ValueError('Packaging tool checksum mismatch: ' + entry['url'])
+    actual = digest(target)
+    if actual != entry['sha256']:
+        raise ValueError('Packaging tool checksum mismatch: ' + entry['url']
+                         + '; expected=' + entry['sha256'] + '; actual=' + actual)
     target.chmod(0o755)
 
 

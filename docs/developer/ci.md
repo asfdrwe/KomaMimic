@@ -107,6 +107,9 @@ ZIP内の`配布情報.txt`にも記載します。CI runnerにはランタイ�
 Qt/vcpkgをPATHから除き、Qt/SDL等のoverrideを取り除いた環境で本体の版・形式一覧、
 workerによる12サンプルの全RGBA比較とnative reader probeを実行します。
 probeは検査時だけ展開先へ追加し、配布ZIPには含めません。失敗時は配布artifactを保存しません。
+この検査では同梱した`platforms/qwindows.dll`を使い、`QT_QPA_PLATFORM=windows`を指定します。
+SDKの試験用offscreen pluginには依存しません。probeのQt初期化と各caseの進捗はstderrへ逐次出力し、
+120秒の上限に達した場合も`native-readers-stderr.log`へ途中の診断を残します。
 
 成功時のartifactは以下です（14日間保存）。
 
@@ -198,8 +201,11 @@ NSSは32bit/64bitが共存するホストでもx86_64の実体だけを選択し
 
 続くUbuntu 22.04コンテナのjobは、Rockyで作ったAppDirのhashを再確認し、
 appimagetoolと静的runtimeで1ファイルへまとめます。アプリや依存の再コンパイルはしません。
-ツールは`tools/appimage-tools.json`のSHA-256で検証し、上流continuous assetが更新されて
-hashが変わった場合は停止します。更新時は公式release assetと照合して設定を更新します。
+appimagetoolは[公式リリース1.9.1](https://github.com/AppImage/appimagetool/releases/tag/1.9.1)のURLへ固定し、
+`tools/appimage-tools.json`のSHA-256で検証します。runtimeも固定SHA-256で検証し、
+その上流continuous assetが更新されてhashが変わった場合は停止します。
+更新時は公式release assetと照合し、実物で圧縮・起動検査を済ませてから設定を更新します。
+不一致のエラーには期待値と実際のhashを表示します。
 Qt・Ravenをインストールしない環境で、AppImageの`--version`・`--formats`、展開後のworker、
 生成fixtureのnative reader probeを検査します。CIではFUSEを必要としないextract-and-runを使います。
 
