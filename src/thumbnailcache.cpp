@@ -19,6 +19,8 @@
 #include <QUuid>
 #include <algorithm>
 
+Q_LOGGING_CATEGORY(thumbnailCacheLog, "komamimic.cache", QtWarningMsg)
+
 namespace {
 constexpr qint64 MaxCacheFile=4*1024*1024;
 bool managed(const QString &name) {
@@ -69,6 +71,7 @@ bool ThumbnailDiskCache::inventory(const std::function<bool()> &cancel) {
     }
     if(cancel && cancel()) return false;
     m_entries=std::move(entries);m_bytes=bytes;m_revision=current;m_initialized=true;
+    qCDebug(thumbnailCacheLog) << "inventory" << m_entries.size() << "files" << m_bytes << "bytes";
     return true;
 }
 void ThumbnailDiskCache::changed() {
@@ -94,7 +97,7 @@ void ThumbnailDiskCache::trim(qint64 limit,int count,const std::function<bool()>
     for(const auto &name:order) {
         if(cancel && cancel()) break;
         if(m_bytes<=limit && m_entries.size()<=count) break;
-        remove(name);
+        if(remove(name)) qCDebug(thumbnailCacheLog) << "evict" << name;
     }
 }
 ImageResult ThumbnailDiskCache::image(const QByteArray &key,const std::function<ImageResult()> &generate,
@@ -105,6 +108,8 @@ ImageResult ThumbnailDiskCache::image(const QByteArray &key,const std::function<
     if(cancelled()) return {{},QCoreApplication::translate("KomaMimic", "サムネイルの読み込みを取り消しました。")};
     const bool use=m_enabled.load() && !key.isEmpty();
     const auto name=QString::fromLatin1(QCryptographicHash::hash(key,QCryptographicHash::Sha256).toHex())+".png";
+    qCDebug(thumbnailCacheLog) << "lookup" << name << "directory" << m_directory
+                             << "enabled" << use << "refresh" << refresh;
     if(use && !refresh) {
         QMutexLocker guard(&m_mutex);QString error;
         if(prepare(false,error)) {
@@ -126,13 +131,22 @@ ImageResult ThumbnailDiskCache::image(const QByteArray &key,const std::function<
                             if(file.open(QIODevice::ReadWrite) && file.setFileTime(QDateTime::fromMSecsSinceEpoch(now),QFileDevice::FileModificationTime)) entry.diskUsed=now;
                         }
                         entry.used=now;
-                        if(!cancelled() && generation==m_generation.load()) return {cached,{}};
-                    } else if(remove(name)) changed();
+                        if(!cancelled() && generation==m_generation.load()) {
+                            qCDebug(thumbnailCacheLog) << "hit" << name;
+                            return {cached,{}};
+                        }
+                    } else if(remove(name)) {
+                        qCDebug(thumbnailCacheLog) << "invalid-png" << name;
+                        changed();
+                    }
                 }
+            } else {
+                qCDebug(thumbnailCacheLog) << "lock-unavailable" << name << lock.error();
             }
         }
     }
     if(cancelled()) return {};
+    qCDebug(thumbnailCacheLog) << "generate" << name;
     auto result=generate();
     if(!use || cancelled() || generation!=m_generation.load() || !m_enabled.load() ||
        !result.error.isEmpty() || result.image.isNull() || (sourceUnchanged && !sourceUnchanged())) return result;
@@ -159,6 +173,7 @@ ImageResult ThumbnailDiskCache::image(const QByteArray &key,const std::function<
        !cancelled() && generation==m_generation.load() && file.commit()) {
         const auto now=QDateTime::currentMSecsSinceEpoch();
         m_bytes+=bytes.size()-existing;m_entries[name]={bytes.size(),now,now};
+        qCDebug(thumbnailCacheLog) << "stored" << name;
     }
     changed();return result;
 }

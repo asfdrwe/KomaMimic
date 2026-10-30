@@ -36,7 +36,11 @@ distribution is not notarized.
 See the [AppImage workflow](ci.md#linux-appimage-generation-on-rocky-8).
 `tools/build_appimage.py` deploys dependencies and resources after CMake install,
 checks relative RPATHs and glibc requirements, compresses with checksum-pinned tools,
-and checks the candidate. The AppImage identifies itself as a candidate awaiting
+and checks the candidate, including real WebEngine layout under Xvfb/xcb.
+The host supplies the graphics stack and GNU C++/unwind runtimes so a bundled
+older runtime cannot prevent newer Mesa drivers from loading. The payload's
+C++ ABI requirements are limited to the Ubuntu 22.04 baseline.
+The AppImage identifies itself as a candidate awaiting
 verification. Qt WebEngine and the Qt TIFF plugin use RPMs; Poppler is built against
 TIFF ABI 6. Poppler data, applied patches, and corresponding source are bundled.
 Packaging rejects a mixture of TIFF ABI 5 and 6.

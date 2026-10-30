@@ -248,12 +248,38 @@ class AppImageTests(unittest.TestCase):
                 self.assertEqual(appimage.japanese_catalog(root), catalog)
                 rpm.assert_not_called()
 
-    def test_host_boundary_keeps_qt_codecs_and_cpp_but_excludes_glibc_and_drivers(self):
+    def test_host_boundary_keeps_qt_codecs_but_excludes_graphics_and_cpp_runtime(self):
         for name in ('libc.so.6', 'libm.so.6', 'libpthread.so.0', 'libdl.so.2',
-                     'ld-linux-x86-64.so.2', 'libGLX.so.0', 'libEGL.so.1', 'libnss_files.so.2'):
+                     'ld-linux-x86-64.so.2', 'libGLX.so.0', 'libEGL.so.1', 'libnss_files.so.2',
+                     'libstdc++.so.6', 'libgcc_s.so.1', 'libdrm.so.2', 'libdrm_amdgpu.so.1',
+                     'libdrm_radeon.so.1', 'libgbm.so.1', 'libglapi.so.0'):
             self.assertIsNotNone(appimage.HOST_LIBRARIES.fullmatch(name), name)
-        for name in ('libQt6Core.so.6', 'libstdc++.so.6', 'libnss3.so', 'libtiff.so.5', 'libjpeg.so.62'):
+        for name in ('libQt6Core.so.6', 'libnss3.so', 'libtiff.so.5', 'libjpeg.so.62', 'libLLVM.so.20.1'):
             self.assertIsNone(appimage.HOST_LIBRARIES.fullmatch(name), name)
+
+    def test_cpp_abi_audit_checks_undefined_symbols_against_baseline(self):
+        appimage.audit_cpp_abi(' 1: 0 0 FUNC GLOBAL DEFAULT UND foo@GLIBCXX_3.4.29 (2)\n'
+                              ' 2: 0 0 FUNC GLOBAL DEFAULT UND bar@CXXABI_1.3.13 (3)\n'
+                              ' 3: 0 0 FUNC GLOBAL DEFAULT 10 own@GLIBCXX_3.4.34\n')
+        for version in ('GLIBCXX_3.4.30', 'CXXABI_1.3.14', 'GCC_12.0.0'):
+            with self.subTest(version=version), self.assertRaisesRegex(ValueError, 'Ubuntu 22.04'):
+                appimage.audit_cpp_abi(' 1: 0 0 FUNC GLOBAL DEFAULT UND foo@' + version + ' (2)')
+
+    def test_host_graphics_dependency_subtree_is_not_bundled(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for name in ('program', 'libgbm.so.1', 'libgallium-private.so', 'libcodec.so.1', 'libcodec-helper.so.1'):
+                (root / name).write_bytes(b'fixture')
+            edges = {'program': ['libgbm.so.1', 'libcodec.so.1'],
+                     'libgbm.so.1': ['libgallium-private.so'],
+                     'libcodec.so.1': ['libcodec-helper.so.1'], 'libcodec-helper.so.1': []}
+            closure = [(name, root / name) for name in edges if name != 'program']
+            closure.append(('libgallium-private.so', root / 'libgallium-private.so'))
+            with patch.object(appimage, 'dependencies', return_value=closure), patch.object(
+                    appimage, 'output', side_effect=lambda args: '\n'.join(edges[Path(args[-1]).name])):
+                libraries, _ = appimage.collect_libraries(root / 'AppDir', [(root / 'program', root / 'unused')])
+            self.assertEqual(set(libraries), {'libcodec.so.1', 'libcodec-helper.so.1'})
+            self.assertFalse((root / 'AppDir/usr/lib/libgallium-private.so').exists())
 
     def test_glibc_audit_compares_versions_numerically_and_rejects_private_abi(self):
         versions = appimage.glibc_versions('GLIBC_2.9 GLIBC_2.28 GLIBC_2.35 GLIBCXX_3.4.30')
@@ -315,7 +341,9 @@ class AppImageTests(unittest.TestCase):
                 source = root / name
                 source.write_bytes(b'fixture')
                 paths.append((name, source))
-            with patch.object(appimage, 'dependencies', return_value=paths):
+            with patch.object(appimage, 'dependencies', return_value=paths), patch.object(
+                    appimage, 'output', side_effect=lambda args: '\n'.join(name for name, _ in paths)
+                    if Path(args[-1]).name == 'program' else ''):
                 with self.assertRaisesRegex(ValueError, 'Mixed TIFF'):
                     appimage.collect_libraries(root / 'AppDir', [(root / 'program', root / 'unused')])
             report = json.loads((root / 'TIFF_DEPENDENCIES.json').read_text())

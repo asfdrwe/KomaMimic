@@ -3,7 +3,10 @@
 #include "media.h"
 #include <QMap>
 #include <QMutex>
+#include <QLoggingCategory>
 #include <atomic>
+
+Q_DECLARE_LOGGING_CATEGORY(thumbnailCacheLog)
 
 // Shared by GUI owners and pool jobs. All disk work belongs on a worker.
 class ThumbnailDiskCache {

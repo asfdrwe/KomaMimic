@@ -217,8 +217,11 @@ bool unpack(const QString &path, Publication &p,
             const std::function<bool()> &cancel = {}) {
   auto *a = archive_read_new();
   archive_read_support_format_zip(a);
-  const auto name = QFile::encodeName(path);
-  if (archive_read_open_filename(a, name.constData(), 65536) != ARCHIVE_OK) {
+  // QFile opens Unicode paths on Windows without a locale-dependent narrow
+  // filename conversion. Keep the descriptor alive until libarchive is freed.
+  QFile input(path);
+  if (!input.open(QIODevice::ReadOnly) ||
+      archive_read_open_fd(a, input.handle(), 65536) != ARCHIVE_OK) {
     p.error = QCoreApplication::translate("KomaMimic", "EPUBのZIPを開けません。");
     archive_read_free(a);
     return false;
@@ -286,8 +289,9 @@ bool coverEntries(const QString &path, Publication &p, const QStringList &wanted
                   const std::function<bool()> &cancel) {
   auto *a = archive_read_new();
   archive_read_support_format_zip(a);
-  const auto name = QFile::encodeName(path);
-  if (archive_read_open_filename(a, name.constData(), 65536) != ARCHIVE_OK) {
+  QFile input(path);
+  if (!input.open(QIODevice::ReadOnly) ||
+      archive_read_open_fd(a, input.handle(), 65536) != ARCHIVE_OK) {
     p.error = QCoreApplication::translate("KomaMimic", "EPUBのZIPを開けません。"); archive_read_free(a); return false;
   }
   QSet<QString> seen;

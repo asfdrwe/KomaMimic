@@ -375,6 +375,7 @@ jobs:
             tmp/rocky8-probe/appimage-stage/AppDir.tar.gz
             tmp/rocky8-probe/appimage-stage/BUILD_MANIFEST.json
             tmp/rocky8-probe/appimage-stage/validation_probe
+            tmp/rocky8-probe/appimage-stage/document_probe
             tmp/rocky8-probe/appimage-source/*
             tmp/rocky8-probe/libarchive-*.tar.gz
             tmp/rocky8-probe/poppler-*-source.tar.gz
@@ -448,7 +449,8 @@ jobs:
         run: |
           apt-get update
           DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-            git ca-certificates python3 file gdb libgl1 libegl1 libopengl0 \
+            git ca-certificates python3 file gdb xvfb xauth libgl1 libegl1 libopengl0 \
+            libgl1-mesa-dri libglx-mesa0 libegl-mesa0 libgbm1 libstdc++6 libgcc-s1 \
             fontconfig fonts-dejavu-core fonts-noto-cjk desktop-file-utils
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -475,6 +477,7 @@ jobs:
         run: |
           python3 tools/build_appimage.py verify --image tmp/appimage-dist/*.AppImage \
             --probe tmp/appimage-input/appimage-stage/validation_probe \
+            --document-probe tmp/appimage-input/appimage-stage/document_probe \
             --output tmp/appimage-work/verify 2>&1 | tee tmp/appimage-work/verify.log
           cp -a tmp/appimage-input/appimage-source tmp/appimage-dist/sources
           cp tmp/appimage-input/libarchive-*.tar.gz tmp/appimage-dist/sources/

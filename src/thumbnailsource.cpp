@@ -61,6 +61,9 @@ ImageResult cachedCover(const QString &path,const NamePolicy &policy,
     }
     const auto source=fingerprint(physicalBookPath(path));
     auto key=baseKey(source,policy);key["kind"]="cover";
+    qCDebug(thumbnailCacheLog) << "cover-key" << digest(source) << "scripts" << key["scripts"].toString()
+                             << "version" << KOMAMIMIC_VERSION << "qt" << qVersion()
+                             << "encoding" << policy.legacyEncoding << "force" << policy.force;
     if (parseArchiveEntryPath(path).valid()) key["entry"] = bookIdentityPath(path);
     bool cacheableCover = true;
     const auto generate=[&]() -> ImageResult {
@@ -93,6 +96,8 @@ ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int inde
     const auto path=page.archivedText ? book->path : book->filesystem || page.document ? page.filePath : book->path;
     const auto source=fingerprint(physicalBookPath(path));
     auto key=baseKey(source,book->namePolicy);key["kind"]="page";
+    qCDebug(thumbnailCacheLog) << "page-key" << digest(source) << "scripts" << key["scripts"].toString()
+                             << "version" << KOMAMIMIC_VERSION << "qt" << qVersion();
     key["identity"]=page.identity;key["name"]=page.name;key["ordinal"]=QString::number(page.archiveIndex);
     key["page"]=page.documentPage;key["pdfResource"]=page.pdfResource;
     key["portion"]=QJsonArray{page.portion.x(),page.portion.y(),page.portion.width(),page.portion.height()};

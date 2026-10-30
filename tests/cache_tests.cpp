@@ -12,8 +12,10 @@
 #include <QCryptographicHash>
 #include <QDialog>
 #include <QLabel>
+#include <QLockFile>
 #include <QPushButton>
 #include <QProcess>
+#include <QSaveFile>
 #include <QSpinBox>
 #include <QTableWidget>
 #include <QTimer>
@@ -21,6 +23,7 @@
 #include <latch>
 #include <thread>
 #include <vector>
+#include <cstdio>
 
 class CacheTests:public QObject {
     Q_OBJECT
@@ -86,6 +89,36 @@ private slots:
         const auto file=d.filePath("not-a-directory");QVERIFY(TestData::write(file,"keep"));
         ThumbnailDiskCache unavailable(file);QVERIFY(!unavailable.image("one",generate).image.isNull());
         QVERIFY(!unavailable.stats().error.isEmpty());QFile original(file);QVERIFY(original.open(QIODevice::ReadOnly));QCOMPARE(original.readAll(),QByteArray("keep"));
+    }
+    void diskCacheSurvivesKilledWriter() {
+        for (const auto &mode:{QString("pending"),QString("committed")}) {
+            QTemporaryDir directory; QVERIFY(directory.isValid());
+            const auto root=directory.filePath("cache");
+            const auto name=QString::fromLatin1(QCryptographicHash::hash("one",QCryptographicHash::Sha256).toHex())+".png";
+            {
+                ThumbnailDiskCache cache(root);
+                QVERIFY(!cache.image("one",[]{return ImageResult{TestData::solid(Qt::blue),{}};}).image.isNull());
+            }
+            QProcess writer;
+            writer.start(QCoreApplication::applicationFilePath(),{"--cache-interruption-probe",root,name,mode});
+            QVERIFY2(writer.waitForReadyRead(10000),writer.readAllStandardError().constData());
+            QCOMPARE(writer.readAllStandardOutput().trimmed(),QByteArray("ready"));
+            QVERIFY(QFileInfo::exists(root+"/.lock"));
+            writer.kill(); QVERIFY(writer.waitForFinished(5000));
+            QCOMPARE(writer.exitStatus(),QProcess::CrashExit);
+            // The dead writer leaves a lock and may leave a pending QSaveFile.
+            // The next instance must recover without regenerating intact PNGs,
+            // including when a commit happened before .revision was updated.
+            ThumbnailDiskCache recovered(root); int calls=0;
+            const auto image=recovered.image("one",[&]{++calls;return ImageResult{TestData::solid(Qt::red),{}};});
+            QVERIFY(!image.image.isNull());
+            QCOMPARE(image.image.pixelColor(0,0),QColor(mode=="pending"?Qt::blue:Qt::green));
+            QCOMPARE(calls,0);
+            const auto stats=recovered.stats(); QVERIFY2(stats.error.isEmpty(),qPrintable(stats.error));
+            QCOMPARE(stats.entries,1);
+            QCOMPARE(stats.bytes,QFileInfo(root+'/'+name).size());
+            QVERIFY(!QFileInfo::exists(root+"/.lock"));
+        }
     }
     void cancelledAndChangedSources() {
         QTemporaryDir d;ThumbnailDiskCache cache(d.path());
@@ -353,6 +386,19 @@ private slots:
     }
 };
 int main(int argc,char **argv) {
+    if (argc==5 && QByteArray(argv[1])=="--cache-interruption-probe") {
+        QCoreApplication app(argc,argv); const auto arguments=app.arguments();
+        QLockFile lock(arguments[2]+"/.lock"); if(!lock.tryLock(1000))return 2;
+        QSaveFile image(arguments[2]+'/'+arguments[3]);
+        QSaveFile revision(arguments[2]+"/.revision");
+        if(!image.open(QIODevice::WriteOnly) || !revision.open(QIODevice::WriteOnly))return 3;
+        if(arguments[4]=="committed") {
+            if(!image.write(TestData::png(TestData::solid(Qt::green))) || !image.commit())return 4;
+        } else if(image.write("incomplete PNG")<0)return 5;
+        if(revision.write("incomplete revision")<0)return 6;
+        std::puts("ready"); std::fflush(stdout);
+        QThread::sleep(600); return 7;
+    }
     if (argc==5 && QByteArray(argv[1])=="--zip-cancel-probe") {
         QCoreApplication app(argc,argv);const auto arguments=app.arguments();
         const int checkpoint=arguments[4].toInt();int checks=0;

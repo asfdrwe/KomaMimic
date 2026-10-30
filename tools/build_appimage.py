@@ -15,11 +15,15 @@ import tarfile
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-# These come from the target OS: glibc/loader and the graphics driver interface.
-# Qt, ICU, C++ runtime, XCB, codecs, NSS and all other resolved DSOs are bundled.
+# Keep the host graphics stack and its C++ runtime together. An older bundled
+# libstdc++/libdrm/libgbm can prevent a newer Mesa driver from loading, causing
+# Qt WebEngine's first GL context to abort even though image reading works.
+# Qt, ICU, XCB, codecs and NSS remain bundled. C++ ABI requirements are checked
+# against the Ubuntu 22.04 baseline below, alongside the glibc requirements.
 HOST_LIBRARIES = re.compile(
     r'^(?:ld-linux[^/]*|lib(?:c|m|mvec|pthread|dl|rt|resolv|util|anl|BrokenLocale)\.so(?:\..*)?'
-    r'|libnss_[^/]+\.so(?:\..*)?|lib(?:GL|GLX|OpenGL|EGL|GLdispatch)\.so(?:\..*)?)$')
+    r'|libnss_[^/]+\.so(?:\..*)?|lib(?:GL|GLX|OpenGL|EGL|GLdispatch|gbm|glapi|drm(?:_[a-z0-9]+)?)\.so(?:\..*)?'
+    r'|libstdc\+\+\.so\.6|libgcc_s\.so\.1)$')
 APP_RUN = '''#!/bin/sh
 set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -96,6 +100,17 @@ def glibc_versions(text):
         # older distro releases have inconsistent backports of this tag.
         versions.add((2, 43))
     return versions
+
+
+def audit_cpp_abi(symbols):
+    # Only undefined symbols are requirements; a DSO's own version definitions
+    # must not be mistaken for symbols required from the target OS.
+    undefined = '\n'.join(line for line in symbols.splitlines() if ' UND ' in line)
+    for prefix, limit in (('GLIBCXX', (3, 4, 29)), ('CXXABI', (1, 3, 13)), ('GCC', (11, 0, 0))):
+        versions = {tuple(map(int, v.split('.'))) for v in
+                    re.findall(r'\b' + prefix + r'_([0-9]+(?:\.[0-9]+)+)', undefined)}
+        if versions and max(versions) > limit:
+            raise ValueError(f'Payload needs {prefix}_{max(versions)}, newer than Ubuntu 22.04 baseline {limit}')
 
 
 def qtpaths():
@@ -200,25 +215,33 @@ def collect_libraries(app, seeds, preferred=()):
         target = app / 'usr/lib' / name
         copy(path, target)
         extra_seeds.append((path, target))
-    # ldd includes each source's transitive dependency closure. Preserve the
-    # first resolution of a SONAME, rather than bundling conflicting duplicates.
+    # ldd resolves the full closure, including dependencies below host drivers.
+    # Follow DT_NEEDED edges and stop at host boundaries: copying that entire
+    # closure would still pull in the host driver's private Gallium/LLVM DSOs.
+    # Preserve the first resolution of a SONAME and the CMake-selected libraries.
     for source, _ in [*extra_seeds, *seeds]:
         resolved = dict(dependencies(source))
         for tiff in ('libtiff.so.5', 'libtiff.so.6'):
             if tiff in resolved:
                 tiff_roots.append((source, tiff, resolved))
-        for name, path in resolved.items():
-            if HOST_LIBRARIES.fullmatch(name):
-                continue
-            if '/' in name:
-                raise ValueError('Absolute DT_NEEDED is not relocatable: ' + name)
-            real = path.resolve(strict=True)
-            if name in libraries:
-                if real != libraries[name]:
-                    alternatives.append(dict(soname=name, selected=str(libraries[name]), other=str(real)))
-                continue
-            libraries[name] = real
-            copy(real, app / 'usr/lib' / name)
+        pending = deque([source])
+        while pending:
+            current = pending.popleft()
+            for name in output(['patchelf', '--print-needed', current]).splitlines():
+                if HOST_LIBRARIES.fullmatch(name):
+                    continue
+                if '/' in name:
+                    raise ValueError('Absolute DT_NEEDED is not relocatable: ' + name)
+                if name not in resolved:
+                    raise ValueError(f'Unresolved dependency of {current}: {name}')
+                real = resolved[name].resolve(strict=True)
+                if name in libraries:
+                    if real != libraries[name]:
+                        alternatives.append(dict(soname=name, selected=str(libraries[name]), other=str(real)))
+                    continue
+                libraries[name] = real
+                copy(real, app / 'usr/lib' / name)
+                pending.append(real)
     if 'libtiff.so.5' in libraries and 'libtiff.so.6' in libraries:
         report = [dict(root=str(source), tiff=tiff, library=str(resolved[tiff]),
                        chain=dependency_chain(source, tiff, resolved))
@@ -293,12 +316,16 @@ def relocate_and_audit(app, max_glibc):
             run(['patchelf', '--force-rpath', '--set-rpath', rpath, binary])
         audit_elf_layout(binary)
         versions.update(glibc_versions(output(['readelf', '--version-info', binary])))
+        audit_cpp_abi(output(['readelf', '--dyn-syms', '--wide', binary]))
     if versions and max(versions) > max_glibc:
         raise ValueError(f'Payload needs GLIBC_{max(versions)}, limit is {max_glibc}')
     for binary in binaries:
-        for name, resolved in dependencies(binary, env):
-            if not HOST_LIBRARIES.fullmatch(name) and not resolved.resolve().is_relative_to(app):
-                raise ValueError(f'Payload leaks a build-host dependency: {binary}: {name} => {resolved}')
+        resolved = dict(dependencies(binary, env))
+        for name in output(['patchelf', '--print-needed', binary]).splitlines():
+            if HOST_LIBRARIES.fullmatch(name):
+                continue
+            if name not in resolved or not resolved[name].resolve().is_relative_to(app):
+                raise ValueError(f'Payload leaks a build-host dependency: {binary}: {name} => {resolved.get(name)}')
     return '.'.join(map(str, max(versions))) if versions else None
 
 
@@ -370,6 +397,7 @@ def stage(build, destination, sources, max_glibc):
     with tarfile.open(destination / 'AppDir.tar.gz', 'w:gz') as archive:
         archive.add(app, arcname='AppDir')
     copy(build / 'validation_probe', destination / 'validation_probe')
+    copy(build / 'document_probe', destination / 'document_probe')
 
 
 def download(entry, target):
@@ -429,7 +457,7 @@ def pack(stage_dir, destination):
     return image
 
 
-def verify(image, probe, destination):
+def verify(image, probe, destination, document_probe):
     destination.mkdir(parents=True, exist_ok=False)
     # No Qt SDK, RX prefix, or compilation environment may supply dependencies.
     env = {key: value for key, value in os.environ.items()
@@ -471,6 +499,24 @@ def verify(image, probe, destination):
     if not report['all_passed']:
         raise ValueError('Extracted AppImage native reader checks failed: ' + result)
     (destination / 'native-reader.json').write_text(result + '\n')
+    # Parsing/thumbnail probes never create WebEngine or a GL context. Exercise
+    # actual layout with the deployed runtime as well, so packaging regressions
+    # cannot pass solely on successful Markdown/EPUB parsing.
+    copy(document_probe, app / 'usr/bin/document_probe')
+    (app / 'usr/bin/document_probe').chmod(0o755)
+    # Root CI containers require this external test-only setting. AppRun never
+    # disables Chromium's sandbox for users.
+    renderer_env = dict(env)
+    renderer_env['QT_QPA_PLATFORM'] = 'xcb'
+    if os.geteuid() == 0:
+        renderer_env['QTWEBENGINE_DISABLE_SANDBOX'] = '1'
+    with (destination / 'document-render.json').open('w') as stdout, \
+         (destination / 'document-render-stderr.log').open('w') as stderr:
+        rendered = subprocess.run(['xvfb-run', '-a', '-s', '-screen 0 1280x1024x24',
+                                   str(app / 'usr/bin/document_probe'), str(fixtures)],
+                                  env=renderer_env, stdout=stdout, stderr=stderr, timeout=120)
+    if rendered.returncode or not json.loads((destination / 'document-render.json').read_text())['all_passed']:
+        raise ValueError('Extracted AppImage document rendering failed; see document-render-stderr.log')
 
 
 if __name__ == '__main__':
@@ -487,6 +533,7 @@ if __name__ == '__main__':
     p = commands.add_parser('verify')
     p.add_argument('--image', type=Path, required=True)
     p.add_argument('--probe', type=Path, required=True)
+    p.add_argument('--document-probe', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     if args.command == 'stage':
@@ -495,4 +542,4 @@ if __name__ == '__main__':
     elif args.command == 'pack':
         pack(args.stage.resolve(), args.output.resolve())
     else:
-        verify(args.image.resolve(), args.probe.resolve(), args.output.resolve())
+        verify(args.image.resolve(), args.probe.resolve(), args.output.resolve(), args.document_probe.resolve())

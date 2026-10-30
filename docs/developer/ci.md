@@ -283,8 +283,13 @@ or tags; the Release workflow calls it automatically for a version-tag build.
 After tests pass, the Rocky job runs `tools/build_appimage.py stage`, deploying the
 application, worker, Qt plugins, WebEngine helpers/resources/locales, Japanese
 translations, and dependency shared libraries into AppDir. It makes RPATHs relative,
-excludes glibc, the loader, and host OpenGL/EGL libraries, and checks for references
-to build-environment libraries. It rejects TIFF ABI 5/6 mixing and checks that all
+excludes glibc, the loader, the host graphics stack (OpenGL/EGL, GBM, DRM, glapi),
+and the GNU C++/unwind runtimes. These must stay compatible with the host's Mesa
+drivers; an older bundled libstdc++ can make WebEngine abort during GLX startup.
+Dependency traversal stops at host-library boundaries instead of collecting their
+private Gallium/LLVM dependencies. Undefined C++ ABI symbols are checked against
+the Ubuntu 22.04 baseline (GLIBCXX 3.4.29, CXXABI 1.3.13, GCC 11.0.0).
+The audit rejects references to build-environment libraries and TIFF ABI 5/6 mixing, and checks that all
 payload ELF files require at most glibc 2.35, the Ubuntu 22.04 baseline. Normal
 AppRun does not disable the sandbox.
 
@@ -306,7 +311,13 @@ changing the configuration. Mismatch errors show expected and actual hashes.
 
 In an environment without Qt or Raven installed, checks cover AppImage `--version`
 and `--formats`, the extracted worker, and the native reader probe on generated
-fixtures. CI uses extract-and-run without FUSE.
+fixtures. A separate `document_probe` renders TXT, Markdown and reflow/fixed EPUB
+with the deployed WebEngine and the xcb QPA plugin under Xvfb. This also creates
+a GL context; successful parsing alone cannot pass the document deployment check.
+The Ubuntu job supplies its Mesa/GBM and C++ runtimes, without Qt or Raven.
+The probe is an intermediate test artifact and is not shipped in the AppImage.
+CI uses extract-and-run without FUSE. Only the root test container disables the
+Chromium sandbox externally; AppRun does not change the user's sandbox setting.
 
 The successful **komamimic-linux-x86_64-appimage** artifact contains:
 

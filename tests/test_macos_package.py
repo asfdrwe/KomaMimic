@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import re
 import shutil
 import subprocess
 import sys
@@ -36,8 +37,10 @@ class MacPackageTests(unittest.TestCase):
             path.write_bytes(b'resource fixture')
         for path in (self.app / 'Contents/MacOS').iterdir():
             path.chmod(0o755)
+        version = re.search(r'project\(KomaMimic VERSION ([0-9.]+)',
+                            (ROOT / 'CMakeLists.txt').read_text())[1]
         (self.app / 'Contents/Info.plist').write_bytes(plistlib.dumps(dict(
-            CFBundleExecutable='komamimic', CFBundleShortVersionString='1.0.0')))
+            CFBundleExecutable='komamimic', CFBundleShortVersionString=version)))
         self.build = self.root / 'build'
         self.build.mkdir()
         (self.build / 'CMakeCache.txt').write_text(

@@ -115,6 +115,20 @@ QByteArray epub(const QByteArray &extra = {}, bool vertical = true,
 class DocumentTests : public QObject {
   Q_OBJECT
 private slots:
+  void epubUnicodeFilesystemPath() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const auto folder = directory.filePath(QString::fromUtf8("日本語 空白 📚"));
+    QVERIFY(QDir().mkpath(folder));
+    const auto path = folder + QString::fromUtf8("/書籍 (試験) é 中文 📖.epub");
+    QVERIFY(TestData::write(path, imageBook()));
+    const auto publication = readPublication(path, {});
+    QVERIFY2(publication->error.isEmpty(), qPrintable(publication->error));
+    QCOMPARE(publication->sections.size(), 3);
+    const auto cover = epubCover(path);
+    QVERIFY2(!cover.image.isNull(), qPrintable(cover.error));
+    QCOMPARE(cover.image.pixelColor(cover.image.rect().center()), QColor(Qt::green));
+  }
   void epubCoverIndependentOfRenderer() {
     QTemporaryDir d;
     const auto path = d.filePath("表紙.EPUB");

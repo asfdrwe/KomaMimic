@@ -54,6 +54,23 @@ inside temporary directories; they do not initialize the active public source tr
 
 ## Validation with logs
 
+Thumbnail-cache diagnostics are disabled by default. On Linux, enable them for
+one run with `QT_LOGGING_RULES='komamimic.cache.debug=true' ./komamimic ...`.
+The category records hashed cache keys, hits, generation, unavailable locks,
+inventory counts and evictions. `cover-key`/`page-key` also record source and
+script fingerprints, version and Qt version, so a changed key can be separated
+from regenerating the same key. Cache-directory paths appear in these local
+logs; review diagnostics before sharing them. A folder-cover lookup still scans
+candidate files before a PNG hit, and opening an archive still indexes its pages;
+that source I/O alone does not prove thumbnail regeneration.
+
+`document_probe --parse-only path...` checks document parsing without Chromium.
+Without `--parse-only`, it waits for actual WebEngine layout and fails on a
+renderer error or timeout. Passing a generated fixture root selects the TXT,
+Markdown, reflow EPUB and fixed EPUB samples. Run deployment checks with the
+package's libraries/plugins; a development Qt installation can hide missing or
+incompatible runtime dependencies.
+
 ```sh
 python3 tools/prepare_validation.py --output validation-kit
 python3 tools/prepare_validation.py --verify validation-kit
