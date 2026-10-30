@@ -23,11 +23,8 @@ Qtなどの主要ライブラリを同梱しており、Qt SDK・Visual Studio�
 `KomaMimic-1.0.0-windows-x86_64.zip`を取得します。以下はv1.0.0のファイル名の例です。
 別の版を使う場合は、取得した名前に置き換えてください。
 
-Actionsから取得する場合は、`komamimic-windows-x86_64-zip.zip`を先に展開してください。
-その中に配布用の`KomaMimic-1.0.0-windows-x86_64.zip`、`SHA256SUMS`、
-`BUILD_MANIFEST.json`、本体ソースの`sources/`があります。
-
-配布用ZIPと`SHA256SUMS`があるフォルダーでPowerShellを開き、次を実行します。
+#### 配布物の検査
+配布物の検査をしたい場合は、配布用ZIPと`SHA256SUMS`があるフォルダーでPowerShellを開き、次を実行します。
 
 ```powershell
 Get-FileHash -LiteralPath .\KomaMimic-1.0.0-windows-x86_64.zip -Algorithm SHA256
