@@ -240,6 +240,31 @@
       "path": "docs/site/assets/screenshots/mac-keys-ja.png",
       "license": "GPL-3.0-only",
       "sha256": "07dad518fe2281dbd9c7da858458f86785870c70e0090f0f547891c2b9f2aa74"
+    },
+    {
+      "path": "docs/site/assets/screenshots/macos-dmg.png",
+      "license": "GPL-3.0-only",
+      "sha256": "e5af9142d49e5dadd6b12e90674edb31faca59dfe471bf038422ee66692ca231"
+    },
+    {
+      "path": "docs/site/assets/screenshots/macos-gk1.png",
+      "license": "GPL-3.0-only",
+      "sha256": "4fe236885e0ec2dda1c81a086d03233bd1209713aac08adc16fdceb71fea2cd8"
+    },
+    {
+      "path": "docs/site/assets/screenshots/macos-gk2.png",
+      "license": "GPL-3.0-only",
+      "sha256": "46dbc768577aace3b1c7441cb5efcedd761c3d82d1ad564330960f43b59ed462"
+    },
+    {
+      "path": "docs/site/assets/screenshots/macos-gk3.png",
+      "license": "GPL-3.0-only",
+      "sha256": "ff825bd20d8728f33061f72bb45bd80badce302a5651cd3752ddae161f547990"
+    },
+    {
+      "path": "docs/site/assets/screenshots/macos-gk4.png",
+      "license": "GPL-3.0-only",
+      "sha256": "dbc6148de478aebc73072a1d22c1a5d1cc804e83a5eea31f3e7244c76cd71364"
     }
   ]
 }

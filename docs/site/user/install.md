@@ -72,6 +72,84 @@ KomaMimicを終了し、展開したフォルダーと、自分で作成した�
 読んでいた画像や書庫などの作品ファイルは、アプリの削除とは別です。
 Visual C++ランタイムは他のアプリも使うため、KomaMimicの削除に伴って削除する必要はありません。
 
+## macOS（DMG版）
+
+macOS版はApple Silicon（arm64）のMac向けで、macOS 15以降が必要です。
+Qtなどの主要ライブラリを同梱しているため、HomebrewやQt SDKの導入は不要です。
+Developer ID署名とAppleによる公証は行っていないため、初回起動時は以下の許可操作が必要です。
+
+### 入手とチェックサム
+
+[GitHubのReleases](https://github.com/asfdrwe/KomaMimic/releases)から
+`KomaMimic-1.0.0-macos-arm64.dmg`を取得します。以下はv1.0.0のファイル名の例です。
+別の版を使う場合は、取得した名前に置き換えてください。
+
+チェックサムを確認する場合は、DMGがあるフォルダーでターミナルを開き、次を実行します。
+
+```sh
+shasum -a 256 KomaMimic-1.0.0-macos-arm64.dmg
+```
+
+表示された先頭64文字を、配布する`SHA256SUMS`にある同じDMG名の行と照合してください。
+
+### 配置と起動
+
+1. ダウンロードしたDMGをダブルクリックして開きます。
+2. 中の`KomaMimic`を、同じウィンドウの`Applications`へドラッグしてコピーします。
+3. コピーが終わったら、Finderの「アプリケーション」を開き、`KomaMimic`をダブルクリックします。
+
+![DMGを開いた画面。KomaMimicをApplicationsへコピーします](../assets/screenshots/macos-dmg.png)
+
+
+### 初回起動時のGatekeeperの許可
+
+ダウンロードしたDMGからコピーしたアプリは、初回起動時にmacOSのGatekeeperでブロックされます。
+次の手順で、このアプリの起動を許可します。画面の文言はmacOSの版により異なる場合があります。
+
+1. 「“KomaMimic”は開いていません」と表示されたら、**完了**を押して一旦閉じます。
+
+    ![最初のGatekeeper警告。完了を押して閉じます](../assets/screenshots/macos-gk1.png)
+
+2. 「システム設定」→「プライバシーとセキュリティ」を開き、下へスクロールします。
+    KomaMimicがブロックされたという表示の横にある、**このまま開く**を押します。
+
+    ![プライバシーとセキュリティのこのまま開くボタン](../assets/screenshots/macos-gk2.png)
+
+3. 「“KomaMimic”を開きますか？」という確認でも、**このまま開く**を選びます。
+
+    ![起動を再確認する画面。このまま開くを選びます](../assets/screenshots/macos-gk3.png)
+
+4. 管理者の名前とパスワードを求められたら入力し、**OK**を押します。KomaMimicが起動します。
+
+    ![管理者の名前とパスワードによる起動許可](../assets/screenshots/macos-gk4.png)
+
+これはアプリ単位の許可です。詳しくはAppleの[Macでアプリを安全に開く](https://support.apple.com/ja-jp/102445)を参照してください。
+起動後の操作は[基本操作](basic.md)と[macOSで異なる操作](macos.md)を参照してください。
+
+### 更新
+
+1. メニューバーの「KomaMimic」→「終了」、またはCommand+QでKomaMimicを終了します。
+2. [設定フォルダーをバックアップ](settings.md)し、新しい版のDMGを取得してチェックサムを確認します。
+3. DMGを開き、`KomaMimic.app`をApplicationsへコピーします。同名のアプリがある場合は置き換えます。
+4. Finderの「アプリケーション」から起動します。Gatekeeperの確認が出た場合は、上記と同じ手順で許可します。
+5. 動作を確認したらDMGを取り出します。不要になったダウンロード済みのDMGは削除できます。
+
+通常の設定・本棚・履歴はアプリ本体とは別に保存されるため、同じユーザーで起動すれば引き継ぎます。
+`--config`で別の設定を指定して使っていた場合は、更新後も同じ設定ファイルを指定してください。
+
+### 削除
+
+KomaMimicを終了し、Finderの「アプリケーション」にある`KomaMimic.app`をゴミ箱へ移動します。
+Dockへ自分で登録した項目や、不要なダウンロード済みのDMGも削除できます。
+設定・本棚・履歴・キャッシュは残ります。
+
+これらも削除したい場合は、[保存場所](settings.md)を確認し、必要なデータをバックアップしてから
+該当フォルダーを削除してください。本棚・履歴・読書状態も失われます。
+通常の設定フォルダーは`~/Library/Preferences/KomaMimic/KomaMimic`、
+サムネイルキャッシュは`~/Library/Caches/KomaMimic/KomaMimic/thumbnails-v1`です。
+Finderの「移動」→「フォルダへ移動」で、これらのパスを入力できます。
+読んでいた画像や書庫などの作品ファイルは、アプリの削除とは別です。
+
 ## Linux（AppImage版）
 
 Linux版はx86_64（amd64）用のAppImageです。Qtなどの主要ライブラリを同梱しているため、
