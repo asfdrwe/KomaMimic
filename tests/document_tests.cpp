@@ -16,7 +16,10 @@
 #include <QMessageBox>
 #include <QKeySequenceEdit>
 #include <QLineEdit>
+#include <QJsonDocument>
+#include <QJsonArray>
 #include <QPointer>
+#include <QProcess>
 #include <QPushButton>
 #include <QSpinBox>
 #include <QTimer>
@@ -115,6 +118,44 @@ QByteArray epub(const QByteArray &extra = {}, bool vertical = true,
 class DocumentTests : public QObject {
   Q_OBJECT
 private slots:
+  void documentProbeSeparateReport() {
+    QTemporaryDir directory;
+    QVERIFY(directory.isValid());
+    const auto markdown = directory.filePath("日本語 report test.md");
+    QVERIFY(TestData::write(markdown, "# Report test\n\nDocument body.\n"));
+    const auto executable = QDir(QCoreApplication::applicationDirPath()).filePath(
+#ifdef Q_OS_WIN
+        "document_probe.exe"
+#else
+        "document_probe"
+#endif
+    );
+    for (const auto &mode : {QString("success"), QString("read-error"), QString("write-error")}) {
+      const auto report = directory.filePath(mode + " 結果.json");
+      if (mode == "write-error") QVERIFY(QDir().mkpath(report));
+      QProcess process;
+      process.start(executable, {"--parse-only", "--output", report,
+          mode == "read-error" ? directory.filePath("missing.md") : markdown});
+      QVERIFY2(process.waitForFinished(15000), qPrintable(process.errorString()));
+      const auto diagnostics = process.readAllStandardError();
+      QCOMPARE(process.exitStatus(), QProcess::NormalExit);
+      QCOMPARE(process.exitCode(), mode == "success" ? 0 : mode == "read-error" ? 1 : 3);
+      if (mode == "write-error") {
+        QVERIFY(diagnostics.contains("Cannot write document report"));
+        QVERIFY(QFileInfo(report).isDir());
+      } else {
+        QFile file(report);
+        QVERIFY(file.open(QIODevice::ReadOnly));
+        QJsonParseError error;
+        const auto document = QJsonDocument::fromJson(file.readAll(), &error);
+        QCOMPARE(error.error, QJsonParseError::NoError);
+        const auto object = document.object();
+        QCOMPARE(object.value("all_passed").toBool(), mode == "success");
+        QCOMPARE(object.value("rendered").toBool(), false);
+        QCOMPARE(object.value("results").toArray().size(), 1);
+      }
+    }
+  }
   void epubUnicodeFilesystemPath() {
     QTemporaryDir directory;
     QVERIFY(directory.isValid());

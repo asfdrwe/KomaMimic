@@ -316,6 +316,10 @@ with the deployed WebEngine and the xcb QPA plugin under Xvfb. This also creates
 a GL context; successful parsing alone cannot pass the document deployment check.
 The Ubuntu job supplies its Mesa/GBM and C++ runtimes, without Qt or Raven.
 The probe is an intermediate test artifact and is not shipped in the AppImage.
+Its `--output` option writes `document-render.json` separately from Chromium's
+stdout/stderr. Both diagnostic streams and the report are retained in the
+diagnostics artifact on success or failure. Missing, malformed, parsing-only or
+incomplete reports fail verification even if the process exits with code 0.
 CI uses extract-and-run without FUSE. Only the root test container disables the
 Chromium sandbox externally; AppRun does not change the user's sandbox setting.
 

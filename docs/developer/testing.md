@@ -70,6 +70,10 @@ renderer error or timeout. Passing a generated fixture root selects the TXT,
 Markdown, reflow EPUB and fixed EPUB samples. Run deployment checks with the
 package's libraries/plugins; a development Qt installation can hide missing or
 incompatible runtime dependencies.
+Use `--output report.json` for automated checks: WebEngine/Chromium subprocesses
+can write diagnostics to stdout, so stdout must not be used as the report channel.
+The probe writes the report atomically and fails if it cannot save it. The AppImage
+check retains stdout and stderr separately and requires all four rendered fixtures.
 
 ```sh
 python3 tools/prepare_validation.py --output validation-kit

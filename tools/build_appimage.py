@@ -499,6 +499,10 @@ def verify(image, probe, destination, document_probe):
     if not report['all_passed']:
         raise ValueError('Extracted AppImage native reader checks failed: ' + result)
     (destination / 'native-reader.json').write_text(result + '\n')
+    verify_documents(app, fixtures, document_probe, destination, env)
+
+
+def verify_documents(app, fixtures, document_probe, destination, env):
     # Parsing/thumbnail probes never create WebEngine or a GL context. Exercise
     # actual layout with the deployed runtime as well, so packaging regressions
     # cannot pass solely on successful Markdown/EPUB parsing.
@@ -510,13 +514,29 @@ def verify(image, probe, destination, document_probe):
     renderer_env['QT_QPA_PLATFORM'] = 'xcb'
     if os.geteuid() == 0:
         renderer_env['QTWEBENGINE_DISABLE_SANDBOX'] = '1'
-    with (destination / 'document-render.json').open('w') as stdout, \
-         (destination / 'document-render-stderr.log').open('w') as stderr:
+    report_path = destination / 'document-render.json'
+    stdout_path = destination / 'document-render-stdout.log'
+    stderr_path = destination / 'document-render-stderr.log'
+    diagnostics = f'{report_path}, {stdout_path}, {stderr_path}'
+    with stdout_path.open('wb') as stdout, stderr_path.open('wb') as stderr:
         rendered = subprocess.run(['xvfb-run', '-a', '-s', '-screen 0 1280x1024x24',
-                                   str(app / 'usr/bin/document_probe'), str(fixtures)],
+                                   str(app / 'usr/bin/document_probe'), '--output', str(report_path), str(fixtures)],
                                   env=renderer_env, stdout=stdout, stderr=stderr, timeout=120)
-    if rendered.returncode or not json.loads((destination / 'document-render.json').read_text())['all_passed']:
-        raise ValueError('Extracted AppImage document rendering failed; see document-render-stderr.log')
+    if rendered.returncode:
+        raise ValueError(f'Extracted AppImage document rendering exited {rendered.returncode}; see {diagnostics}')
+    try:
+        report = json.loads(report_path.read_text(encoding='utf-8'))
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError(f'Missing or invalid document rendering report; see {diagnostics}') from error
+    expected = {'aozora-utf8.txt', 'sample.md', 'reflow.epub', 'fixed.epub'}
+    results = report.get('results') if isinstance(report, dict) else None
+    valid = (isinstance(report, dict) and report.get('all_passed') is True and report.get('rendered') is True
+             and isinstance(results, list) and len(results) == len(expected)
+             and all(isinstance(entry, dict) and isinstance(entry.get('file'), str) and entry.get('pass') is True
+                     and type(entry.get('pages')) is int and entry['pages'] > 0 for entry in results)
+             and {entry.get('file') for entry in results} == expected)
+    if not valid:
+        raise ValueError(f'Extracted AppImage document rendering report did not pass all four layouts; see {diagnostics}')
 
 
 if __name__ == '__main__':

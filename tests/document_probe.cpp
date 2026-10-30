@@ -2,11 +2,13 @@
 // Exercise the real document renderer after deployment, without QtTest or user data.
 #include "documentview.h"
 #include <QApplication>
+#include <QCommandLineParser>
 #include <QDir>
 #include <QFileInfo>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QSaveFile>
 #include <QTimer>
 #include <cstdio>
 #include <functional>
@@ -16,8 +18,14 @@ int main(int argc, char **argv) {
     QApplication app(argc, argv);
     QCoreApplication::setOrganizationName("KomaMimicDocumentProbe");
     QCoreApplication::setApplicationName("DeploymentCheck");
-    auto paths = app.arguments().mid(1);
-    const bool parseOnly = paths.removeAll("--parse-only") > 0;
+    QCommandLineParser parser;
+    parser.addOption({"parse-only", "Parse documents without starting WebEngine."});
+    parser.addOption({"output", "Write the JSON report to a separate file.", "file"});
+    parser.addPositionalArgument("path", "Documents or generated fixture root.", "path...");
+    parser.process(app);
+    auto paths = parser.positionalArguments();
+    const bool parseOnly = parser.isSet("parse-only");
+    const auto outputPath = parser.value("output");
     if (paths.size() == 1 && QFileInfo(paths.first()).isDir()) {
         const auto directory = QDir(paths.first()).filePath("documents/");
         paths.clear();
@@ -45,7 +53,22 @@ int main(int argc, char **argv) {
         if (index >= paths.size()) {
             const auto bytes = QJsonDocument(QJsonObject{{"all_passed", !failed},
                 {"rendered", !parseOnly}, {"results", results}}).toJson();
-            std::fwrite(bytes.constData(), 1, size_t(bytes.size()), stdout);
+            if (outputPath.isEmpty()) {
+                if (std::fwrite(bytes.constData(), 1, size_t(bytes.size()), stdout) != size_t(bytes.size()) ||
+                    std::fflush(stdout) != 0) {
+                    app.exit(3);
+                    return;
+                }
+            } else {
+                // Chromium subprocesses can inherit stdout and write their own
+                // diagnostics there. Keep the machine-readable report separate.
+                QSaveFile output(outputPath);
+                if (!output.open(QIODevice::WriteOnly) || output.write(bytes) != bytes.size() || !output.commit()) {
+                    std::fprintf(stderr, "Cannot write document report: %s\n", qPrintable(output.errorString()));
+                    app.exit(3);
+                    return;
+                }
+            }
             app.exit(failed ? 1 : 0);
             return;
         }

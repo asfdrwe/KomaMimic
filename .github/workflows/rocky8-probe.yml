@@ -508,6 +508,9 @@ jobs:
           path: |
             tmp/appimage-work/*.log
             tmp/appimage-work/verify/native-reader.json
+            tmp/appimage-work/verify/document-render.json
+            tmp/appimage-work/verify/document-render-stdout.log
+            tmp/appimage-work/verify/document-render-stderr.log
             tmp/appimage-dist/BUILD_MANIFEST.json
             tmp/appimage-dist/*.AppImage
           if-no-files-found: warn

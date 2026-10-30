@@ -20,6 +20,70 @@ import setup_linux_poppler as poppler_build
 
 
 class AppImageTests(unittest.TestCase):
+    def render_fixture(self, root, case='success'):
+        (root / 'bin').mkdir(parents=True)
+        wrapper = root / 'bin/xvfb-run'
+        wrapper.write_text('#!' + sys.executable + '\nimport os, sys\n'
+                           'os.execv(sys.argv[4], sys.argv[4:])\n')
+        wrapper.chmod(0o755)
+        probe = root / 'probe'
+        probe.write_text('#!' + sys.executable + '\n' + '''import json, os, sys
+from pathlib import Path
+print('[1234:1234:INFO] renderer diagnostic on stdout', flush=True)
+print('renderer diagnostic on stderr', file=sys.stderr, flush=True)
+case = os.environ.get('KOMA_RENDER_CASE', 'success')
+report = dict(all_passed=True, rendered=True, results=[dict(file=name, pass_=True, pages=2)
+    for name in ('aozora-utf8.txt', 'sample.md', 'reflow.epub', 'fixed.epub')])
+for entry in report['results']:
+    entry['pass'] = entry.pop('pass_')
+if case == 'failed': report['all_passed'] = report['results'][0]['pass'] = False
+if case == 'partial': report['results'].pop()
+if case == 'parse-only': report['rendered'] = False
+if case == 'invalid-type': report['results'][0]['file'] = []
+text = '{broken json' if case == 'broken' else json.dumps(report)
+if '--output' in sys.argv:
+    if case != 'missing': Path(sys.argv[sys.argv.index('--output') + 1]).write_text(text)
+else:
+    print(text)
+print('renderer shutdown diagnostic on stdout', flush=True)
+sys.exit(7 if case == 'exit-error' else 0)
+''')
+        probe.chmod(0o755)
+        destination = root / 'result'
+        destination.mkdir()
+        fixtures = root / 'fixtures'
+        fixtures.mkdir()
+        env = dict(os.environ, PATH=str(root / 'bin') + os.pathsep + os.environ.get('PATH', ''),
+                   KOMA_RENDER_CASE=case)
+        return root / 'AppDir', fixtures, probe, destination, env
+
+    @unittest.skipUnless(os.name == 'posix', 'requires POSIX executable scripts')
+    def test_document_report_survives_renderer_stdout_and_stderr_noise(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            app, fixtures, probe, destination, env = self.render_fixture(Path(temporary))
+            # The old stdout-as-JSON transport fails with the reported line 1,
+            # column 6 error even though the renderer returns success.
+            old = subprocess.run([str(probe)], env=env, text=True, capture_output=True, check=True)
+            with self.assertRaises(json.JSONDecodeError) as error:
+                json.loads(old.stdout)
+            self.assertEqual((error.exception.lineno, error.exception.colno), (1, 6))
+            appimage.verify_documents(app, fixtures, probe, destination, env)
+            self.assertTrue(json.loads((destination / 'document-render.json').read_text())['all_passed'])
+            self.assertIn('renderer diagnostic on stdout', (destination / 'document-render-stdout.log').read_text())
+            self.assertIn('shutdown diagnostic', (destination / 'document-render-stdout.log').read_text())
+            self.assertIn('renderer diagnostic on stderr', (destination / 'document-render-stderr.log').read_text())
+
+    @unittest.skipUnless(os.name == 'posix', 'requires POSIX executable scripts')
+    def test_document_report_rejects_failed_missing_malformed_and_incomplete_results(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            for case in ('failed', 'partial', 'parse-only', 'invalid-type', 'broken', 'missing', 'exit-error'):
+                with self.subTest(case=case):
+                    app, fixtures, probe, destination, env = self.render_fixture(Path(temporary) / case, case)
+                    with self.assertRaisesRegex(ValueError, 'document rendering|document rendering report'):
+                        appimage.verify_documents(app, fixtures, probe, destination, env)
+                    self.assertTrue((destination / 'document-render-stdout.log').is_file())
+                    self.assertTrue((destination / 'document-render-stderr.log').is_file())
+
     def test_pack_exports_desktop_icon_and_matching_checksums(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
