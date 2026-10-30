@@ -468,6 +468,8 @@ jobs:
           export XDG_CACHE_HOME="$GITHUB_WORKSPACE/tmp/appimage-work/cache"
           python3 tools/build_appimage.py pack --stage tmp/appimage-work/stage \
             --output tmp/appimage-dist 2>&1 | tee tmp/appimage-work/pack.log
+          desktop-file-validate tmp/appimage-dist/komamimic.desktop
+          (cd tmp/appimage-dist && sha256sum --check SHA256SUMS)
       - name: Verify AppImage on Ubuntu 22.04 without Qt or Raven installed
         run: |
           python3 tools/build_appimage.py verify --image tmp/appimage-dist/*.AppImage \
@@ -488,6 +490,8 @@ jobs:
             tmp/appimage-dist/*.AppImage
             tmp/appimage-dist/SHA256SUMS
             tmp/appimage-dist/BUILD_MANIFEST.json
+            tmp/appimage-dist/komamimic.desktop
+            tmp/appimage-dist/komamimic.png
             tmp/appimage-dist/sources/**
           if-no-files-found: error
           retention-days: 14

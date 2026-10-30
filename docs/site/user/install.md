@@ -14,6 +14,7 @@ Ubuntu 22.04相当（glibc 2.35）以降の環境を基準に、自動検査を�
 
 実行するファイルは `KomaMimic-1.0.0-linux-x86_64.AppImage` です。
 同じ場所の `sources/` は対応ソースであり、起動のために展開・ビルドする必要はありません。
+`komamimic.desktop`と`komamimic.png`は、アプリケーションメニューへ登録するためのファイルです。
 以下のファイル名はv1.0.0の例です。別の版を使う場合は取得した名前に置き換えてください。
 
 `SHA256SUMS`が付属している場合は、ZIPを展開したフォルダーで端末を開き、整合性を確認できます。
@@ -37,9 +38,24 @@ chmod u+x "$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage"
 ファイルマネージャーから起動する場合も、先にファイルのプロパティで実行権限を許可します。
 その後、AppImageをダブルクリックするか、ファイルマネージャーの「実行」を選びます。
 画面の名称やダブルクリック時の動作はデスクトップ環境によって異なります。
-メニューから起動したい場合は、デスクトップ環境の機能でこのファイルへのショートカットを作成します。
 
 起動後の操作は[基本操作](basic.md)を参照してください。
+
+### アプリケーションメニューへの登録（任意）
+
+AppImageを上記の`~/.local/bin/`へ配置した場合は、ZIPに同梱したファイルを次のようにコピーします。
+ZIPを展開したフォルダーで実行してください。
+
+```sh
+mkdir -p "$HOME/.local/share/applications" "$HOME/.local/share/icons/hicolor/256x256/apps"
+cp komamimic.desktop "$HOME/.local/share/applications/"
+cp komamimic.png "$HOME/.local/share/icons/hicolor/256x256/apps/"
+```
+
+メニューにKomaMimicが表示されます。反映されない場合は、一度ログアウトして入り直してください。
+同梱のデスクトップエントリは、その版のAppImageを`~/.local/bin/`から起動します。
+別の場所へ置く場合は、`komamimic.desktop`の`Exec=`を実際の配置先に合わせて変更します。
+ホームフォルダー名や開くファイル名に空白・日本語があっても、そのまま利用できます。
 
 ### FUSEのエラーで起動できない場合
 
@@ -72,7 +88,8 @@ FUSEや展開実行については[AppImage公式の説明](https://docs.appimag
 1. KomaMimicを終了します。
 2. 新しい版のAppImageを取得し、付属するチェックサムを確認します。
 3. 使いたい場所へ配置し、実行権限を付けて起動します。
-4. ショートカットを使っている場合は、参照先を新しいファイルへ変更します。
+4. メニューへ登録している場合は、新しいZIPの`komamimic.desktop`と`komamimic.png`も同じ場所へコピーし直します。
+   自作のショートカットを使っている場合は、参照先を更新します。
 
 設定や本棚・履歴はAppImageとは別の場所に保存されるため、同じユーザーで起動すれば引き継ぎます。
 更新前に[設定フォルダーをバックアップ](settings.md)しておくと、元の状態を残せます。
@@ -83,6 +100,12 @@ FUSEや展開実行については[AppImage公式の説明](https://docs.appimag
 
 KomaMimicを終了し、AppImageと、自分で作成したショートカットを削除します。
 手動展開した場合は、その版の専用展開フォルダーも削除します。
+同梱ファイルでメニューへ登録した場合は、次の2ファイルも削除します。
+
+```sh
+rm -f "$HOME/.local/share/applications/komamimic.desktop"
+rm -f "$HOME/.local/share/icons/hicolor/256x256/apps/komamimic.png"
+```
 
 AppImageを削除しても、設定・本棚・履歴・キャッシュは残ります。
 これらも削除したい場合は、[保存場所](settings.md)を確認し、必要なデータをバックアップしてから

@@ -10,6 +10,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -19,6 +20,72 @@ import setup_linux_poppler as poppler_build
 
 
 class AppImageTests(unittest.TestCase):
+    def test_pack_exports_desktop_icon_and_matching_checksums(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            stage = root / 'stage'
+            app = stage / 'AppDir'
+            app.mkdir(parents=True)
+            shutil.copy2(appimage.ROOT / 'assets/komamimic.desktop', app / 'komamimic.desktop')
+            shutil.copy2(appimage.ROOT / 'assets/icons/komamimic-256.png', app / 'komamimic.png')
+            original = (app / 'komamimic.desktop').read_bytes()
+            (stage / 'BUILD_MANIFEST.json').write_text(json.dumps(dict(
+                version='1.0.0', files={p.name: appimage.digest(p) for p in app.iterdir()})))
+            destination = root / 'distribution'
+            def create_image(command, **kwargs):
+                Path(command[-1]).write_bytes(b'AppImage packaging fixture')
+            with patch.object(appimage, 'download'), patch.object(appimage, 'run', side_effect=create_image):
+                image = appimage.pack(stage, destination)
+            manifest = json.loads((destination / 'BUILD_MANIFEST.json').read_text())
+            self.assertEqual(set(manifest['desktop_integration']), {'komamimic.desktop', 'komamimic.png'})
+            self.assertEqual((app / 'komamimic.desktop').read_bytes(), original)
+            self.assertEqual((destination / 'komamimic.png').read_bytes(), (app / 'komamimic.png').read_bytes())
+            for name, checksum in manifest['desktop_integration'].items():
+                self.assertEqual(appimage.digest(destination / name), checksum)
+            checksums = dict(line.split('  ', 1)[::-1] for line in
+                             (destination / 'SHA256SUMS').read_text().splitlines())
+            self.assertEqual(set(checksums), {image.name, 'BUILD_MANIFEST.json', 'komamimic.desktop', 'komamimic.png'})
+            for name, checksum in checksums.items():
+                self.assertEqual(appimage.digest(destination / name), checksum)
+
+    @unittest.skipUnless(sys.platform.startswith('linux') and shutil.which('gio')
+                         and shutil.which('desktop-file-validate'), 'requires Linux desktop tools')
+    def test_desktop_launch_preserves_home_and_file_arguments(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            home = root / 'Home 日本語 space $ quote\"'
+            executable = home / '.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage'
+            executable.parent.mkdir(parents=True)
+            executable.write_text('#!' + sys.executable + '\nimport json, os, sys\n'
+                                  'from pathlib import Path\n'
+                                  'Path(os.environ["KOMA_TEST_REPORT"]).write_text(json.dumps(sys.argv[1:]))\n')
+            executable.chmod(0o755)
+            output = root / 'export'
+            output.mkdir()
+            app = root / 'AppDir'
+            app.mkdir()
+            shutil.copy2(appimage.ROOT / 'assets/komamimic.desktop', app / 'komamimic.desktop')
+            shutil.copy2(appimage.ROOT / 'assets/icons/komamimic-256.png', app / 'komamimic.png')
+            appimage.desktop_integration(app, executable, output)
+            desktop = output / 'komamimic.desktop'
+            subprocess.run(['desktop-file-validate', str(desktop)], check=True)
+            files = [str(root / '日本語 & space.cbz'), str(root / '$(touch INJECTED) %F "quote".zip')]
+            for name in files:
+                Path(name).write_bytes(b'file argument fixture')
+            report = root / 'launch.json'
+            env = dict(os.environ, HOME=str(home), KOMA_TEST_REPORT=str(report),
+                       XDG_CACHE_HOME=str(root / 'cache'), XDG_DATA_HOME=str(home / '.local/share'),
+                       XDG_CONFIG_HOME=str(root / 'config'))
+            for arguments in ([], files):
+                report.unlink(missing_ok=True)
+                subprocess.run(['gio', 'launch', str(desktop), *arguments], env=env,
+                               cwd=root, capture_output=True, text=True, check=True, timeout=10)
+                deadline = time.monotonic() + 5
+                while not report.exists() and time.monotonic() < deadline:
+                    time.sleep(0.01)
+                self.assertEqual(json.loads(report.read_text()), arguments)
+            self.assertFalse((root / 'INJECTED').exists())
+
     @unittest.skipUnless(sys.platform.startswith('linux') and shutil.which('cc'), 'requires native ELF compiler')
     def test_elf_audit_rejects_displaced_initializer_and_unmapped_string_table(self):
         with tempfile.TemporaryDirectory() as temporary:

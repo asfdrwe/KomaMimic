@@ -380,6 +380,24 @@ def download(entry, target):
     target.chmod(0o755)
 
 
+def desktop_integration(app, image, destination):
+    """Export user-installable files alongside the versioned AppImage."""
+    if not re.fullmatch(r'KomaMimic-[0-9.]+-linux-x86_64\.AppImage', image.name):
+        raise ValueError('Unexpected AppImage filename for desktop launcher')
+    text = (app / 'komamimic.desktop').read_text(encoding='utf-8')
+    if text.splitlines().count('Exec=komamimic %F') != 1:
+        raise ValueError('Unexpected staged desktop launcher')
+    # Desktop entries do not expand HOME. Use sh with two layers of escaping
+    # (desktop string, then Exec quoting); file arguments stay outside the script.
+    command = (rf'Exec=/bin/sh -c "exec \\"\\$HOME/.local/bin/{image.name}\\" \\"\\$@\\""'
+               ' komamimic %F')
+    desktop = destination / 'komamimic.desktop'
+    desktop.write_text(text.replace('Exec=komamimic %F', command), encoding='utf-8')
+    icon = destination / 'komamimic.png'
+    copy(app / 'komamimic.png', icon)
+    return {p.name: digest(p) for p in (desktop, icon)}
+
+
 def pack(stage_dir, destination):
     destination.mkdir(parents=True, exist_ok=False)
     manifest = json.loads((stage_dir / 'BUILD_MANIFEST.json').read_text())
@@ -400,8 +418,12 @@ def pack(stage_dir, destination):
     image.chmod(0o755)
     manifest['packaging_tools'] = config
     manifest['appimage_sha256'] = digest(image)
+    manifest['desktop_integration'] = desktop_integration(app, image, destination)
     (destination / 'BUILD_MANIFEST.json').write_text(json.dumps(manifest, indent=2) + '\n')
-    (destination / 'SHA256SUMS').write_text(f'{digest(image)}  {image.name}\n')
+    (destination / 'SHA256SUMS').write_text(''.join(
+        f'{digest(path)}  {path.name}\n' for path in (
+            image, destination / 'komamimic.desktop', destination / 'komamimic.png',
+            destination / 'BUILD_MANIFEST.json')), encoding='ascii')
     return image
 
 

@@ -206,8 +206,16 @@ Qt・Ravenをインストールしない環境で、AppImageの`--version`・`--
 成功後のartifact **komamimic-linux-x86_64-appimage** に以下を保存します。
 
 - `KomaMimic-1.0.0-linux-x86_64.AppImage`と`SHA256SUMS`
+- `~/.local/share/applications/`用の`komamimic.desktop`と、
+  `~/.local/share/icons/hicolor/256x256/apps/`用の`komamimic.png`（256×256）
 - 同梱ファイルのhash・必要glibc・依存RPM版/ライセンス/Source RPM等の`BUILD_MANIFEST.json`
 - `sources/`内の本体ソース・manifest、構築したlibarchiveとpatch適用済みPopplerのソース
+
+外付けのdesktop entryは、その版のAppImageを`~/.local/bin/`から起動します。
+AppImage内のdesktop entryは従来のまま保持します。外付け2ファイルのhashをmanifestへ記録し、
+AppImage・manifestと合わせて`SHA256SUMS`へ含めます。Ubuntu側でdesktop-file-validateと
+checksum検査を通してからartifactへ保存します。利用者の配置・更新・削除は
+[インストール文書](../site/user/install.md)を参照してください。
 
 圧縮用の中間artifactは7日間、取得候補と診断artifactは14日間保存します。
 Ubuntu側のログは**diagnostics-appimage-ubuntu22-x64**へ保存します。
