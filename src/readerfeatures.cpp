@@ -817,7 +817,7 @@ void ReaderFeatures::refresh() {
   const bool loaded = w->pageCount() > 0;
   for (const auto &spec : featureShortcutSpecs())
     if (spec.scope == ShortcutScope::Reader)
-      w->m_actions[spec.id]->setEnabled(loaded);
+      w->m_actions[spec.id]->setEnabled(loaded || (spec.id.startsWith("sort") && w->m_mode==MainWindow::ViewMode::Covers));
   for (const auto &id : {"insertBlank", "addPages", "editPaste"})
     w->m_actions[id]->setEnabled(bool(w->m_book));
   if (w->m_book && w->m_book->format == "生成画像")
@@ -1390,6 +1390,17 @@ void ReaderFeatures::beforeRender() {
     m_panPositions[m_lastPositionKey] = m_previousPan;
 }
 void ReaderFeatures::applySort(int mode) {
+  if(w->m_mode==MainWindow::ViewMode::Covers) {
+    if(mode==7)w->m_settings->setValue("covers/reverse",!w->m_settings->value("covers/reverse",false).toBool());
+    else {
+      const int mapping[]{0,7,2,3,1,4,5,0,6};
+      w->m_settings->setValue("covers/sort",mapping[std::clamp(mode,0,8)]);
+    }
+    w->m_settings->sync();
+    if(w->m_archiveDirectory)w->populateArchiveDirectory(w->m_archiveDirectory,false);
+    else if(!w->m_directory.isEmpty())w->populateDirectory(w->m_directory,false,false);
+    return;
+  }
   if (!w->m_book || !w->pageCount())
     return;
   auto pages = w->m_book->pages;

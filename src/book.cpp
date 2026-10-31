@@ -564,7 +564,9 @@ Book::OpenResult Book::fromPages(const QVector<BookPage> &pages){if(pages.isEmpt
 bool browserLess(const QFileInfo &a, const QFileInfo &b, int sort, bool reverse) {
         if (a.isDir() != b.isDir()) return a.isDir();
         int order=0;
-        if(sort==1 && a.lastModified()!=b.lastModified()) order=a.lastModified()<b.lastModified() ? -1 : 1;
+        if(sort==4 || sort==6)return false;
+        if(sort==5) order=QString::compare(a.fileName(),b.fileName());
+        else if(sort==1 && a.lastModified()!=b.lastModified()) order=a.lastModified()<b.lastModified() ? -1 : 1;
         else if(sort==2 && a.suffix().compare(b.suffix(),Qt::CaseInsensitive)!=0) order=a.suffix().compare(b.suffix(),Qt::CaseInsensitive);
         else if(sort==3 && a.size()!=b.size()) order=a.size()<b.size() ? -1 : 1;
         else order=naturalLess(a.fileName(),b.fileName()) ? -1 : naturalLess(b.fileName(),a.fileName()) ? 1 : 0;

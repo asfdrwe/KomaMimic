@@ -26,6 +26,8 @@
 #include <QTimer>
 #include <QtConcurrent>
 #include <algorithm>
+#include <random>
+#include <QRandomGenerator>
 
 #include "thumbnailsource.h"
 
@@ -206,6 +208,10 @@ void MainWindow::populateDirectory(const QString &path, bool navigate, bool hist
     }
     const auto generation = ++m_libraryGeneration; m_thumbnailToken->store(generation); m_library->clearItems();
     auto entries = QDir(m_directory).entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot | QDir::Readable, QDir::NoSort);
+    if(m_settings->value("covers/sort",0).toInt()==6) {
+        std::mt19937 generator(QRandomGenerator::global()->generate());std::shuffle(entries.begin(),entries.end(),generator);
+    }
+    if(m_settings->value("covers/sort",0).toInt()==4 && m_settings->value("covers/reverse",false).toBool())std::reverse(entries.begin(),entries.end());
     std::stable_sort(entries.begin(), entries.end(), [sort=m_settings->value("covers/sort",0).toInt(), reverse=m_settings->value("covers/reverse",false).toBool()](const QFileInfo &a, const QFileInfo &b) {
         return browserLess(a,b,sort,reverse);
     });
@@ -243,11 +249,19 @@ void MainWindow::populateArchiveDirectory(const std::shared_ptr<const Book> &boo
     QVector<int> order; for (int i = 0; i < book->pages.size(); ++i) order.append(i);
     const int sort = m_settings->value("covers/sort", 0).toInt();
     const bool reverse = m_settings->value("covers/reverse", false).toBool();
+    if(sort==6) {std::mt19937 generator(QRandomGenerator::global()->generate());std::shuffle(order.begin(),order.end(),generator);}
     std::stable_sort(order.begin(), order.end(), [&](int a, int b) {
         const auto &x = book->pages[a], &y = book->pages[b];
-        int result = sort == 2 ? QFileInfo(x.name).suffix().compare(QFileInfo(y.name).suffix(), Qt::CaseInsensitive)
-            : sort == 3 && x.encodedSize != y.encodedSize ? (x.encodedSize < y.encodedSize ? -1 : 1) : 0;
-        if (!result) result = naturalLess(x.name, y.name) ? -1 : naturalLess(y.name, x.name) ? 1 : 0;
+        int result=0;
+        if(sort==6)return false;
+        if(sort==4)result=x.archiveIndex<y.archiveIndex?-1:x.archiveIndex>y.archiveIndex?1:0;
+        else if(sort==1 && x.modifiedMs!=y.modifiedMs)result=x.modifiedMs<y.modifiedMs?-1:1;
+        else if(sort==2)result=QFileInfo(x.name).suffix().compare(QFileInfo(y.name).suffix(),Qt::CaseInsensitive);
+        else if(sort==3 && x.encodedSize!=y.encodedSize)result=x.encodedSize<y.encodedSize?-1:1;
+        else if(sort==5)result=QString::compare(x.name,y.name);
+        const auto xn=sort==7?QFileInfo(x.name).fileName():x.name;
+        const auto yn=sort==7?QFileInfo(y.name).fileName():y.name;
+        if(!result && sort!=4 && sort!=5)result=naturalLess(xn,yn)?-1:naturalLess(yn,xn)?1:0;
         return reverse ? result > 0 : result < 0;
     });
     for (int index : order) {

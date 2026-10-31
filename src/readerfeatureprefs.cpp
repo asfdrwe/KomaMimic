@@ -516,7 +516,7 @@ void ReaderFeatures::preferences(const QString &pageName) {
   editors["thumbnails/mouseSelection"]->setToolTip(
       QCoreApplication::translate("KomaMimic", "表紙・ページサムネイル共通。選択後のキー移動もその項目を基準にします。\n"
       "一覧にキーボードフォーカスがある間だけ追従し、開く操作や読書位置の確定は行いません。"));
-  choice(display, QCoreApplication::translate("KomaMimic", "表紙一覧の並び順"), "covers/sort", {QCoreApplication::translate("KomaMimic", "名前（自然順）"), QCoreApplication::translate("KomaMimic", "更新日時"), QCoreApplication::translate("KomaMimic", "種類"), QCoreApplication::translate("KomaMimic", "サイズ")}, 0);
+  choice(display, QCoreApplication::translate("KomaMimic", "表紙一覧の並び順"), "covers/sort", {QCoreApplication::translate("KomaMimic", "名前（自然順）"), QCoreApplication::translate("KomaMimic", "更新日時"), QCoreApplication::translate("KomaMimic", "種類"), QCoreApplication::translate("KomaMimic", "サイズ"), QCoreApplication::translate("KomaMimic", "格納順"), QCoreApplication::translate("KomaMimic", "Unicode順"), QCoreApplication::translate("KomaMimic", "ランダム"), QCoreApplication::translate("KomaMimic", "名前順")}, 0);
   check(display, QCoreApplication::translate("KomaMimic", "表紙一覧を逆順にする"), "covers/reverse", false);
   check(display, QCoreApplication::translate("KomaMimic", "スクロールで端まで読んだらページをめくる"), "reading/scrollTurnsPage", true);
   spin(display, QCoreApplication::translate("KomaMimic", "スクロールの重複幅（%）"), "reading/scrollOverlap", 15, 0, 80);

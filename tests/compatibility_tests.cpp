@@ -60,6 +60,19 @@ private slots:
         QCOMPARE(tree.header()->sectionResizeMode(0),QHeaderView::ResizeToContents);
         qInfo() << "tree column after root reset" << tree.columnWidth(0);
     }
+    void coverSortCommandsApplyWithoutAnOpenBook() {
+        QTemporaryDir d;const auto config=d.filePath("settings.ini");
+        for(const auto &name:{"10.png","2.png","1.png"})QVERIFY(TestData::write(d.filePath(name),TestData::png(TestData::solid())));
+        MainWindow window(config);window.show();window.openDirectory(d.path());
+        auto *grid=window.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(grid);QCOMPARE(window.pageCount(),0);
+        window.command("sortNatural")->trigger();QCOMPARE(grid->item(0)->text(),QString("1.png"));QCOMPARE(grid->item(1)->text(),QString("2.png"));
+        grid->setCurrentRow(1);const auto selected=grid->currentItem()->data(PathRole);
+        window.command("sortUnicode")->trigger();QCOMPARE(grid->item(1)->text(),QString("10.png"));QCOMPARE(grid->currentItem()->data(PathRole),selected);
+        window.command("sortReverse")->trigger();QCOMPARE(grid->item(0)->text(),QString("2.png"));
+        QCOMPARE(grid->currentItem()->data(PathRole),selected);window.close();
+        MainWindow restored(config);restored.openDirectory(d.path());
+        QCOMPARE(restored.findChild<ThumbnailGrid *>("zipLibrary")->item(0)->text(),QString("2.png"));restored.close();
+    }
     void filenameBandChangesImageGeometry() {
         PageView view; view.resize(500,600); view.show();
         view.setPages({TestData::solid(Qt::red,{100,1000})},false,"001.jpg");
