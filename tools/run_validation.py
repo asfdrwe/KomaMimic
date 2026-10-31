@@ -101,10 +101,23 @@ def collect_test_evidence(build, output):
         if (logs / name).is_file():
             shutil.copy2(logs / name, output / name)
     text = (output / 'LastTest.log').read_text(encoding='utf-8', errors='replace') if (output / 'LastTest.log').exists() else ''
-    skipped = [line for line in text.splitlines() if re.search(r'\bSKIP\s*[:\(]|skipped\s+[\"\']|^skipped ', line)]
+    # QtTest can send its default Windows output to OutputDebugString instead
+    # of CTest's captured stdout. Prefer the independent per-suite file logs.
+    qt_files = sorted((Path(build) / 'tests').glob('*.qtest.txt'))
+    qt_text = text
+    if qt_files:
+        qt_output = output / 'qt-tests'
+        qt_output.mkdir(exist_ok=True)
+        for path in qt_files:
+            shutil.copy2(path, qt_output / path.name)
+        qt_text = '\n'.join(path.read_text(encoding='utf-8', errors='replace') for path in qt_files)
+        skipped = [line for line in qt_text.splitlines() if re.search(r'\bSKIP\s*[:\(]', line)]
+        skipped += [line for line in text.splitlines() if re.search(r'skipped\s+[\"\']|^skipped ', line)]
+    else:
+        skipped = [line for line in text.splitlines() if re.search(r'\bSKIP\s*[:\(]|skipped\s+[\"\']|^skipped ', line)]
     (output / 'skips.txt').write_text('\n'.join(skipped) + '\n', encoding='utf-8')
     totals = [dict(passed=int(a), failed=int(b), skipped=int(c))
-              for a, b, c in re.findall(r'Totals:\s*(\d+) passed,\s*(\d+) failed,\s*(\d+) skipped', text)]
+              for a, b, c in re.findall(r'Totals:\s*(\d+) passed,\s*(\d+) failed,\s*(\d+) skipped', qt_text)]
     suites = []
     junit = output / 'ctest.xml'
     if junit.exists():
@@ -113,6 +126,7 @@ def collect_test_evidence(build, output):
                                'SKIP' if case.find('skipped') is not None else 'PASS'))
     return dict(qt_totals={key: sum(t[key] for t in totals) for key in ('passed', 'failed', 'skipped')},
                 qt_total_lines=len(totals), skip_lines=len(skipped), suites=suites,
+                qt_totals_available=bool(totals), qt_log_files=[p.name for p in qt_files],
                 python_tests_run=sum(map(int, re.findall(r'Ran (\d+) tests? in ', text))),
                 note='Qtの集計はinit/cleanupとCロケール再実行を含む。Python件数はLastTest.logを参照。')
 
@@ -190,6 +204,9 @@ def run(args):
         executable = build / ('Release/komamimic.exe' if platform.system() == 'Windows' else 'komamimic')
         for name in ('version', 'formats', 'commands'):
             step(name, [executable, '--' + name], cli_env, 60)
+        # Do not mistake logs from an earlier scope/run for this attempt.
+        for path in (build / 'tests').glob('*.qtest.txt'):
+            path.unlink()
         step('ctest', ['ctest', '--test-dir', build, '-C', 'Release', '--output-on-failure',
                       '--parallel', '2', '--no-tests=error', '--output-junit', output / 'ctest.xml'], env)
         probe = build / ('Release/validation_probe.exe' if platform.system() == 'Windows' else 'validation_probe')
@@ -273,6 +290,7 @@ def summarize(output):
         raise ValueError('Cases removed from manual.csv: ' + ', '.join(sorted(expected - seen)))
     tests = data.get('tests', {})
     summary = dict(automatic_status=data['status'], test_scope=data.get('test_scope', 'full'), qt_totals=tests.get('qt_totals', {}),
+                   qt_totals_available=tests.get('qt_totals_available', bool(tests.get('qt_total_lines', 0))),
                    python_tests_run=tests.get('python_tests_run', 0),
                    manual_counts={s: counts[s] for s in STATUSES},
                    all_manual_passed=counts['PASS'] == len(expected),

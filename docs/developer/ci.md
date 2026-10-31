@@ -110,6 +110,14 @@ DLLs and explicit MSVC prerequisites. Unused positioning, QML debugging, and
 non-SQLite database plugins are excluded. Platform UI tests also check that the F3
 tree enumerates all filesystem roots before selecting a folder on a specific drive.
 
+QtTest writes both captured output and an independent `tests/*.qtest.txt` file for
+each suite. Tests force Qt console logging because Windows otherwise may send the
+plain logger to OutputDebugString, leaving CTest's output empty. The validation
+runner removes stale per-suite logs before CTest, retains current files under
+`results/windows-ci/qt-tests/`, and uses them for Qt totals without double-counting
+the console copy. The existing diagnostics artifact includes these files on failure.
+`qt_totals_available=false` means no totals were captured, rather than zero tests.
+
 The packager does not copy additional MSVC runtime DLLs from the SDK. Microsoft's
 [official Visual C++ v14 x64 Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe)
 is a prerequisite, also noted in the ZIP's `配布情報.txt`. The CI runner already has

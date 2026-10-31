@@ -240,6 +240,75 @@ class ValidationTests(unittest.TestCase):
             self.assertEqual(result['skip_lines'], 1)
             self.assertEqual([s['status'] for s in result['suites']], ['PASS', 'FAIL'])
 
+    def test_qt_file_logs_preserve_failures_without_duplicate_console_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            build, output = directory / 'build', directory / 'results'
+            legacy = build / 'Testing/Temporary'
+            files = build / 'tests'
+            legacy.mkdir(parents=True)
+            files.mkdir()
+            output.mkdir()
+            (legacy / 'LastTest.log').write_text(
+                'SKIP : CliTests::ipc() no console\nTotals: 7 passed, 1 failed, 1 skipped\n'
+                'test_optional ... skipped \'not available\'\nRan 99 tests in 1.0s\n', encoding='utf-8')
+            content = 'FAIL! : CliTests::ipc() reply was not ok\nSKIP : CliTests::ipc() no console\nTotals: 7 passed, 1 failed, 1 skipped\n'
+            (files / 'cli_tests.qtest.txt').write_text(content, encoding='utf-8')
+            (files / 'document_tests.qtest.txt').write_text('Totals: 4 passed, 0 failed, 0 skipped\n', encoding='utf-8')
+            (output / 'ctest.xml').write_text('<testsuite><testcase name="cli_tests"><failure/></testcase></testsuite>', encoding='utf-8')
+            evidence = collect_test_evidence(build, output)
+            self.assertEqual(evidence['qt_totals'], dict(passed=11, failed=1, skipped=1))
+            self.assertEqual(evidence['python_tests_run'], 99)
+            self.assertEqual(evidence['qt_total_lines'], 2)
+            self.assertTrue(evidence['qt_totals_available'])
+            self.assertEqual(evidence['skip_lines'], 2)
+            self.assertEqual(evidence['suites'][0]['status'], 'FAIL')
+            self.assertEqual((output / 'qt-tests/cli_tests.qtest.txt').read_text(encoding='utf-8'), content)
+
+    def test_qt_totals_are_unavailable_when_no_qt_output_was_captured(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            logs = directory / 'build/Testing/Temporary'
+            logs.mkdir(parents=True)
+            (logs / 'LastTest.log').write_text('<end of output>\nRan 99 tests in 1.0s\n', encoding='utf-8')
+            output = directory / 'results'
+            output.mkdir()
+            (output / 'ctest.xml').write_text('<testsuite><testcase name="cli_tests"><failure/></testcase></testsuite>', encoding='utf-8')
+            evidence = collect_test_evidence(directory / 'build', output)
+            self.assertFalse(evidence['qt_totals_available'])
+            self.assertEqual(evidence['qt_total_lines'], 0)
+            self.assertEqual(evidence['suites'][0]['status'], 'FAIL')
+
+    def test_ctest_attempt_removes_old_qt_logs_and_retains_current_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            build = directory / 'build'
+            files = build / 'tests'
+            files.mkdir(parents=True)
+            stale = files / 'old_scope.qtest.txt'
+            stale.write_text('Totals: 999 passed, 0 failed, 0 skipped\n', encoding='utf-8')
+            keep = files / 'keep.txt'
+            keep.write_text('unrelated', encoding='utf-8')
+            args = SimpleNamespace(build_dir=build, output=directory / 'results', fixtures=self.fixtures,
+                                   cmake_arg=[], jobs=2, test_scope='full')
+            def fake_execute(command, log, *a, **kw):
+                ctest = Path(log).name == 'ctest.log'
+                if ctest:
+                    self.assertFalse(stale.exists())
+                    (files / 'cli_tests.qtest.txt').write_text(
+                        'FAIL! : CliTests::ipc() diagnostic\nTotals: 1 passed, 1 failed, 0 skipped\n', encoding='utf-8')
+                    (args.output / 'ctest.xml').write_text('<testsuite><testcase name="cli_tests"><failure/></testcase></testsuite>', encoding='utf-8')
+                return dict(command=[str(c) for c in command], returncode=8 if ctest else 0, seconds=0, log=Path(log).name)
+            with mock.patch.object(run_validation, 'execute', side_effect=fake_execute), \
+                 mock.patch.object(run_validation.platform, 'system', return_value='Linux'), \
+                 contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(run_validation.run(args), 1)
+            evidence = json.loads((args.output / 'automatic.json').read_text(encoding='utf-8'))
+            self.assertEqual(evidence['status'], 'FAIL')
+            self.assertEqual(evidence['tests']['qt_totals'], dict(passed=1, failed=1, skipped=0))
+            self.assertEqual(evidence['tests']['qt_log_files'], ['cli_tests.qtest.txt'])
+            self.assertEqual(keep.read_text(encoding='utf-8'), 'unrelated')
+
     def test_failed_source_check_stops_build_and_ignores_old_test_logs(self):
         with tempfile.TemporaryDirectory() as tmp:
             directory = Path(tmp)

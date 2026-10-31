@@ -17,15 +17,38 @@
 class CliTests : public QObject {
     Q_OBJECT
     struct Result { int code; QByteArray out, error; };
+    static bool waitForExit(QProcess &process, int timeout) {
+        // waitForFinished() returns false when completion was already
+        // delivered, even for a successful exit. This is not a timeout.
+        return process.state()==QProcess::NotRunning || process.waitForFinished(timeout);
+    }
     Result run(const QStringList &args) {
         QProcess p; auto env=QProcessEnvironment::systemEnvironment(); env.insert("QT_QPA_PLATFORM","offscreen");
         env.remove("DISPLAY"); env.remove("WAYLAND_DISPLAY"); p.setProcessEnvironment(env);
         p.start(QString::fromUtf8(KOMAMIMIC_EXECUTABLE),args);
         if(!p.waitForStarted(5000)) return {-999,{},p.errorString().toUtf8()};
-        if(!p.waitForFinished(15000)) { p.kill(); p.waitForFinished(); return {-998,p.readAllStandardOutput(),p.readAllStandardError()}; }
+        if(!waitForExit(p,15000)) { p.kill(); p.waitForFinished(); return {-998,p.readAllStandardOutput(),p.readAllStandardError()}; }
         return {p.exitStatus()==QProcess::NormalExit?p.exitCode():-997,p.readAllStandardOutput(),p.readAllStandardError()};
     }
 private slots:
+    void alreadyFinishedCommandKeepsExitStatus_data() {
+        QTest::addColumn<QStringList>("args");
+        QTest::addColumn<int>("exitCode");
+        QTest::newRow("success") << QStringList{"--version"} << 0;
+        QTest::newRow("validation-error") << QStringList{"--execute","documentStandard","--formats"} << 2;
+    }
+    void alreadyFinishedCommandKeepsExitStatus() {
+        QFETCH(QStringList,args); QFETCH(int,exitCode);
+        QProcess process;
+        process.start(QString::fromUtf8(KOMAMIMIC_EXECUTABLE),args);
+        QVERIFY(process.waitForStarted(5000));
+        // Deliver completion before entering the same wait used by CLI/IPC
+        // tests. A bare waitForFinished would now report a false timeout.
+        QTRY_COMPARE_WITH_TIMEOUT(process.state(),QProcess::NotRunning,5000);
+        QVERIFY(waitForExit(process,100));
+        QCOMPARE(process.exitStatus(),QProcess::NormalExit);
+        QCOMPARE(process.exitCode(),exitCode);
+    }
     void informationalCommands() {
         auto v=run({"--version"}); QCOMPARE(v.code,0); QVERIFY(v.out.contains(KOMAMIMIC_VERSION));
         auto help=run({"--help"}); QCOMPARE(help.code,0); QVERIFY(help.out.contains("--config"));
@@ -90,7 +113,7 @@ private slots:
         const bool locked=QFile::exists(config+".instance.lock");
         Result reply{-999,{},"No instance lock"};
         if(locked) reply=run({"--config",config,"--execute","quit"});
-        const bool exited=first.waitForFinished(5000);
+        const bool exited=waitForExit(first,5000);
         if(!exited) { first.kill(); first.waitForFinished(); }
         const auto firstError=first.readAllStandardError();
         const auto diagnostic=QString("primary lock=%1; forward exit=%2; primary exited=%3; primary exit=%4\n"

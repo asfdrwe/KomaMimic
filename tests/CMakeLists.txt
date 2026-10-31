@@ -22,9 +22,11 @@ foreach(suite IN LISTS suites)
     target_link_libraries(${suite}_tests PRIVATE test_support)
     set_target_properties(${suite}_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
     add_dependencies(${suite}_tests komamimic-script-worker)
-    add_test(NAME ${suite}_tests COMMAND ${suite}_tests ${${suite}_functions})
+    add_test(NAME ${suite}_tests COMMAND ${suite}_tests ${${suite}_functions}
+        -o -,txt -o ${suite}_tests.qtest.txt,txt)
     set_tests_properties(${suite}_tests PROPERTIES
-        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
         TIMEOUT 90)
 endforeach()
 add_dependencies(ui_tests komamimic)
@@ -41,9 +43,11 @@ target_compile_definitions(cli_tests PRIVATE
     KOMAMIMIC_EXECUTABLE="$<TARGET_FILE:komamimic>")
 
 if(TARGET format_tests)
-    add_test(NAME format_tests_c_locale COMMAND format_tests)
+    add_test(NAME format_tests_c_locale COMMAND format_tests
+        -o -,txt -o format_tests_c_locale.qtest.txt,txt)
     set_tests_properties(format_tests_c_locale PROPERTIES
-        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;LC_ALL=C;LANG=C"
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1;LC_ALL=C;LANG=C"
+        WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
         TIMEOUT 90)
 endif()
 
