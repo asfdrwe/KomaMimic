@@ -1,6 +1,6 @@
 {
   "name": "komamimic",
-  "version-string": "1.0.1",
+  "version-string": "1.0.3",
   "description": "Cross-platform comic and image viewer",
   "license": "GPL-3.0-only",
   "builtin-baseline": "9eec002df1cd109f8f104cd966a763daf9751489",

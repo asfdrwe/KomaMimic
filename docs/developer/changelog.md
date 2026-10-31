@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.0.1 — Unreleased
+## v1.0.3
 
 - Fix Linux AppImage document startup aborts caused by bundled graphics/C++ libraries conflicting with newer host Mesa drivers.
 - Open EPUB files through Unicode-safe file descriptors for both body and cover loading on Windows.

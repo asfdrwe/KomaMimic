@@ -2,7 +2,7 @@
 """Manual acceptance cases shared by the local runner and report generator."""
 # ID, platforms, input, operation, expected result. No personal data or artwork.
 CASES = [
-    ('C01', 'all', 'images', '新規プロファイルで起動。バージョン、アイコン、7分類のメニュー、初期バー非表示を確認', '1.0.1。文字欠け・起動時クラッシュなし。独自上部バー・パス欄なし。下部バーは有効化できる'),
+    ('C01', 'all', 'images', '新規プロファイルで起動。バージョン、アイコン、7分類のメニュー、初期バー非表示を確認', '1.0.3。文字欠け・起動時クラッシュなし。独自上部バー・パス欄なし。下部バーは有効化できる'),
     ('C02', 'all', '日本語 空白/書庫 & 01.cbz', '開く、D&D、日本語と空白・&を含む別フォルダへコピーして開く', '6ページ。文字化け・パス切断なし'),
     ('C03', 'all', 'images', 'フォルダを開く、矢印・Enter、フォルダを読む、上位へ、Shift+↓、Ctrl+Tを操作。Windows/Linux: Ctrl+Shift+O、Ctrl+Enter、Shift+↑。macOS: Command+Shift+O、Command+Enter、Shift+↑', '表紙一覧／読書／ツリーの選択・フォーカス・上位移動が正しい。設定変更時はメニューの実キーを使う'),
     ('C04', 'all', 'images', '→←、↓↑、Home/End、Space、バックスラッシュ、C、左／右クリックとホイールを操作', '次／前、1ページずらし、自動見開き、右／左開き、原寸。画像の大きな数字で順序を判別できる'),

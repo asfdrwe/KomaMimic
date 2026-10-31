@@ -7,7 +7,7 @@ endif()
 # Migrate the old vcpkg feature; WebEngine is now a required dependency.
 list(REMOVE_ITEM VCPKG_MANIFEST_FEATURES extended-documents)
 include(cmake/WindowsFast.cmake)
-project(KomaMimic VERSION 1.0.1 LANGUAGES CXX)
+project(KomaMimic VERSION 1.0.3 LANGUAGES CXX)
 include(CTest)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

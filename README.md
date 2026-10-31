@@ -272,5 +272,5 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 
 ## Changelog
 
-- **v1.0.1 — Unreleased**: Fix Linux AppImage document startup and Windows EPUB Unicode paths; add document deployment checks and cache diagnostics.
+- **v1.0.3**: Fix Linux AppImage document startup and Windows EPUB Unicode paths; add document deployment checks and cache diagnostics.
 - **v1.0.0 — Initial release**
