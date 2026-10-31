@@ -11,6 +11,7 @@
 #include <QColorSpace>
 #include <QCryptographicHash>
 #include <QDialog>
+#include <QDateTime>
 #include <QLabel>
 #include <QLockFile>
 #include <QPushButton>
@@ -21,6 +22,8 @@
 #include <QTimer>
 #include <atomic>
 #include <latch>
+#include <future>
+#include <chrono>
 #include <thread>
 #include <vector>
 #include <cstdio>
@@ -104,6 +107,12 @@ private slots:
             QVERIFY2(writer.waitForReadyRead(10000),writer.readAllStandardError().constData());
             QCOMPARE(writer.readAllStandardOutput().trimmed(),QByteArray("ready"));
             QVERIFY(QFileInfo::exists(root+"/.lock"));
+            // A live writer can hold the directory lock while preparing a
+            // replacement. Readers must use the old/new committed PNG, never
+            // regenerate the source because of that lock.
+            ThumbnailDiskCache liveReader(root);int liveCalls=0;
+            const auto live=liveReader.image("one",[&]{++liveCalls;return ImageResult{TestData::solid(Qt::red),{}};});
+            QCOMPARE(live.image.pixelColor(0,0),QColor(mode=="pending"?Qt::blue:Qt::green));QCOMPARE(liveCalls,0);
             writer.kill(); QVERIFY(writer.waitForFinished(5000));
             QCOMPARE(writer.exitStatus(),QProcess::CrashExit);
             // The dead writer leaves a lock and may leave a pending QSaveFile.
@@ -226,6 +235,49 @@ private slots:
             QCOMPARE(result.image.pixelColor(0,0),QColor(Qt::green));
         }
         QCOMPARE(first.stats().entries,32);QCOMPARE(second.stats().entries,32);
+    }
+    void contendedReadUsesCommittedPixels() {
+        QTemporaryDir d;
+        {ThumbnailDiskCache seed(d.path());for(int i=0;i<32;++i)seed.image(QByteArray::number(i),[]{return ImageResult{TestData::solid(Qt::blue),{}};});}
+        QLockFile writer(d.filePath(".lock"));QVERIFY(writer.tryLock());
+        ThumbnailDiskCache reader(d.path());int calls=0;
+        for(int i=0;i<32;++i) {
+            const auto image=reader.image(QByteArray::number(i),[&]{++calls;return ImageResult{TestData::solid(Qt::red),{}};});
+            QCOMPARE(image.image.pixelColor(0,0),QColor(Qt::blue));
+        }
+        QCOMPARE(calls,0);writer.unlock();QCOMPARE(reader.stats().entries,32);
+    }
+    void warmReadsDoNotWaitForInventory() {
+        QTemporaryDir d;
+        {ThumbnailDiskCache seed(d.path());seed.image("warm",[]{return ImageResult{TestData::solid(Qt::blue),{}};});}
+        ThumbnailDiskCache cache(d.path());std::latch inventoryEntered(1),release(1);int checks=0;
+        std::thread maintenance([&]{cache.maintain([&]{if(++checks==2){inventoryEntered.count_down();release.wait();}return false;});});
+        inventoryEntered.wait();std::promise<ImageResult> answer;auto ready=answer.get_future();int calls=0;
+        std::thread reader([&]{answer.set_value(cache.image("warm",[&]{++calls;return ImageResult{TestData::solid(Qt::red),{}};}));});
+        const auto status=ready.wait_for(std::chrono::seconds(2));
+        release.count_down();reader.join();maintenance.join();
+        QVERIFY(status==std::future_status::ready);QCOMPARE(ready.get().image.pixelColor(0,0),QColor(Qt::blue));QCOMPARE(calls,0);
+    }
+    void warmReadsSkipInventoryAndPreserveLru() {
+        QTemporaryDir d;const QByteArray key="warm";
+        const auto name=QString::fromLatin1(QCryptographicHash::hash(key,QCryptographicHash::Sha256).toHex())+".png";
+        // Simulate a populated inventory without generating source images.
+        const auto pixels=TestData::png(TestData::solid(Qt::blue));
+        for(int i=0;i<2048;++i) {
+            const auto other=QString::fromLatin1(QCryptographicHash::hash(QByteArray::number(i),QCryptographicHash::Sha256).toHex())+".png";
+            QVERIFY(TestData::write(d.filePath(other),pixels));
+        }
+        QVERIFY(TestData::write(d.filePath(name),pixels));
+        QFile file(d.filePath(name));QVERIFY(file.open(QIODevice::ReadWrite));
+        QVERIFY(file.setFileTime(QDateTime::currentDateTime().addSecs(-120),QFileDevice::FileModificationTime));file.close();
+        ThumbnailDiskCache cache(d.path());int calls=0;
+        QCOMPARE(cache.image(key,[&]{++calls;return ImageResult{TestData::solid(Qt::red),{}};}).image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(calls,0);QVERIFY(QFileInfo(d.filePath(name)).lastModified().secsTo(QDateTime::currentDateTime())<60);
+        const auto inventory=cache.stats();QVERIFY(inventory.error.isEmpty());QCOMPARE(inventory.entries,2049);
+        QCOMPARE(inventory.bytes,qint64(2049)*pixels.size());
+        // Cancellation and explicit refresh must still bypass a warm hit.
+        QVERIFY(cache.image(key,[&]{++calls;return ImageResult{TestData::solid(Qt::red),{}};},[]{return true;}).image.isNull());QCOMPARE(calls,0);
+        QCOMPARE(cache.image(key,[&]{++calls;return ImageResult{TestData::solid(Qt::green),{}};},{},true).image.pixelColor(0,0),QColor(Qt::green));QCOMPARE(calls,1);
     }
     void contendedDiskWriteStillReturnsImage() {
         QTemporaryDir d;ThumbnailDiskCache cache(d.path());

@@ -15,6 +15,7 @@
 #include <QPainter>
 #include <QRegularExpression>
 #include <QSaveFile>
+#include <QScopeGuard>
 #include <QStandardPaths>
 #include <QUuid>
 #include <algorithm>
@@ -26,6 +27,13 @@ constexpr qint64 MaxCacheFile=4*1024*1024;
 bool managed(const QString &name) {
     static const QRegularExpression pattern("^[a-f0-9]{64}\\.png$");
     return pattern.match(name).hasMatch();
+}
+QImage committedImage(const QString &path) {
+    const QFileInfo info(path);
+    if(info.isSymLink() || !info.isFile() || info.size()>MaxCacheFile)return {};
+    QImageReader reader(path,"PNG");const auto size=reader.size();
+    if(size.width()<=0 || size.height()<=0 || size.width()>1024 || size.height()>1024)return {};
+    return reader.read();
 }
 QByteArray revision(const QString &directory) {
     QFile file(directory+"/.revision");
@@ -110,6 +118,36 @@ ImageResult ThumbnailDiskCache::image(const QByteArray &key,const std::function<
     const auto name=QString::fromLatin1(QCryptographicHash::hash(key,QCryptographicHash::Sha256).toHex())+".png";
     qCDebug(thumbnailCacheLog) << "lookup" << name << "directory" << m_directory
                              << "enabled" << use << "refresh" << refresh;
+    if(use && !refresh && !m_directory.isEmpty() && !QFileInfo(m_directory).isSymLink()) {
+        const auto path=QDir(m_directory).filePath(name);
+        // QSaveFile publishes complete PNGs by replacement. Reading committed
+        // pixels needs neither the directory lock nor a complete inventory.
+        // Busy writers, maintenance and surviving locks must not turn a hit
+        // into a fresh decode of the source archive.
+        const auto cached=committedImage(path);
+        if(!cached.isNull() && !cancelled() && generation==m_generation.load()) {
+            // Approximate LRU is best-effort. A busy cache must not delay a hit.
+            if(m_mutex.tryLock()) {
+                const auto unlock=qScopeGuard([this]{m_mutex.unlock();});
+                QLockFile lock(m_directory+"/.lock");
+                if(lock.tryLock(0)) {
+                    const auto now=QDateTime::currentMSecsSinceEpoch();
+                    const QFileInfo info(path);auto diskUsed=info.lastModified().toMSecsSinceEpoch();
+                    if(!info.isSymLink() && info.isFile() && now-diskUsed>=60000) {
+                        QFile file(path);
+                        if(file.open(QIODevice::ReadWrite|QIODevice::ExistingOnly) && file.setFileTime(QDateTime::fromMSecsSinceEpoch(now),QFileDevice::FileModificationTime))diskUsed=now;
+                    }
+                    if(!info.isSymLink() && info.isFile() && info.size()<=MaxCacheFile) {
+                        const auto old=m_entries.value(name).bytes;
+                        m_bytes+=info.size()-old;m_entries[name]={info.size(),now,diskUsed};
+                    }
+                }
+            }
+            if(cancelled() || generation!=m_generation.load())return {};
+            qCDebug(thumbnailCacheLog) << "hit" << name << "committed-read";
+            return {cached,{}};
+        }
+    }
     if(use && !refresh) {
         QMutexLocker guard(&m_mutex);QString error;
         if(prepare(false,error)) {

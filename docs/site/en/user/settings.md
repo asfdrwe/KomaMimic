@@ -51,3 +51,20 @@ English, or the system language. Save and restart to apply the UI language.
 The color mode does not replace configured document or image colors.
 
 See [Differences from MangaMeeya](compatibility.md) for compatibility and sorting persistence.
+
+## Reuse and regeneration
+
+Committed, valid thumbnail PNGs can be read without waiting for writer/maintenance locks or a full cache inventory scan.
+Last-use updates are best-effort. Writing, deletion and trimming still use a lock, and PNGs and inventory revisions use temporary-file replacement.
+If a generated image cannot obtain the save lock, it may be displayed without being saved. It may need regeneration next time;
+this does not invalidate other committed PNGs.
+
+The cache retains at most 20,000 thumbnails as well as respecting the configured byte limit, trimming older entries first.
+Changes to the application, Qt, image readers, source path/size/modification time or filename encoding can require regeneration.
+Changing display thumbnail dimensions or spacing alone does not clear all cached images.
+Usage totals can include PNGs from earlier versions, so a file remaining on disk does not prove it matches the current cache key.
+
+Incomplete temporary files left by an abnormal exit are not read as committed PNGs. Qt checks lock ownership and other stale-lock conditions before reclaiming a leftover lock.
+v1.1.0 fixes unnecessary regeneration caused by lock contention; it does not establish every cause of the previously reported full-regeneration symptom.
+Folder-cover candidate searches and archive page-index loading are separate from thumbnail regeneration.
+TXT, Markdown and covers of archives containing text may be excluded from disk persistence because they depend on fonts or external images.

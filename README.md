@@ -272,6 +272,6 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 
 ## Changelog
 
-- **v1.1.0**: Add an independent two-pane folder browser, optional reading filenames and thumbnail numbering, and detailed custom thumbnail layouts; simplify the toolbar toggle.
+- **v1.1.0**: Add an independent two-pane folder browser, optional reading filenames and thumbnail numbering, and detailed custom thumbnail layouts; simplify the toolbar toggle. Persist shared file-sort defaults, support illustrated Aozora TXT, fix document-layout restoration and folder-tree selection, and reuse cached thumbnails during writer contention.
 - **v1.0.3**: Fix Linux AppImage document startup and Windows EPUB Unicode paths; add document deployment checks and cache diagnostics.
 - **v1.0.0 — Initial release**
