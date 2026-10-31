@@ -110,7 +110,7 @@ ComPtr<IShellItem> shellItem(const QString &location) {
     return item;
 }
 #endif
-Listing listLocation(const QString &location) {
+Listing listLocation(const QString &location, bool treeDirectories = false) {
     Listing result;
 #ifdef Q_OS_WIN
     if(location=="km:desktop" || location.startsWith("shell:")) {
@@ -195,7 +195,12 @@ Listing listLocation(const QString &location) {
         const QFileInfo info(location);
         if(!info.isDir() || !info.isReadable()) { result.error=QCoreApplication::translate("KomaMimic","フォルダを開けません: ")+location; return result; }
         // Enumerate just one level; no archive reads, hashes or recursive walk.
-        const auto files=QDir(location).entryInfoList(QDir::AllDirs|QDir::Files|QDir::NoDotAndDotDot,QDir::NoSort);
+        // A filesystem tree must be able to traverse hidden ancestors too
+        // (notably macOS /var and /private). The upper file list retains its
+        // normal visibility filter; directories are still fetched one level at a time.
+        const auto filters=treeDirectories ? QDir::Filters(QDir::AllDirs|QDir::Hidden|QDir::NoDotAndDotDot)
+                                           : QDir::Filters(QDir::AllDirs|QDir::Files|QDir::NoDotAndDotDot);
+        const auto files=QDir(location).entryInfoList(filters,QDir::NoSort);
         for(const auto &file:files) {
             if(!file.isDir() && !isImagePath(file.fileName()) && !isArchivePath(file.fileName()) && !isDocumentPath(file.fileName()))continue;
             result.entries.append({file.absoluteFilePath(),file.absoluteFilePath(),file.fileName(),file.suffix(),file.size(),file.lastModified(),file.isDir()});
@@ -278,7 +283,7 @@ public:
             const bool refresh=parent->data(RefreshRole).toBool();parent->setData(false,RefreshRole);
             if(refresh && changed)changed(path);
         });
-        watcher->setFuture(QtConcurrent::run([location]{return listLocation(location);}));
+        watcher->setFuture(QtConcurrent::run([location]{return listLocation(location,true);}));
     }
 private:
     QFileSystemWatcher *m_watch;

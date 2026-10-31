@@ -342,7 +342,7 @@ void MainWindow::loadBook(const QString &path, ViewMode mode, bool startAtLastPa
         }
         m_book = result.book; m_anchor = startAtLastPage ? pageCount() - 1 : m_book->initialPage;
         if (m_book->archiveParent) populateArchiveDirectory(m_book->archiveParent, false);
-        if (m_features) {m_features->openedBook();m_features->applySavedSort();}
+        if (m_features) {m_features->openedBook();m_features->applySavedSort(true);}
         if(startAtLastPage)m_anchor=pageCount()-1;
         if (m_restoreDocumentLocation && !documentViewActive()) {
             m_anchor=resolveDocumentLocation(m_pendingDocumentLocation);m_restoreDocumentLocation=false;

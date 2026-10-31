@@ -62,6 +62,14 @@ private slots:
         QCOMPARE(tree.header()->sectionResizeMode(0),QHeaderView::ResizeToContents);
         qInfo() << "tree column after root reset" << tree.columnWidth(0);
     }
+    void singlePaneSelectsHiddenAncestors() {
+        QTemporaryDir d;QVERIFY(d.isValid());
+        const auto selected=d.filePath(".hidden-parent/日本語/leaf");QVERIFY(QDir().mkpath(selected));
+        FolderTree tree;tree.selectPath(selected);
+        QTRY_COMPARE(tree.selectedPath(),selected);
+        tree.setTwoPane(true);tree.setTwoPane(false);tree.selectPath(selected);
+        QTRY_COMPARE(tree.selectedPath(),selected);
+    }
     void coverSortCommandsApplyWithoutAnOpenBook() {
         QTemporaryDir d;const auto config=d.filePath("settings.ini");
         for(const auto &name:{"10.png","2.png","1.png"})QVERIFY(TestData::write(d.filePath(name),TestData::png(TestData::solid())));

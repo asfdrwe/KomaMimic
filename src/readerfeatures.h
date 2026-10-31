@@ -30,7 +30,7 @@ public:
   OpenOptions openOptions() const;
   void closingBook();
   void openedBook();
-  void applySavedSort();
+  void applySavedSort(bool opening = false);
   void refreshDocumentToc();
   void openFailed();
   void prepareOpen(const QString &path);

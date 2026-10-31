@@ -1392,7 +1392,10 @@ void ReaderFeatures::beforeRender() {
   if (!m_lastPositionKey.isEmpty())
     m_panPositions[m_lastPositionKey] = m_previousPan;
 }
-void ReaderFeatures::applySavedSort() {
+void ReaderFeatures::applySavedSort(bool opening) {
+  // Imported collections can carry an explicit per-book order. Restore it
+  // when opening; a later explicit sort/preference change may still override it.
+  if(opening && m_library->item(m_activeId).state.value("legacySort").toInt()>0)return;
   // A saved structural edit (blank insertion, deletion, split, pasted page)
   // takes precedence over automatic defaults. Explicit sorting still works.
   if(m_sourceBook && w->m_book) {

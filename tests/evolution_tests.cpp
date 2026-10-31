@@ -132,7 +132,11 @@ private slots:
   QListWidget *list=nullptr;
   for(auto *candidate:w.findChildren<QListWidget*>())if(candidate->count() && candidate->item(0)->data(Qt::UserRole).toString()==items[0].id){list=candidate;break;}
   QVERIFY(list);QMetaObject::invokeMethod(list,"itemActivated",Qt::DirectConnection,Q_ARG(QListWidgetItem*,list->item(0)));
-  QTRY_VERIFY(w.renderReady());QCOMPARE(w.currentPageName(),"2.png");w.nextPage();QTRY_VERIFY(w.renderReady());QCOMPARE(w.currentPageName(),"1.png");w.close();
+  QTRY_VERIFY(w.renderReady());QCOMPARE(w.currentPageName(),"2.png");w.nextPage();QTRY_VERIFY(w.renderReady());QCOMPARE(w.currentPageName(),"1.png");
+  // Restoring the collection does not change the shared default. An explicit
+  // user sort still overrides this book's restored order and keeps its page.
+  {QSettings settings(config,QSettings::IniFormat);QCOMPARE(settings.value("covers/sort",0).toInt(),0);}
+  w.command("sortNatural")->trigger();QCOMPARE(w.currentPageName(),"1.png");w.nextPage();QTRY_VERIFY(w.renderReady());QCOMPARE(w.currentPageName(),"2.png");w.close();
  }
  void epubNoteRoundTripRendering() {
 #ifdef Q_OS_UNIX

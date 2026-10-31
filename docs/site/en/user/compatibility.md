@@ -26,6 +26,7 @@ Defaults are natural order and reverse off. Explicit existing cover-sort setting
 are retained. The default applies to subsequently opened image books and archives;
 it does not reorder the chapters or text pages of TXT, Markdown or EPUB documents.
 Automatic defaults preserve structurally edited books (inserted blanks, deleted or split pages); explicit sorting remains available.
+An imported list’s explicit per-book order takes precedence over the shared default when opening it. You can still change its order explicitly after opening.
 Undoing a reading-page reorder does not reset the saved default preference.
 
 Folders precede files in ordinary cover listings. Equal types, sizes or dates use
