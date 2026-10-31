@@ -40,7 +40,7 @@
 #include <QTabWidget>
 #include <QTabBar>
 #include <QHBoxLayout>
-#include <QTemporaryFile>
+#include <QTemporaryDir>
 #include <QTimer>
 #include <QToolBar>
 #include <QVBoxLayout>
@@ -206,13 +206,15 @@ void ReaderFeatures::settingsFile(bool import, const QString &provided, bool man
     QVariantMap snapshot;
     for (const auto &key : w->m_settings->allKeys())
       snapshot[key] = w->m_settings->value(key);
-    QTemporaryFile temporary;
-    if (!temporary.open()) {
+    // QTemporaryFile keeps its native handle even after close(). On Windows
+    // that prevents QSettings from atomically replacing the same file.
+    // Give QSettings an unheld path inside an owned temporary directory.
+    QTemporaryDir temporary;
+    if (!temporary.isValid()) {
       message(temporary.errorString());
       return;
     }
-    const auto temporaryPath = temporary.fileName();
-    temporary.close();
+    const auto temporaryPath = temporary.filePath("settings.ini");
     {
       QSettings output(temporaryPath, QSettings::IniFormat);
       for (auto it = snapshot.begin(); it != snapshot.end(); ++it)
@@ -262,14 +264,21 @@ void ReaderFeatures::settingsFile(bool import, const QString &provided, bool man
     }
     text = QString::fromUtf8(converted.constData(), size);
   }
-  QTemporaryFile temporary;
-  if (!temporary.open()) {
+  QTemporaryDir temporary;
+  if (!temporary.isValid()) {
     message(temporary.errorString());
     return;
   }
-  temporary.write(text.toUtf8());
-  temporary.flush();
-  QSettings input(temporary.fileName(), QSettings::IniFormat);
+  const auto temporaryPath = temporary.filePath("settings.ini");
+  {
+    QFile decoded(temporaryPath);
+    const auto bytes = text.toUtf8();
+    if (!decoded.open(QIODevice::WriteOnly) || decoded.write(bytes) != bytes.size()) {
+      message(decoded.errorString());
+      return;
+    }
+  }
+  QSettings input(temporaryPath, QSettings::IniFormat);
   const auto inputKeys = input.allKeys();
   const bool own = std::any_of(inputKeys.cbegin(), inputKeys.cend(), [](const QString &key) {
     return key.startsWith("covers/") || key.startsWith("reading/") || key.startsWith("keys/") || key.startsWith("text/") ||

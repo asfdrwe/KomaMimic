@@ -93,9 +93,18 @@ private slots:
         const auto current=window.currentPageName();window.command("sortReverse")->trigger();
         QCOMPARE(window.currentPageName(),current);QCOMPARE(pages->item(0)->text(),QString("2.png"));
         QVERIFY(window.command("sortUnicode")->isChecked());QVERIFY(window.command("sortReverse")->isChecked());
-        QTimer dismiss;connect(&dismiss,&QTimer::timeout,&window,[]{if(auto *box=qobject_cast<QMessageBox *>(QApplication::activeModalWidget()))box->accept();});dismiss.start(10);
+        QStringList notices;
+        QTimer dismiss;connect(&dismiss,&QTimer::timeout,&window,[&]{if(auto *box=qobject_cast<QMessageBox *>(QApplication::activeModalWidget())){notices.append(box->text());box->accept();}});dismiss.start(10);
         ReaderFeatures *features=nullptr;for(auto *child:window.children())if(auto *candidate=dynamic_cast<ReaderFeatures *>(child))features=candidate;QVERIFY(features);
-        const auto exported=d.filePath("export.ini");features->settingsFile(false,exported);QVERIFY(QFileInfo::exists(exported));
+        const auto exported=d.filePath("書き出し settings.ini");
+        features->settingsFile(false,exported);QVERIFY2(QFileInfo::exists(exported),qPrintable(notices.join('\n')));
+        const auto verifyExport=[&] {
+            QSettings saved(exported,QSettings::IniFormat);QCOMPARE(saved.status(),QSettings::NoError);
+            QCOMPARE(saved.value("covers/sort").toInt(),5);QVERIFY(saved.value("covers/reverse").toBool());
+        };
+        verifyExport();
+        QVERIFY(TestData::write(exported,"obsolete export"));
+        features->settingsFile(false,exported);verifyExport();
         window.command("settingsSave4")->trigger();
         window.command("sortNatural")->trigger();window.command("settingsLoad4")->trigger();
         QVERIFY(window.command("sortUnicode")->isChecked());QCOMPARE(pages->item(0)->text(),QString("2.png"));

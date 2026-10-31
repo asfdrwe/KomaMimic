@@ -14,6 +14,7 @@
 - Support Aozora TXT image/caption annotations and limited img references in illustrated TXT. Prevent image-reader history from overriding a document’s single-page layout.
 - Reuse committed thumbnail PNGs without waiting for writer/maintenance locks or a full inventory scan; avoid unnecessary source regeneration under contention.
 - Add Differences from MangaMeeya with supported alternatives and settings-persistence details.
+- Fix settings-file export failing on Windows.
 
 ## v1.0.3
 
