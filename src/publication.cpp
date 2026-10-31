@@ -80,7 +80,7 @@ QVariant LocalTextDocument::loadResource(int type, const QUrl &url) {
   m_bytes += image.sizeInBytes();
   return image;
 }
-QString aozoraHtml(const QString &text) {
+QString aozoraHtml(const QString &text, const std::function<QString(const QString &)> &imageSource) {
   const QRegularExpression ruby(QStringLiteral("(?:｜([^《\n]+)|([\\p{Han}々]+))《([^》\n]+)》"));
   // Offsets use the canonical plain text shared with cover previews: ruby
   // readings are excluded; annotation characters retain their source positions.
@@ -96,7 +96,9 @@ QString aozoraHtml(const QString &text) {
     }
     const auto rest=part.mid(previous); result+=rest.toHtmlEscaped();offset+=rest.size();return result;
   };
-  const QRegularExpression tokens(QStringLiteral("［＃[^］\n]{1,120}］"));
+  const QRegularExpression tokens(QStringLiteral("［＃[^］\n]{1,8192}］|<img\\b[^>\n]{1,8192}>"), QRegularExpression::CaseInsensitiveOption);
+  const QRegularExpression illustration(QStringLiteral("^［＃(.+?)（([^（）\n]+?)(?:、横([0-9０-９]+)×縦([0-9０-９]+))?）入る］$"));
+  const QRegularExpression sourceAttribute(QStringLiteral(R"re((?:^|\s)src\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))re"), QRegularExpression::CaseInsensitiveOption);
   const QRegularExpression indent(QStringLiteral("^［＃(?:ここから)?([0-9０-９一二三四五六七八九十]+)字下げ］$"));
   const auto number=[](QString value) {
     const QString kanji=QStringLiteral("〇一二三四五六七八九十");
@@ -104,9 +106,9 @@ QString aozoraHtml(const QString &text) {
     for(auto &c:value) if(c.unicode()>=0xff10 && c.unicode()<=0xff19)c=QChar(c.unicode()-0xff10+'0');
     return qsizetype(value.toInt());
   };
-  QString html; int offset=0, blockIndent=0, heading=0; bool horizontal=false;
+  QString html; int offset=0, blockIndent=0, heading=0; bool horizontal=false, caption=false;
   for(const auto &line:text.split('\n')) {
-    const int lineStart=offset; int lineHeading=heading;
+    const int lineStart=offset; int lineHeading=heading; bool lineCaption=caption;
     QString content; int previous=0, lineIndent=blockIndent;
     auto matches=tokens.globalMatch(line);
     while(matches.hasNext()) {
@@ -115,7 +117,36 @@ QString aozoraHtml(const QString &text) {
       content+="<span data-koma-offset=\""+QString::number(begin)+"\">"+part+"</span>";
       const auto token=m.captured(); bool known=true;
       const auto ind=indent.match(token);
-      if(token==QStringLiteral("［＃改ページ］") || token==QStringLiteral("［＃改丁］")) content+="<span class=\"koma-break\"></span>";
+      const auto picture=illustration.match(token);
+      const auto rawSource=sourceAttribute.match(token);
+      if(picture.hasMatch() || (token.startsWith("<img",Qt::CaseInsensitive) && rawSource.hasMatch())) {
+        QString reference, description;
+        if(picture.hasMatch()) {description=picture.captured(1);reference=picture.captured(2);}
+        else {for(int i=1;i<=3;++i)if(!rawSource.captured(i).isNull()){reference=rawSource.captured(i);break;}}
+        // References are filenames, not HTML or executable URLs. Never pass
+        // arbitrary attributes from legacy TXT <img> tags into the browser.
+        QUrl url;url.setPath(reference);
+        const bool relative=!reference.isEmpty() && !reference.startsWith('/') &&
+            !reference.contains('\\') && !reference.contains(':') && !reference.contains(QChar(0));
+        QString source;
+        if(relative) {
+          if(imageSource)source=imageSource(reference); // The resolver enforces its own root.
+          else if(!publicationPath({},url.toString(QUrl::FullyEncoded)).isEmpty())source=url.toString(QUrl::FullyEncoded);
+        }
+        if(source.isEmpty())content+="<span class=\"koma-missing-image\">"+token.toHtmlEscaped()+"</span>";
+        else {
+          content+="<img class=\"illustration\" data-koma-offset=\""+QString::number(offset)+"\" src=\""+source.toHtmlEscaped()+"\" alt=\""+description.toHtmlEscaped()+"\"";
+          if(picture.hasMatch() && !picture.captured(3).isEmpty()) {
+            const int width=int(number(picture.captured(3))),height=int(number(picture.captured(4)));
+            if(width>0 && height>0 && width<=16000 && height<=16000)content+=" width=\""+QString::number(width)+"\" height=\""+QString::number(height)+"\"";
+          }
+          content+="/>";
+        }
+      }
+      else if(token==QStringLiteral("［＃キャプション］") || token==QStringLiteral("［＃ここからキャプション］"))caption=lineCaption=true;
+      else if(token==QStringLiteral("［＃キャプション終わり］") || token==QStringLiteral("［＃ここでキャプション終わり］"))caption=false;
+      else if(token.endsWith(QStringLiteral("」はキャプション］")) && token.startsWith(QStringLiteral("［＃「")))lineCaption=true;
+      else if(token==QStringLiteral("［＃改ページ］") || token==QStringLiteral("［＃改丁］")) content+="<span class=\"koma-break\"></span>";
       else if(ind.hasMatch()) {lineIndent=std::clamp(int(number(ind.captured(1))),0,20);if(token.contains(QStringLiteral("ここから")))blockIndent=lineIndent;}
       else if(token==QStringLiteral("［＃ここで字下げ終わり］")) blockIndent=lineIndent=0;
       else if(token==QStringLiteral("［＃ここから大見出し］"))heading=lineHeading=2;
@@ -136,12 +167,12 @@ QString aozoraHtml(const QString &text) {
     const int begin=offset; const auto part=render(line.mid(previous),offset);
     content+="<span data-koma-offset=\""+QString::number(begin)+"\">"+part+"</span>";
     const auto tag=lineHeading ? "h"+QString::number(lineHeading) : QString("div");
-    html+='<'+tag+" data-koma-offset=\""+QString::number(lineStart)+"\" style=\""+(horizontal ? "writing-mode:horizontal-tb;" : "")+"margin-block:0;padding-inline-start:"+QString::number(lineIndent)+"em\">"+content+"<br/></"+tag+'>';
+    html+='<'+tag+" data-koma-offset=\""+QString::number(lineStart)+"\" style=\""+((horizontal || lineCaption) ? "writing-mode:horizontal-tb;" : "")+"margin-block:0;padding-inline-start:"+QString::number(lineIndent)+"em\">"+content+"<br/></"+tag+'>';
     ++offset;
   }
   return "<!doctype html><html lang=\"ja\"><head><meta charset=\"utf-8\"/><style>"
          "body{line-break:strict;word-break:normal;overflow-wrap:normal;text-orientation:mixed}ruby{ruby-align:space-around;ruby-position:over}"
-         "rt{font-size:50%;line-break:strict;white-space:normal}.koma-break{display:block;break-before:column}"
+         "img.illustration{object-fit:contain;max-inline-size:100%;max-block-size:100%;break-inside:avoid}rt{font-size:50%;line-break:strict;white-space:normal}.koma-break{display:block;break-before:column}"
          "</style></head><body>"+html+"</body></html>";
 }
 
@@ -753,7 +784,22 @@ std::shared_ptr<const Publication> readTextPublication(const QString &text, cons
         p->toc.append({block.text(), section.path, {}, block.position()});
     }
   } else {
-    section.html = aozoraHtml(text);
+    QHash<QString,QString> mappedImages; qint64 imageBytes=0;
+    section.html = aozoraHtml(text,[&](const QString &reference) {
+      if(mappedImages.contains(reference))return mappedImages.value(reference);
+      if(mappedImages.size()>=256)return QString{};
+      QUrl url;url.setPath(reference);
+      const auto image=(resources ? resources(url) : localRoot.isEmpty() ? QVariant{} : documentResource(localRoot,url)).value<QImage>();
+      QString key;
+      if(!image.isNull() && image.sizeInBytes()<=64*1024*1024) {
+        QByteArray encoded;QBuffer buffer(&encoded);buffer.open(QIODevice::WriteOnly);
+        if(image.save(&buffer,"PNG") && imageBytes+encoded.size()<=64*1024*1024) {
+          key="__aozora_images__/"+QString::number(mappedImages.size())+".png";
+          imageBytes+=encoded.size();p->resources[key]=encoded;
+        }
+      }
+      mappedImages.insert(reference,key);return key;
+    });
     // Positions exclude readings, identically to the standard renderer.
     auto plain = text;
     plain.replace(QRegularExpression(QStringLiteral(

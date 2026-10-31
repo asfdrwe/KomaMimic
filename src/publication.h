@@ -46,7 +46,8 @@ std::shared_ptr<const Publication> readTextPublication(const QString &text, cons
     const TextOptions &options, const DocumentResourceLoader &resources, const QString &localRoot = {});
 // Resolves publication references; rejects external URLs and paths above root.
 QString publicationPath(const QString &base, const QString &reference);
-QString aozoraHtml(const QString &text);
+QString aozoraHtml(const QString &text,
+    const std::function<QString(const QString &)> &imageSource = {});
 // No Book or WebEngine view is needed to retrieve a cover.
 ImageResult epubCover(const QString &path, QSize thumbnail = {240, 320},
                        const std::function<bool()> &cancel = {});

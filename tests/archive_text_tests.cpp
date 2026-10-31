@@ -161,6 +161,56 @@ private slots:
         QCOMPARE(QImage::fromData(publication->resources.constBegin().value()).pixelColor(0,0), QColor(Qt::green));
         child.book.reset(); root.book.reset(); QVERIFY(!publication->resources.constBegin().value().isEmpty());
     }
+    void aozoraIllustrationsAndLegacyImageTags() {
+        QTemporaryDir d; const auto path=d.filePath("illustrations.zip");
+        const auto image=TestData::png(TestData::solid(Qt::green,{40,60}));
+        const QString text=QStringLiteral("前\n［＃挿絵１（画像.png、横４０×縦６０）入る］\n"
+            "［＃古い図（画像.png）入る］\n<img width=999 hight=999 onerror=evil src=\"画像.png\">\n"
+            "［＃図（../outside.png）入る］\n<img src=\"file:///secret.png\">\n"
+            "<img src=\"https://example.invalid/a.png\">\n<script>evil</script>\n"
+            "説明［＃「説明」はキャプション］\n後");
+        QVERIFY(TestData::write(path,TestData::zip({{"text.txt",text.toUtf8()}, {QStringLiteral("画像.png").toUtf8(),image,0x800}})));
+        auto root=Book::open(path);QVERIFY(root.book);
+        int entry=-1;for(int i=0;i<root.book->pages.size();++i)if(root.book->pages[i].name=="text.txt")entry=i;
+        QVERIFY(entry>=0);auto child=Book::open(root.book->entryPath(entry));QVERIFY2(child.book,qPrintable(child.error));
+        const auto publication=child.book->publication;QVERIFY(publication);
+        QCOMPARE(publication->resources.size(),1);const auto html=publication->sections.first().html;
+        QCOMPARE(html.count("<img class=\"illustration\""),3);
+        QVERIFY(html.contains("width=\"40\" height=\"60\""));
+        QVERIFY(!html.contains("onerror="));QVERIFY(!html.contains("<script>"));
+        QVERIFY(html.contains("&lt;script&gt;"));QVERIFY(html.contains("koma-missing-image"));
+        QVERIFY(!html.contains(QStringLiteral("［＃「説明」はキャプション］")));
+        QCOMPARE(publication->sections.first().plain,text);
+        QVERIFY(html.contains("data-koma-offset=\""+QString::number(text.lastIndexOf(QStringLiteral("後")))+"\">後</span>"));
+        QCOMPARE(QImage::fromData(publication->resources.constBegin().value()).pixelColor(0,0),QColor(Qt::green));
+        child.book.reset();root.book.reset();QVERIFY(!publication->resources.constBegin().value().isEmpty());
+        const auto nestedPath=d.filePath("nested.zip");
+        QVERIFY(TestData::write(nestedPath,TestData::zip({{"chap/text.txt",QStringLiteral("［＃図（../画像.png）入る］").toUtf8()}, {QStringLiteral("画像.png").toUtf8(),image,0x800}})));
+        auto nested=Book::open(nestedPath);QVERIFY(nested.book);
+        int nestedEntry=-1;for(int i=0;i<nested.book->pages.size();++i)if(nested.book->pages[i].name.endsWith(".txt"))nestedEntry=i;
+        QVERIFY(nestedEntry>=0);const auto nestedText=Book::open(nested.book->entryPath(nestedEntry));QVERIFY(nestedText.book);
+        QCOMPARE(nestedText.book->publication->resources.size(),1);
+        // Optional private sample, never checked in or required by CI.
+        const auto sample=qEnvironmentVariable("KOMAMIMIC_ILLUSTRATED_TEXT_ARCHIVE");
+        if(!sample.isEmpty()) {
+            auto supplied=Book::open(sample);QVERIFY2(supplied.book,qPrintable(supplied.error));
+            int texts=0;
+            for(int i=0;i<supplied.book->pages.size();++i)if(supplied.book->pages[i].name.endsWith(".txt",Qt::CaseInsensitive)) {
+                const auto opened=Book::open(supplied.book->entryPath(i));QVERIFY2(opened.book,qPrintable(opened.error));
+                const auto p=opened.book->publication;QVERIFY(p);QVERIFY(!p->resources.isEmpty());
+                const auto html=p->sections.first().html;
+                QCOMPARE(html.count("<img class=\"illustration\""),p->resources.size());
+                QVERIFY(!html.contains("koma-missing-image"));
+                for(const auto &bytes:p->resources)QVERIFY(!QImage::fromData(bytes).isNull());
+                qInfo()<<"Private sample illustrations decoded:"<<p->resources.size();++texts;
+            }
+            QVERIFY(texts>0);
+        }
+        // The same annotation resolves relative to a standalone TXT's directory.
+        QVERIFY(TestData::write(d.filePath("画像.png"),image));QVERIFY(TestData::write(d.filePath("text.txt"),text.toUtf8()));
+        const auto local=readPublication(d.filePath("text.txt"),{});QVERIFY(local->error.isEmpty());
+        QCOMPARE(local->resources.size(),1);QCOMPARE(local->sections.first().html.count("<img class=\"illustration\""),3);
+    }
     void stableEntryIdentitySurvivesRepackingAndSeparatesDuplicates() {
         QTemporaryDir d; const auto path = d.filePath("stable.zip");
         QVERIFY(TestData::write(path, TestData::zip({{"a.txt", "A"}, {"b.txt", "B"}, {"b.txt", "C"}})));
