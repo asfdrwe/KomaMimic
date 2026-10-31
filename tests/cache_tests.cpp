@@ -209,7 +209,32 @@ private slots:
             }
         });
         for(auto &worker:workers) worker.join();
-        QVERIFY(good.load());QCOMPARE(first.stats().entries,32);QCOMPARE(second.stats().entries,32);
+        QVERIFY(good.load());
+        // Persistence is best-effort when another instance holds the directory
+        // lock. Contention must not corrupt a stored PNG or lose the image
+        // returned to the reader; it does not guarantee 32 immediate writes.
+        const auto stored=first.stats();QVERIFY(stored.error.isEmpty());
+        QVERIFY(stored.entries<=32);QCOMPARE(second.stats().entries,stored.entries);
+        for(const auto &name:QDir(d.path()).entryList({"*.png"},QDir::Files)) {
+            const QImage image(d.filePath(name));QVERIFY(!image.isNull());
+            QCOMPARE(image.pixelColor(0,0),QColor(Qt::green));
+        }
+        // Once writers have stopped, missing entries can be saved normally and
+        // both independent inventories must converge without clearing anything.
+        for(int j=0;j<32;++j) {
+            const auto result=first.image(QByteArray::number(j),[]{return ImageResult{TestData::solid(Qt::green),{}};});
+            QCOMPARE(result.image.pixelColor(0,0),QColor(Qt::green));
+        }
+        QCOMPARE(first.stats().entries,32);QCOMPARE(second.stats().entries,32);
+    }
+    void contendedDiskWriteStillReturnsImage() {
+        QTemporaryDir d;ThumbnailDiskCache cache(d.path());
+        QLockFile lock(d.filePath(".lock"));QVERIFY(lock.tryLock());
+        const auto result=cache.image("busy",[]{return ImageResult{TestData::solid(Qt::green),{}};});
+        QVERIFY(result.error.isEmpty());QCOMPARE(result.image.pixelColor(0,0),QColor(Qt::green));
+        lock.unlock();QCOMPARE(cache.stats().entries,0);
+        const auto saved=cache.image("busy",[]{return ImageResult{TestData::solid(Qt::green),{}};});
+        QCOMPARE(saved.image.pixelColor(0,0),QColor(Qt::green));QCOMPARE(cache.stats().entries,1);
     }
     void capacityAndRecentUse() {
         QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.configure(true,16);

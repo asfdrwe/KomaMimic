@@ -32,7 +32,24 @@
 ThumbnailGrid *MainWindow::activeGrid() const { return m_mode == ViewMode::Pages ? m_pages : m_library; }
 void MainWindow::restoreThumbnailSettings() {
     const bool follow = m_settings->value("thumbnails/mouseSelection", true).toBool();
-    for (auto *grid : {m_library, m_pages}) grid->setMouseSelectionEnabled(follow);
+    CustomThumbnailSettings custom;
+    custom.columns=m_settings->value("thumbnails/columns",0).toInt();
+    custom.width=m_settings->value("thumbnails/width",64).toInt();
+    custom.height=m_settings->value("thumbnails/height",64).toInt();
+    custom.horizontalGap=m_settings->value("thumbnails/horizontalGap",0).toInt();
+    custom.verticalGap=m_settings->value("thumbnails/verticalGap",0).toInt();
+    custom.filenameLines=m_settings->value("thumbnails/filenameLines",1).toInt();
+    custom.rightOrigin=m_settings->value("thumbnails/rightOrigin",false).toBool();
+    custom.frames=m_settings->value("thumbnails/frames",false).toBool();
+    for (auto *grid : {m_library, m_pages}) {grid->setMouseSelectionEnabled(follow);grid->setCustomSettings(custom);}
+    setThumbnailLayout(ThumbnailGrid::Layout(std::clamp(m_settings->value("thumbnails/layout",0).toInt(),0,2)),custom.columns);
+    m_view->setFilenameVisible(m_settings->value("display/filename",false).toBool());
+    if (m_treePanel->twoPane()!=m_settings->value("folders/twoPane",true).toBool())
+        m_treePanel->setTwoPane(m_settings->value("folders/twoPane",true).toBool());
+    for(int row=0;row<m_pages->count();++row) {
+        auto *item=m_pages->item(row);const auto name=item->data(ThumbnailPageNameRole).toString();
+        if(!name.isEmpty())item->setText((m_settings->value("thumbnails/numbers",false).toBool()?QString::number(row+1)+"  ":QString{})+name);
+    }
 }
 void MainWindow::focusCurrentView() {
     if (m_mode == ViewMode::Reader && documentViewActive() && m_documentView) { m_documentView->setFocus(); return; }
@@ -79,9 +96,9 @@ void MainWindow::cancelThumbnail() {
 void MainWindow::buildNavigationActions() {
     m_actions["tree"]->setCheckable(true); m_actions["thumbnails"]->setCheckable(true);
     connect(m_actions["tree"], &QAction::toggled, this, [this](bool visible) {
-        m_treePanel->setVisible(visible); if (!visible && m_tree->hasFocus()) focusCurrentView(); saveSettings();
+        m_treePanel->setVisible(visible); if (!visible && (m_treePanel->hasFocus() || m_treePanel->isAncestorOf(QApplication::focusWidget()))) focusCurrentView(); saveSettings();
     });
-    connect(m_actions["focusTree"], &QAction::triggered, this, [this] { m_actions["tree"]->setChecked(true); m_tree->selectPath(m_directory); m_tree->setFocus(); });
+    connect(m_actions["focusTree"], &QAction::triggered, this, [this] { m_actions["tree"]->setChecked(true); m_tree->selectPath(m_directory); m_treePanel->focusTree(); });
     connect(m_actions["focusThumbnails"], &QAction::triggered, this, [this] { if (m_mode == ViewMode::Reader) showCovers(); else activeGrid()->setFocus(); });
     connect(m_actions["parentFolder"], &QAction::triggered, this, &MainWindow::parentFolder);
     connect(m_actions["folderBack"], &QAction::triggered, this, [this] { historyFolder(-1); });
@@ -101,17 +118,15 @@ void MainWindow::buildNavigationActions() {
         connect(m_actions[id], &QAction::triggered, this, [this, sign] { auto *grid = activeGrid(); grid->moveSelection(0, sign * std::max(1, grid->viewport()->height() / grid->gridSize().height())); });
     connect(m_actions["thumbRefresh"], &QAction::triggered, this, &MainWindow::refreshThumbnails);
     for (const auto &[id, key] : QVector<QPair<QString, int>>{{"treeUp", Qt::Key_Up}, {"treeDown", Qt::Key_Down}, {"treeLeft", Qt::Key_Left}, {"treeRight", Qt::Key_Right}})
-        connect(m_actions[id], &QAction::triggered, this, [this, key] { m_tree->navigate(key); });
-    connect(m_actions["treeAccept"], &QAction::triggered, this, [this] { const auto path = m_tree->selectedPath(); if (!path.isEmpty()) openDirectory(path); });
+        connect(m_actions[id], &QAction::triggered, this, [this, key] { m_treePanel->navigate(key); });
+    connect(m_actions["treeAccept"], &QAction::triggered, this, [this] { m_treePanel->activateSelection(); });
     connect(m_actions["treeCancel"], &QAction::triggered, this, [this] { if (isFullScreen()) setFullscreen(false); else showCovers(); });
     auto *layouts = new QActionGroup(this); layouts->setExclusive(true);
     for (const auto &id : {"thumbFit", "thumbEight", "thumbCustom"}) { m_actions[id]->setCheckable(true); layouts->addAction(m_actions[id]); }
     connect(m_actions["thumbFit"], &QAction::triggered, this, [this] { setThumbnailLayout(ThumbnailGrid::Layout::Fit, m_library->customColumns()); });
     connect(m_actions["thumbEight"], &QAction::triggered, this, [this] { setThumbnailLayout(ThumbnailGrid::Layout::EightColumns, m_library->customColumns()); });
     connect(m_actions["thumbCustom"], &QAction::triggered, this, [this] {
-        bool ok = false;
-        const int columns = QInputDialog::getInt(this, QCoreApplication::translate("KomaMimic", "サムネイルの配置"), QCoreApplication::translate("KomaMimic", "列数（1〜20）"), m_library->customColumns(), 1, 20, 1, &ok);
-        setThumbnailLayout(ok ? ThumbnailGrid::Layout::Custom : m_library->layoutMode(), ok ? columns : m_library->customColumns());
+        setThumbnailLayout(ThumbnailGrid::Layout::Custom,m_library->customColumns());
     });
 }
 void MainWindow::attachScopedShortcuts() {
@@ -119,7 +134,7 @@ void MainWindow::attachScopedShortcuts() {
         if (spec.scope == ShortcutScope::Global) continue;
         auto *action = m_actions[spec.id]; removeAction(action); action->setShortcutContext(Qt::WidgetWithChildrenShortcut);
         if (spec.scope == ShortcutScope::Reader) m_view->addAction(action);
-        else if (spec.scope == ShortcutScope::Tree) m_tree->addAction(action);
+        else if (spec.scope == ShortcutScope::Tree) m_treePanel->addAction(action);
         else { m_library->addAction(action); m_pages->addAction(action); }
     }
 }
@@ -197,7 +212,7 @@ void MainWindow::populateDirectory(const QString &path, bool navigate, bool hist
     const QString selected = m_directorySelections.value(m_directory, m_currentPath);
     for (const auto &entry : entries) {
         if (!entry.isDir() && !isArchivePath(entry.fileName()) && !isImagePath(entry.fileName()) && !isDocumentPath(entry.fileName())) continue;
-        auto *item = new QListWidgetItem(ThumbnailGrid::thumbnailIcon({}, entry.isDir()), entry.fileName());
+        auto *item = new QListWidgetItem(m_library->placeholderIcon(entry.isDir()), entry.fileName());
         item->setData(PathRole, entry.absoluteFilePath()); item->setData(DirectoryRole, entry.isDir()); item->setData(ThumbnailRoleReady, false); item->setToolTip(entry.absoluteFilePath());
         m_library->addItem(item); if (entry.absoluteFilePath() == selected) m_library->setCurrentItem(item);
     }
@@ -237,7 +252,7 @@ void MainWindow::populateArchiveDirectory(const std::shared_ptr<const Book> &boo
     });
     for (int index : order) {
         const auto &entry = book->pages[index]; const auto path = book->entryPath(index);
-        auto *item = new QListWidgetItem(ThumbnailGrid::thumbnailIcon(), entry.name);
+        auto *item = new QListWidgetItem(m_library->placeholderIcon(), entry.name);
         item->setData(PathRole, path); item->setData(DirectoryRole, false); item->setData(ThumbnailRoleReady, false);
         item->setToolTip(book->path + " / " + entry.name); m_library->addItem(item);
         if (path == selected || (!parseArchiveEntryPath(selected).id.isEmpty() && parseArchiveEntryPath(selected).id == entry.archiveEntryId)) m_library->setCurrentItem(item);
@@ -334,9 +349,10 @@ void MainWindow::populatePages() {
     m_pageTitle->setText(QCoreApplication::translate("KomaMimic", "ページサムネイル — %1（%2ページ）").arg(bookDisplayName(m_currentPath)).arg(pageCount()));
     for (int index = 0; index < m_book->pages.size(); ++index) {
         const auto &page = m_book->pages[index];
-        const QString title = QString("%1  %2%3").arg(index + 1).arg(page.name, page.documentPage ? QString(" [%1]").arg(page.documentPage + 1) : QString{});
-        auto *item = new QListWidgetItem(ThumbnailGrid::thumbnailIcon(), title);
-        item->setData(PageRole, index); item->setData(ThumbnailRoleReady, false);
+        const QString name = page.name + (page.documentPage ? QString(" [%1]").arg(page.documentPage+1) : QString{});
+        const QString title = (m_settings->value("thumbnails/numbers",false).toBool()?QString::number(index+1)+"  ":QString{})+name;
+        auto *item = new QListWidgetItem(m_pages->placeholderIcon(), title);
+        item->setData(PageRole, index); item->setData(ThumbnailPageNameRole,name); item->setData(ThumbnailRoleReady, false);
         item->setToolTip(title + '\n' + page.decodedName.encoding + " / " + page.decodedName.origin + '\n' + page.decodedName.warning);
         m_pages->addItem(item);
     }

@@ -126,10 +126,18 @@ void PageView::zoomBy(double factor) {
     m_zoom = std::clamp(current * factor, 0.05, 16.0); m_scaleMode = ScaleMode::Zoom; m_pan = {};
     requestScale(); emit scaleChanged(); update();
 }
+QRectF PageView::imageArea() const {
+    return QRectF(20,16,std::max(1,width()-40),std::max(1,height()-(m_filenameVisible?58:32)));
+}
+void PageView::setFilenameVisible(bool visible) {
+    if (m_filenameVisible == visible) return;
+    m_filenameVisible = visible;
+    m_scrollTimer->stop(); clampPan(); requestScale(); emit scaleChanged(); update();
+}
 QVector<QRectF> PageView::pageRects() const {
     QVector<QRectF> rects(m_images.size());
     if (m_images.isEmpty()) return rects;
-    const QRectF available = QRectF(rect()).adjusted(20, 16, -20, -42);
+    const QRectF available = imageArea();
     const bool blank = m_leadingBlank && m_images.size() == 1;
     const double gap = m_images.size() > 1 || blank ? 6 : 0, dpr = devicePixelRatioF();
     double aspect = 0, minimumHeight = 1e20;
@@ -160,8 +168,8 @@ void PageView::clampPan() {
     const auto rects = pageRects(); if (rects.isEmpty()) { m_pan = {}; return; }
     QRectF total;
     for (const auto &r : rects) total = total.united(r);
-    const double maxX = std::max(0.0, (total.width() - (width() - 40)) / 2);
-    const double maxY = std::max(0.0, (total.height() - (height() - 58)) / 2);
+    const double maxX = std::max(0.0, (total.width() - imageArea().width()) / 2);
+    const double maxY = std::max(0.0, (total.height() - imageArea().height()) / 2);
     m_pan.setX(std::clamp(m_pan.x(), -maxX, maxX)); m_pan.setY(std::clamp(m_pan.y(), -maxY, maxY));
 }
 void PageView::requestScale() {
@@ -218,7 +226,7 @@ void PageView::paintEvent(QPaintEvent *) {
         return;
     }
     const auto rects = pageRects();
-    p.save(); p.setClipRect(rect().adjusted(0, 0, 0, -38));
+    p.save(); p.setClipRect(imageArea());
     for (int i = 0; i < m_images.size(); ++i) {
         p.fillRect(rects[i], Qt::white);
         const auto &image = m_scaleReady && i < m_scaled.size() && !m_scaled[i].isNull() ? m_scaled[i] : m_images[i];
@@ -227,8 +235,10 @@ void PageView::paintEvent(QPaintEvent *) {
     p.restore();
     if(!m_transitionImage.isNull()){const double progress=std::clamp(m_transitionClock.elapsed()/double(m_transitionDuration),0.0,1.0);p.save();p.setOpacity(1-progress);p.drawImage(QPointF(m_transitionKind==2?(m_rtl?1:-1)*progress*width():0,0),m_transitionImage);p.restore();}
     if (m_loupe) for (int i = 0; i < rects.size(); ++i) if (rects[i].contains(m_pointer)) {
-        const int radius = std::min({m_loupeRadius, width() / 2, std::max(10, (height() - 40) / 2)});
-        const QPointF center(std::clamp(m_pointer.x(), double(radius), double(width() - radius)), std::clamp(m_pointer.y(), double(radius), double(std::max(radius,height() - radius - 38))));
+        const auto area = imageArea();
+        const int radius = std::max(1, std::min({m_loupeRadius, int(area.width()/2), int(area.height()/2)}));
+        const QPointF center(std::clamp(m_pointer.x(), area.left()+radius, std::max(area.left()+radius,area.right()-radius)),
+                             std::clamp(m_pointer.y(), area.top()+radius, std::max(area.top()+radius,area.bottom()-radius)));
         const QRectF glass(center.x() - radius, center.y() - radius, 2 * radius, 2 * radius);
         const QPointF source((m_pointer.x() - rects[i].left()) / rects[i].width() * m_images[i].width(), (m_pointer.y() - rects[i].top()) / rects[i].height() * m_images[i].height());
         const double half = radius / m_loupeZoom * devicePixelRatioF() * m_images[i].devicePixelRatio(); QPainterPath clip;
@@ -238,8 +248,16 @@ void PageView::paintEvent(QPaintEvent *) {
         p.setPen(QPen(Qt::white, 2)); p.setBrush(Qt::NoBrush); if (m_loupeRound) p.drawEllipse(glass); else p.drawRect(glass); break;
     }
     p.setPen(palette().color(QPalette::PlaceholderText));
-    p.drawText(QRect(12, height() - 30, width() - 24, 24), Qt::AlignCenter,
-               fontMetrics().elidedText(m_caption + (m_scaleError.isEmpty() ? QString{} : "  — " + m_scaleError), Qt::ElideMiddle, width() - 30));
+    if (m_filenameVisible)
+        p.drawText(QRect(12, height() - 30, width() - 24, 24), Qt::AlignCenter,
+                   fontMetrics().elidedText(m_caption, Qt::ElideMiddle, std::max(1,width()-30)));
+    // Scaling warnings remain visible even when the filename band is disabled.
+    if (!m_scaleError.isEmpty()) {
+        const QRect warning = imageArea().toAlignedRect().adjusted(4,4,-4,-4);
+        const QRect line(warning.left(), warning.top(), warning.width(), fontMetrics().height()+8);
+        p.fillRect(line, palette().color(QPalette::Base));
+        p.drawText(line, Qt::AlignCenter, fontMetrics().elidedText(m_scaleError,Qt::ElideRight,line.width()));
+    }
 }
 void PageView::mousePressEvent(QMouseEvent *event) {
     m_scrollTimer->stop();
@@ -294,16 +312,16 @@ void PageView::wheelEvent(QWheelEvent *event) {
 
 void PageView::setTransition(int kind,int duration){m_transitionKind=std::clamp(kind,0,2);m_transitionDuration=std::clamp(duration,50,1500);}
 
-void PageView::setSourceOrigin(QPointF value){const auto boxes=pageRects();if(boxes.isEmpty()||m_images.isEmpty())return;const double scale=boxes[0].width()/(m_images[0].width()/m_images[0].devicePixelRatio());setPan(m_pan+QPointF(20-boxes[0].left()-value.x()*scale,16-boxes[0].top()-value.y()*scale));}
+void PageView::setSourceOrigin(QPointF value){const auto boxes=pageRects();if(boxes.isEmpty()||m_images.isEmpty())return;const double scale=boxes[0].width()/(m_images[0].width()/m_images[0].devicePixelRatio());setPan(m_pan+QPointF(imageArea().left()-boxes[0].left()-value.x()*scale,imageArea().top()-boxes[0].top()-value.y()*scale));}
 
 namespace {
-QVector<QPointF> scanStops(const QVector<QRectF> &rects, QSize viewport, bool rtl, int overlap) {
+QVector<QPointF> scanStops(const QVector<QRectF> &rects, QSizeF viewport, bool rtl, int overlap) {
     QRectF total; for (const auto &r : rects) total = total.united(r);
-    const double x = std::max(0.0, (total.width() - (viewport.width()-40))/2);
-    const double y = std::max(0.0, (total.height() - (viewport.height()-58))/2);
+    const double x = std::max(0.0, (total.width() - viewport.width())/2);
+    const double y = std::max(0.0, (total.height() - viewport.height())/2);
     const double fraction = 1 - std::clamp(overlap, 0, 80)/100.0;
-    const int columns = std::max(1, int(std::ceil(2*x / std::max(1.0, (viewport.width()-40)*fraction))));
-    const int rows = std::max(1, int(std::ceil(2*y / std::max(1.0, (viewport.height()-58)*fraction))));
+    const int columns = std::max(1, int(std::ceil(2*x / std::max(1.0, viewport.width()*fraction))));
+    const int rows = std::max(1, int(std::ceil(2*y / std::max(1.0, viewport.height()*fraction))));
     QVector<QPointF> result;
     for (int c=0; c <= (x > 0 ? columns : 0); ++c)
       for (int r=0; r <= (y > 0 ? rows : 0); ++r)
@@ -313,7 +331,7 @@ QVector<QPointF> scanStops(const QVector<QRectF> &rects, QSize viewport, bool rt
 }
 bool PageView::scan(int direction, bool rtl, int overlap) {
     if (m_images.isEmpty()) return false;
-    const auto stops = scanStops(pageRects(), size(), rtl, overlap);
+    const auto stops = scanStops(pageRects(), imageArea().size(), rtl, overlap);
     int nearest=0; double distance=1e100;
     for (int i=0;i<stops.size();++i) {
       const double d = (stops[i]-m_pan).manhattanLength();
@@ -327,7 +345,7 @@ bool PageView::scan(int direction, bool rtl, int overlap) {
 void PageView::enterScan(int direction, bool rtl) { m_scanRtl=rtl; m_scanEntry=direction; }
 void PageView::applyScanEntry() {
     if(!m_scanEntry)return;
-    const auto stops=scanStops(pageRects(), size(), m_scanRtl, 15);
+    const auto stops=scanStops(pageRects(), imageArea().size(), m_scanRtl, 15);
     if(!stops.isEmpty()) setPan(m_scanEntry>0 ? stops.first() : stops.last());
     m_scanEntry=0;
 }

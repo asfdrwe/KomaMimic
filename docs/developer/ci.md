@@ -269,7 +269,7 @@ Broken Cairo development links are supplemented inside the working prefix.
 Poppler CMaps and other data are bundled; a small patch lets AppRun select their
 location with `POPPLER_DATADIR`. Source, patches, original author/license notices,
 origins, checksums, and configuration are retained. AppDir generation starts only
-after all 17 groups pass with these dependencies. Python 3.11 is selected explicitly.
+after all 18 groups pass with these dependencies. Python 3.11 is selected explicitly.
 
 Rocky baseos, appstream, extras, and powertools use `dl.rockylinux.org` directly to
 avoid long mirror-switching delays. DNF connection/low-speed timeouts are 20 seconds

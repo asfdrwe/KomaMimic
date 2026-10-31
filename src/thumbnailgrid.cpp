@@ -13,7 +13,7 @@
 #include <algorithm>
 namespace {
 constexpr int ItemMargin = 8, CaptionGap = 4, MinimumIconSize = 24;
-int captionHeight(const QFont &font) { return 2 * QFontMetrics(font).lineSpacing() + 4; }
+int captionHeight(const QFont &font, int lines = 2) { return lines ? lines * QFontMetrics(font).lineSpacing() + 4 : 0; }
 
 class ThumbnailDelegate final : public QStyledItemDelegate {
 public:
@@ -31,31 +31,40 @@ public:
         painter->save(); painter->setClipRect(opt.rect, Qt::IntersectClip);
         style->drawControl(QStyle::CE_ItemViewItem, &opt, painter, opt.widget);
 
-        const QRect content = opt.rect.adjusted(ItemMargin, ItemMargin, -ItemMargin, -ItemMargin);
-        const QRect caption(content.left(), content.bottom() - captionHeight(opt.font) + 1,
-                            content.width(), captionHeight(opt.font));
-        const QRect decoration(content.left(), content.top(), content.width(), caption.top() - CaptionGap - content.top());
+        const auto *grid = qobject_cast<ThumbnailGrid *>(m_grid);
+        const bool custom = grid && grid->layoutMode() == ThumbnailGrid::Layout::Custom;
+        const auto settings = grid ? grid->customSettings() : CustomThumbnailSettings{};
+        const int lines = grid ? grid->filenameLines() : 2;
+        const int margin = custom ? 1 : ItemMargin;
+        const QRect cell = opt.rect.adjusted(0, 0, custom ? -settings.horizontalGap : 0,
+                                             custom ? -settings.verticalGap : 0);
+        const QRect content = cell.adjusted(margin, margin, -margin, -margin);
+        const int captionSize = captionHeight(opt.font, lines);
+        const QRect caption(content.left(), content.bottom() - captionSize + 1,
+                            content.width(), captionSize);
+        const QRect decoration(content.left(), content.top(), content.width(),
+                               content.height() - captionSize - (lines ? CaptionGap : 0));
         const bool enabled = opt.state & QStyle::State_Enabled, selected = opt.state & QStyle::State_Selected;
         icon.paint(painter, decoration, Qt::AlignCenter, !enabled ? QIcon::Disabled : selected ? QIcon::Selected : QIcon::Normal);
-        if (caption.width() > 0) {
-            // Qt's default icon delegate can consume the caption area with the
-            // decoration. Lay out at most two lines in a separate, fixed area.
+        if (lines && caption.width() > 0) {
             QTextLayout layout(text, opt.font);
             QTextOption wrapping; wrapping.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);
+            // Filename direction is independent of where the first cell starts.
+            wrapping.setTextDirection(Qt::LeftToRight);
             layout.setTextOption(wrapping); layout.beginLayout();
-            auto first = layout.createLine();
-            if (first.isValid()) first.setLineWidth(caption.width());
-            const int split = first.isValid() ? first.textLength() : 0;
-            layout.endLayout();
             const QFontMetrics metrics(opt.font);
-            const QStringList lines{ text.left(split), text.mid(split) };
             painter->setFont(opt.font);
             painter->setPen(opt.palette.color(enabled ? QPalette::Normal : QPalette::Disabled, selected ? QPalette::HighlightedText : QPalette::Text));
-            for (int i = 0; i < lines.size(); ++i) {
-                const QRect line(caption.left(), caption.top() + i * metrics.lineSpacing(), caption.width(), metrics.height() + 4);
-                painter->drawText(line, Qt::AlignHCenter | Qt::AlignTop | Qt::TextSingleLine,
-                                  metrics.elidedText(lines[i], Qt::ElideRight, caption.width()));
+            for (int i = 0; i < lines; ++i) {
+                auto line = layout.createLine();
+                if (!line.isValid()) break;
+                line.setLineWidth(caption.width());
+                const QString label = i == lines-1 ? text.mid(line.textStart()) : text.mid(line.textStart(),line.textLength());
+                painter->drawText(QRect(caption.left(),caption.top()+i*metrics.lineSpacing(),caption.width(),metrics.height()+4),
+                                  Qt::AlignHCenter | Qt::AlignTop | Qt::TextSingleLine,
+                                  metrics.elidedText(label,Qt::ElideRight,caption.width()));
             }
+            layout.endLayout();
         }
         painter->restore();
     }
@@ -135,14 +144,62 @@ QIcon ThumbnailGrid::thumbnailIcon(const QImage &image, bool directory) {
     if (image.isNull()) placeholder = icon;
     return icon;
 }
+QIcon ThumbnailGrid::displayIcon(const QImage &image, bool directory) const {
+    if (m_layout != Layout::Custom || m_custom.frames) return thumbnailIcon(image,directory);
+    if (!image.isNull()) {
+        // Keep the displayed pixmap proportional to the requested cell, rather
+        // than retaining a full disk-cache image in every 64-pixel icon.
+        const QSize target=QSize(qCeil(m_custom.width*devicePixelRatioF()),qCeil(m_custom.height*devicePixelRatioF()));
+        const auto pixels=image.width()>target.width() || image.height()>target.height()
+            ? image.scaled(target,Qt::KeepAspectRatio,Qt::SmoothTransformation) : image;
+        auto pixmap=QPixmap::fromImage(pixels);pixmap.setDevicePixelRatio(devicePixelRatioF());return QIcon(pixmap);
+    }
+    return style()->standardIcon(directory ? QStyle::SP_DirIcon : QStyle::SP_FileIcon);
+}
+void ThumbnailGrid::repaintIcons() {
+    for (int row = 0; row < count(); ++row) {
+        auto *entry=item(row);
+        if(const auto *image=m_sourceImages.object(row))entry->setIcon(displayIcon(*image,entry->data(DirectoryRole).toBool()));
+        else if(entry->data(ThumbnailRoleReady).toBool()) {
+            // A display-only change never clears the disk cache. Reload just
+            // the visible image sources that have left this bounded RAM cache.
+            entry->setData(ThumbnailRoleReady,false);
+        } else entry->setIcon(displayIcon({},entry->data(DirectoryRole).toBool()));
+    }
+}
+void ThumbnailGrid::setCustomSettings(CustomThumbnailSettings settings) {
+    settings.columns = std::clamp(settings.columns,0,100);
+    settings.width = std::clamp(settings.width,16,1024); settings.height = std::clamp(settings.height,16,1024);
+    settings.horizontalGap = std::clamp(settings.horizontalGap,0,200); settings.verticalGap = std::clamp(settings.verticalGap,0,200);
+    settings.filenameLines = std::clamp(settings.filenameLines,0,2);
+    if (settings == m_custom) return;
+    const bool pixelsChanged = settings.frames != m_custom.frames || settings.width != m_custom.width || settings.height != m_custom.height;
+    m_custom = settings; m_columns = settings.columns;
+    updateGrid(); if (pixelsChanged && m_layout == Layout::Custom) repaintIcons(); requestVisible();
+}
 void ThumbnailGrid::setLayoutMode(Layout layout, int columns) {
-    m_layout = layout; m_columns = std::clamp(columns, 1, 20); updateGrid(); requestVisible();
+    const bool changed = m_layout != layout;
+    m_layout = layout; m_columns = std::clamp(columns, 0, 100); m_custom.columns = m_columns;
+    updateGrid(); if (changed) repaintIcons(); requestVisible();
 }
 void ThumbnailGrid::updateGrid() {
+    setLayoutDirection(m_layout == Layout::Custom && m_custom.rightOrigin ? Qt::RightToLeft : Qt::LeftToRight);
+    if (m_layout == Layout::Custom) {
+        const int caption = captionHeight(font(),m_custom.filenameLines);
+        const int w = std::max(1,viewport()->width());
+        int cellWidth = m_custom.width + 2 + m_custom.horizontalGap;
+        if (m_columns) cellWidth = std::max(3,w/m_columns);
+        cellWidth = std::min(w,cellWidth);
+        const int imageWidth = std::max(1,cellWidth-2-m_custom.horizontalGap);
+        const QSize fitted = QSize(m_custom.width,m_custom.height).scaled(QSize(imageWidth,m_custom.height),Qt::KeepAspectRatio);
+        const int cellHeight = fitted.height()+2+m_custom.verticalGap+caption+(caption ? CaptionGap : 0);
+        setIconSize(fitted); setGridSize({cellWidth,cellHeight});
+        return;
+    }
     const int caption = captionHeight(font()), padding = 2 * ItemMargin + CaptionGap;
     const int minimumHeight = std::max(90, MinimumIconSize + caption + padding);
     const int w = std::max(64, viewport()->width() - 24), h = std::max(minimumHeight, viewport()->height() - 24);
-    int columns = m_layout == Layout::EightColumns ? 8 : m_columns;
+    int columns = 8;
     int cellWidth = 0, cellHeight = 0;
     if (m_layout == Layout::Fit && count() > 0) {
         columns = std::max(1, int(std::ceil(std::sqrt(double(count()) * w / (h * 0.7)))));
@@ -164,13 +221,13 @@ QVector<int> ThumbnailGrid::visibleRows() const {
     for (int i = first; i < std::min(count(), first + n); ++i) rows.append(i);
     return rows;
 }
-void ThumbnailGrid::clearItems() { m_cached.clear(); clear(); }
+void ThumbnailGrid::clearItems() { m_cached.clear(); m_sourceImages.clear(); clear(); }
 void ThumbnailGrid::invalidateThumbnails() {
-    m_cached.clear();
+    m_cached.clear(); m_sourceImages.clear();
     for (int row = 0; row < count(); ++row) {
         item(row)->setData(ThumbnailRoleReady, false); item(row)->setData(PendingRole, false);
         item(row)->setData(ThumbnailRefreshRole,true);
-        item(row)->setIcon(thumbnailIcon({}, item(row)->data(DirectoryRole).toBool()));
+        item(row)->setIcon(displayIcon({}, item(row)->data(DirectoryRole).toBool()));
     }
     requestVisible();
 }
@@ -180,21 +237,23 @@ void ThumbnailGrid::setThumbnail(int row, const QImage &image, const QString &er
     entry->setData(ThumbnailRefreshRole,false);
     if (!error.isEmpty()) entry->setToolTip(entry->toolTip() + '\n' + error);
     if (image.isNull()) return;
-    const auto icon = thumbnailIcon(image, entry->data(DirectoryRole).toBool());
-    entry->setIcon(QIcon(icon.pixmap(iconSize().boundedTo(QSize(144, 186))))); m_cached.enqueue(row);
+    m_sourceImages.insert(row,new QImage(image),int(std::max<qint64>(1,(image.sizeInBytes()+1023)/1024)));
+    entry->setIcon(displayIcon(image,entry->data(DirectoryRole).toBool()));
+    m_cached.removeAll(row); m_cached.enqueue(row);
     // Icon pixels are bounded independently of the number of list entries.
     const int keep = std::max(160, int(visibleRows().size()) + 20);
     while (m_cached.size() > keep) {
         const int old = m_cached.dequeue();
         if (old >= count()) continue;
-        item(old)->setIcon(thumbnailIcon({}, item(old)->data(DirectoryRole).toBool()));
+        m_sourceImages.remove(old);
+        item(old)->setIcon(displayIcon({}, item(old)->data(DirectoryRole).toBool()));
         item(old)->setData(ThumbnailRoleReady, false);
     }
 }
 void ThumbnailGrid::moveSelection(int dx, int dy) {
     if (!count()) return;
     const int columns = std::max(1, viewport()->width() / std::max(1, gridSize().width()));
-    const int row = currentRow() < 0 ? 0 : std::clamp(currentRow() + dx + dy * columns, 0, count() - 1);
+    const int row = currentRow() < 0 ? 0 : std::clamp(currentRow() + (layoutDirection()==Qt::RightToLeft ? -dx : dx) + dy * columns, 0, count() - 1);
     setCurrentRow(row); scrollToItem(currentItem(), QAbstractItemView::EnsureVisible);
     resetMousePosition();
 }

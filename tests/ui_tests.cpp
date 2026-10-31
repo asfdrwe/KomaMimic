@@ -62,20 +62,20 @@ class UiTests : public QObject {
 private slots:
     void folderTreeListsFilesystemRoots() {
         FolderTree tree;
-        auto *files=qobject_cast<QFileSystemModel *>(tree.model()); QVERIFY(files);
-        QVERIFY(!tree.rootIndex().isValid());
-        // Enumerate existing rows. Calling index(drive.path()) here would add
-        // missing drive nodes on demand and hide a broken initial listing.
+        auto *files=tree.model(); QVERIFY(files);
+        const auto root=files->index(0,0); QVERIFY(root.isValid());
+#ifdef Q_OS_WIN
+        QCOMPARE(root.data().toString(),QString("PC"));
         auto visibleRoots=[&] {
-            QStringList paths;
-            for (int row=0;row<files->rowCount();++row)
-                paths.append(QDir::cleanPath(files->filePath(files->index(row,0))));
-            return paths;
+            QStringList names;
+            for(int row=0;row<files->rowCount(root);++row)names.append(files->index(row,0,root).data(Qt::ToolTipRole).toString());
+            return names;
         };
-        for (const auto &drive:QDir::drives()) {
-            const auto path=QDir::cleanPath(drive.absoluteFilePath());
-            QTRY_VERIFY2(visibleRoots().contains(path),qPrintable("Missing filesystem root: "+path));
-        }
+        for(const auto &drive:QDir::drives())
+            QTRY_VERIFY(visibleRoots().contains(QDir::toNativeSeparators(drive.absoluteFilePath())));
+#else
+        QCOMPARE(root.data().toString(),QString("/"));
+#endif
         QTemporaryDir directory; QVERIFY(directory.isValid());
         tree.selectPath(directory.path());
         QTRY_COMPARE(QDir::cleanPath(tree.selectedPath()),QDir::cleanPath(directory.path()));
@@ -564,6 +564,7 @@ private slots:
         MainWindow w(d.filePath("settings.ini")); w.show(); w.activateWindow(); TestData::singlePage(w);
         w.openDirectory(directory);
         auto *grid=w.findChild<ThumbnailGrid *>("zipLibrary"); QVERIFY(grid);
+        grid->setLayoutMode(ThumbnailGrid::Layout::EightColumns);
         auto *watcher=w.findChild<QFileSystemWatcher *>("browserDirectoryWatcher"); QVERIFY(watcher);
         const auto paths=[grid] {
             QStringList result;
@@ -631,8 +632,10 @@ private slots:
         QTRY_VERIFY(field->hasFocus());
         field->setText("unfinished folder name"); field->setCursorPosition(4);
         auto *tree=w.findChild<FolderTree *>("folderTree"); QVERIFY(tree);
-        tree->selectPath(QFileInfo(d.path()).absolutePath());
-        const auto treeSelection=tree->selectedPath(); QVERIFY(!treeSelection.isEmpty());
+        auto *browser=w.findChild<FolderBrowser *>("folderTreePanel");QVERIFY(browser);
+        browser->openLocation(QFileInfo(d.path()).absolutePath());
+        QTRY_VERIFY(!tree->selectedPath().isEmpty());
+        const auto treeSelection=tree->selectedPath();
         const auto archive=TestData::zip({{"1.png",TestData::png(TestData::solid())}});
         QVERIFY(TestData::write(d.filePath("new.zip"),archive)); QTRY_COMPARE(grid->count(),1);
         QCOMPARE(field->text(),QString("unfinished folder name")); QCOMPARE(field->cursorPosition(),4);

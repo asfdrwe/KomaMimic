@@ -154,7 +154,7 @@ QVector<ShortcutSpec> featureShortcutSpecs() {
   add("toolbarSettings", QCoreApplication::translate("KomaMimic", "ツールバーの設定"), "", ShortcutScope::Global);
   add("mouseSettings", QCoreApplication::translate("KomaMimic", "マウス・ジェスチャの設定"), "", ShortcutScope::Global);
   add("gamepadSettings", QCoreApplication::translate("KomaMimic", "ゲームパッドの設定"), "", ShortcutScope::Global);
-  add("toolbarToggle", QCoreApplication::translate("KomaMimic", "読書ツールバー（下部）"), "", ShortcutScope::Global);
+  add("toolbarToggle", QCoreApplication::translate("KomaMimic", "ツールバー表示"), "", ShortcutScope::Global);
   add("openUrl", QCoreApplication::translate("KomaMimic", "URLを開く"), "", ShortcutScope::Global);
   add("external", QCoreApplication::translate("KomaMimic", "外部プログラムで開く"));
   add("externalSettings", QCoreApplication::translate("KomaMimic", "外部プログラムの設定"), "", ShortcutScope::Global);

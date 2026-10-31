@@ -242,203 +242,203 @@
             <translation>Cannot create an archive reader.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="146" />
+            <location filename="../src/book.cpp" line="149" />
             <source>書庫を開けません: %1</source>
             <translation>Cannot open archive: %1</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="154" />
+            <location filename="../src/book.cpp" line="157" />
             <source>書庫の読み込みに失敗しました。</source>
             <translation>Failed to read the archive.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="198" />
-            <location filename="../src/book.cpp" line="440" />
+            <location filename="../src/book.cpp" line="201" />
+            <location filename="../src/book.cpp" line="443" />
             <source>書庫のUnicode処理に必要なUTF-8 localeを作成できません。</source>
             <translation>Cannot create the UTF-8 locale required for Unicode archive names.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="199" />
+            <location filename="../src/book.cpp" line="202" />
             <source>未対応の名前の文字コードです。</source>
             <translation>Unsupported filename encoding.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="210" />
+            <location filename="../src/book.cpp" line="213" />
             <source>PDF画像リソース</source>
             <translation>PDF image resources</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="215" />
+            <location filename="../src/book.cpp" line="218" />
             <source>画像リソース</source>
             <translation>Image resources</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="241" />
+            <location filename="../src/book.cpp" line="244" />
             <source>文書ページ</source>
             <translation>Document pages</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="246" />
+            <location filename="../src/book.cpp" line="249" />
             <source>画像フォルダ</source>
             <translation>Image folder</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="251" />
-            <location filename="../src/book.cpp" line="255" />
-            <location filename="../src/book.cpp" line="264" />
-            <location filename="../src/book.cpp" line="285" />
-            <location filename="../src/book.cpp" line="381" />
-            <location filename="../src/book.cpp" line="621" />
+            <location filename="../src/book.cpp" line="254" />
+            <location filename="../src/book.cpp" line="258" />
+            <location filename="../src/book.cpp" line="267" />
+            <location filename="../src/book.cpp" line="288" />
+            <location filename="../src/book.cpp" line="384" />
+            <location filename="../src/book.cpp" line="624" />
             <source>読み込みを取り消しました。</source>
             <translation>Loading canceled.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="251" />
+            <location filename="../src/book.cpp" line="254" />
             <source>フォルダの項目数が上限を超えています。</source>
             <translation>Folder entry count exceeds the limit.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="259" />
+            <location filename="../src/book.cpp" line="262" />
             <source>フォルダ内書庫の展開が128 MiBを超えています。</source>
             <translation>Archives inside the folder exceed 128 MiB when extracted.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="260" />
+            <location filename="../src/book.cpp" line="263" />
             <source>フォルダ内のページ数が上限を超えました。</source>
             <translation>Page count inside the folder exceeds the limit.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="265" />
+            <location filename="../src/book.cpp" line="268" />
             <source>フォルダの画像数が上限を超えています。</source>
             <translation>Image count inside the folder exceeds the limit.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="270" />
+            <location filename="../src/book.cpp" line="273" />
             <source>OSの名前</source>
             <translation>OS filename</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="286" />
+            <location filename="../src/book.cpp" line="289" />
             <source>書庫内の項目数が上限（100,000）を超えています。</source>
             <translation>Archive entry count exceeds the limit (100,000).</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="296" />
-            <location filename="../src/book.cpp" line="362" />
+            <location filename="../src/book.cpp" line="299" />
+            <location filename="../src/book.cpp" line="365" />
             <source>名前情報と書庫内の項目数が一致しません。</source>
             <translation>Name data does not match the archive entry count.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="311" />
+            <location filename="../src/book.cpp" line="314" />
             <source>書庫backend</source>
             <translation>Archive backend</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="330" />
+            <location filename="../src/book.cpp" line="333" />
             <source>内部書庫を開けません。</source>
             <translation>Cannot open the nested archive.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="343" />
+            <location filename="../src/book.cpp" line="346" />
             <source>内部書庫の展開容量が上限を超えたか、読込に失敗しました。</source>
             <translation>Nested archive exceeds the extraction limit or could not be read.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="334" />
-            <location filename="../src/book.cpp" line="368" />
+            <location filename="../src/book.cpp" line="337" />
+            <location filename="../src/book.cpp" line="371" />
             <source>対応する画像・テキストがありません。暗号化・分割書庫や未対応形式も確認してください。</source>
             <translation>No supported images or text were found. Check for encrypted or split archives and unsupported formats.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="391" />
+            <location filename="../src/book.cpp" line="394" />
             <source>文書ページ数が上限を超えています。</source>
             <translation>Document page count exceeds the limit.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="438" />
-            <location filename="../src/book.cpp" line="464" />
-            <location filename="../src/book.cpp" line="480" />
-            <location filename="../src/book.cpp" line="489" />
+            <location filename="../src/book.cpp" line="441" />
+            <location filename="../src/book.cpp" line="467" />
+            <location filename="../src/book.cpp" line="483" />
+            <location filename="../src/book.cpp" line="492" />
             <source>書庫読込を取り消しました。</source>
             <translation>Archive loading canceled.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="441" />
-            <location filename="../src/book.cpp" line="504" />
-            <location filename="../src/book.cpp" line="530" />
-            <location filename="../src/thumbnailsource.cpp" line="78" />
+            <location filename="../src/book.cpp" line="444" />
+            <location filename="../src/book.cpp" line="507" />
+            <location filename="../src/book.cpp" line="533" />
+            <location filename="../src/thumbnailsource.cpp" line="91" />
             <source>ページが範囲外です。</source>
             <translation>Page is out of range.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="452" />
+            <location filename="../src/book.cpp" line="455" />
             <source>画像・書庫が変更されています。開き直してください。</source>
             <translation>Image or archive has changed. Please reopen it.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="455" />
+            <location filename="../src/book.cpp" line="458" />
             <source>画像データの上限（64 MiB）を超えています: %1</source>
             <translation>Image data exceeds the limit (64 MiB): %1</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="460" />
+            <location filename="../src/book.cpp" line="463" />
             <source>画像データを読めません。</source>
             <translation>Cannot read image data.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="486" />
+            <location filename="../src/book.cpp" line="489" />
             <source>書庫のパスワードが必要です。</source>
             <translation>Archive password required.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="490" />
+            <location filename="../src/book.cpp" line="493" />
             <source>画像の入力上限を超えています。</source>
             <translation>Image input exceeds the limit.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="498" />
+            <location filename="../src/book.cpp" line="501" />
             <source>書庫内のページがありません。開き直してください。</source>
             <translation>Page is no longer in the archive. Please reopen it.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="503" />
-            <location filename="../src/book.cpp" line="529" />
+            <location filename="../src/book.cpp" line="506" />
+            <location filename="../src/book.cpp" line="532" />
             <source>画像読込を取り消しました。</source>
             <translation>Image loading canceled.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="507" />
+            <location filename="../src/book.cpp" line="510" />
             <source>文書の画像出力・ページサムネイルは現在未対応です。</source>
             <translation>Document raster export and page thumbnails are not currently supported.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="510" />
-            <location filename="../src/book.cpp" line="539" />
+            <location filename="../src/book.cpp" line="513" />
+            <location filename="../src/book.cpp" line="542" />
             <source>文書が変更されています。開き直してください。</source>
             <translation>Document has changed. Please reopen it.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="588" />
+            <location filename="../src/book.cpp" line="591" />
             <source>書庫内のファイルが見つかりません。開き直してください。</source>
             <translation>The file in the archive was not found. Reopen the archive.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="559" />
+            <location filename="../src/book.cpp" line="562" />
             <source>生成ページ数が範囲外です。</source>
             <translation>Generated page count is out of range.</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="559" />
+            <location filename="../src/book.cpp" line="562" />
             <source>生成画像</source>
             <translation>Generated images</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="559" />
+            <location filename="../src/book.cpp" line="562" />
             <source>クリップボード（未保存）</source>
             <translation>Clipboard (unsaved)</translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="559" />
+            <location filename="../src/book.cpp" line="562" />
             <source>生成画像の容量が上限を超えています。</source>
             <translation>Generated images exceed the size limit.</translation>
         </message>
@@ -710,7 +710,7 @@ This cannot be reversed with Edit Undo. You can restore them from the OS Trash.<
 </translation>
         </message>
         <message>
-            <location filename="../src/book.cpp" line="605" />
+            <location filename="../src/book.cpp" line="608" />
             <location filename="../src/documentsource.cpp" line="24" />
             <source>テキストは16 MiBまでです。</source>
             <translation>Text files are limited to 16 MiB.</translation>
@@ -1441,20 +1441,20 @@ This cannot be reversed with Edit Undo. You can restore them from the OS Trash.<
         </message>
         <message>
             <location filename="../src/featurecommands.cpp" line="147" />
-            <location filename="../src/readerfeatureprefs.cpp" line="194" />
+            <location filename="../src/readerfeatureprefs.cpp" line="195" />
             <source>設定をインポート</source>
             <translation>Import settings</translation>
         </message>
         <message>
             <location filename="../src/featurecommands.cpp" line="148" />
-            <location filename="../src/readerfeatureprefs.cpp" line="196" />
+            <location filename="../src/readerfeatureprefs.cpp" line="197" />
             <source>設定をエクスポート</source>
             <translation>Export settings</translation>
         </message>
         <message>
             <location filename="../src/featurecommands.cpp" line="150" />
             <location filename="../src/featurecommands.cpp" line="152" />
-            <location filename="../src/readerfeatureprefs.cpp" line="391" />
+            <location filename="../src/readerfeatureprefs.cpp" line="394" />
             <source>環境設定</source>
             <translation>Preferences</translation>
         </message>
@@ -1475,11 +1475,6 @@ This cannot be reversed with Edit Undo. You can restore them from the OS Trash.<
             <location filename="../src/readerinput.cpp" line="335" />
             <source>ゲームパッドの設定</source>
             <translation>Gamepad settings</translation>
-        </message>
-        <message>
-            <location filename="../src/featurecommands.cpp" line="157" />
-            <source>読書ツールバー（下部）</source>
-            <translation>Reading toolbar (bottom)</translation>
         </message>
         <message>
             <location filename="../src/featurecommands.cpp" line="158" />
@@ -1633,7 +1628,7 @@ This cannot be reversed with Edit Undo. You can restore them from the OS Trash.<
             <translation> Showing undecodable bytes in directory name.</translation>
         </message>
         <message>
-            <location filename="../src/foldertree.cpp" line="11" />
+            <location filename="../src/foldertree.cpp" line="217" />
             <location filename="../src/shortcuts.cpp" line="131" />
             <source>フォルダツリー</source>
             <translation>Folder tree</translation>
@@ -1734,87 +1729,87 @@ This cannot be reversed with Edit Undo. You can restore them from the OS Trash.<
             <translation>Linux (ScreenSaver integration)</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="132" />
+            <location filename="../src/main.cpp" line="135" />
             <source>KomaMimic — 画像・書庫を読むクロスプラットフォームビューア (GPLv3)</source>
             <translation>KomaMimic — A cross-platform image and archive viewer (GPLv3)</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="135" />
+            <location filename="../src/main.cpp" line="138" />
             <source>設定ファイルを指定</source>
             <translation>Use the specified settings file</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="136" />
+            <location filename="../src/main.cpp" line="139" />
             <source>全画面で起動</source>
             <translation>Start in fullscreen</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="137" />
+            <location filename="../src/main.cpp" line="140" />
             <source>利用できる画像・書庫形式を表示して終了</source>
             <translation>List available image and archive formats and exit</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="138" />
+            <location filename="../src/main.cpp" line="141" />
             <source>コマンドIDの一覧を表示して終了</source>
             <translation>List command IDs and exit</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="139" />
+            <location filename="../src/main.cpp" line="142" />
             <source>単一起動設定を使わず別プロセスで起動</source>
             <translation>Start a separate process, ignoring single-instance settings</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="140" />
+            <location filename="../src/main.cpp" line="143" />
             <source>追加・置換する画像読込スクリプトのフォルダ（複数指定可、別プロセス起動）</source>
             <translation>Folder of additional/replacement image reader scripts (repeatable; starts a separate process)</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="141" />
+            <location filename="../src/main.cpp" line="144" />
             <source>最後に開いた本を復元</source>
             <translation>Restore the last book</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="143" />
+            <location filename="../src/main.cpp" line="146" />
             <source>0:自動見開き / 1:単頁 / 2:見開き</source>
             <translation>0: automatic spread / 1: single page / 2: spread</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="145" />
+            <location filename="../src/main.cpp" line="148" />
             <source>0:しおり / 1:先頭 / 2:マーカー / 3:画像一覧 / 4:表紙一覧</source>
             <translation>0: bookmark / 1: first page / 2: marker / 3: page thumbnails / 4: covers</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="147" />
+            <location filename="../src/main.cpp" line="150" />
             <source>プレイリストへ追加</source>
             <translation>Add to playlist</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="148" />
+            <location filename="../src/main.cpp" line="151" />
             <source>開始ページ（1始まり）</source>
             <translation>Starting page (1-based)</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="150" />
+            <location filename="../src/main.cpp" line="153" />
             <source>読込後にコマンドIDまたは旧番号1〜175を実行（複数指定可）</source>
             <translation>Execute command ID or legacy number 1–175 after loading (repeatable)</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="152" />
+            <location filename="../src/main.cpp" line="155" />
             <source>画像・書庫または表示するフォルダ</source>
             <translation>Image, archive, or folder to display</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="192" />
+            <location filename="../src/main.cpp" line="195" />
             <source>不正な引数 --</source>
             <translation>Invalid argument --</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="199" />
+            <location filename="../src/main.cpp" line="202" />
             <source>画像: </source>
             <translation>Images: </translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="200" />
+            <location filename="../src/main.cpp" line="203" />
             <source>書庫: ZIP/CBZ, RAR4/5/CBR, 7z/CB7, LHA/LZH/CBL, CAB, tar/CBT, tar.gz/bz2/xz/zst
 文書: PDF（組み込みPoppler）, TXT（UTF-8/CP932等）, Markdown（.md/.markdown）, EPUB
 </source>
@@ -1823,116 +1818,117 @@ Documents: PDF (built-in Poppler), TXT (UTF-8/CP932 etc.), Markdown (.md/.markdo
 </translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="203" />
+            <location filename="../src/main.cpp" line="206" />
             <source>文書表示: WebEngine（TXT・Markdown・EPUB共通）
 </source>
             <translation>Document display: WebEngine (shared by TXT, Markdown and EPUB)
 </translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="204" />
+            <location filename="../src/main.cpp" line="207" />
             <source>未宣言のZIP/LHA名: CP932既定。ツールの文字コード設定で変更。パスワードと書庫内書庫は環境設定。分割/SFXは保証外。
 </source>
             <translation>Undeclared ZIP/LHA names: CP932 by default. Change in Tools &gt; Filename encoding. Passwords and nested archives are in Preferences. Split/SFX archives are not guaranteed.
 </translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="216" />
+            <location filename="../src/main.cpp" line="219" />
             <source>設定フォルダを作成できません: </source>
             <translation>Cannot create settings folder: </translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="223" />
+            <location filename="../src/main.cpp" line="226" />
             <source>以前の設定を引き継げません: </source>
             <translation>Cannot migrate previous settings: </translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="270" />
+            <location filename="../src/main.cpp" line="289" />
             <source>既存ウィンドウへ接続できません。--new-window で別起動できます。
 </source>
             <translation>Cannot connect to the existing window. Use --new-window to start separately.
 </translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="282" />
+            <location filename="../src/main.cpp" line="301" />
             <source>既存ウィンドウへ要求を送信できませんでした。
 </source>
             <translation>Cannot send the request to the existing window.
 </translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="291" />
+            <location filename="../src/main.cpp" line="310" />
             <source>単一起動のIPCを初期化できないため、単独で起動します: </source>
             <translation>Cannot initialize single-instance IPC; starting independently: </translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="222" />
+            <location filename="../src/mainwindow.cpp" line="223" />
             <location filename="../src/shortcuts.cpp" line="26" />
             <source>画像・書庫を開く</source>
             <translation>Open image or archive</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="226" />
+            <location filename="../src/mainwindow.cpp" line="227" />
             <location filename="../src/shortcuts.cpp" line="27" />
             <source>フォルダを選択</source>
             <translation>Choose folder</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="270" />
+            <location filename="../src/mainwindow.cpp" line="271" />
             <source>表紙一覧</source>
             <translation>Covers</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="270" />
+            <location filename="../src/mainwindow.cpp" line="271" />
             <source>ページ一覧</source>
             <translation>Pages</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="271" />
-            <location filename="../src/mainwindow.cpp" line="583" />
-            <location filename="../src/mainwindow.cpp" line="584" />
+            <location filename="../src/mainwindow.cpp" line="272" />
+            <location filename="../src/mainwindow.cpp" line="585" />
+            <location filename="../src/mainwindow.cpp" line="586" />
             <source>見開き</source>
             <translation>Spread</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="271" />
+            <location filename="../src/mainwindow.cpp" line="272" />
             <source>文書設定</source>
             <translation>Document settings</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="271" />
+            <location filename="../src/mainwindow.cpp" line="272" />
             <source>文字＋</source>
             <translation>Text +</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="272" />
+            <location filename="../src/mainwindow.cpp" line="273" />
             <source>文字－</source>
             <translation>Text −</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="272" />
+            <location filename="../src/mainwindow.cpp" line="273" />
             <source>縦／横</source>
             <translation>Vertical/horizontal</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="273" />
+            <location filename="../src/mainwindow.cpp" line="274" />
             <source>リンク元</source>
             <translation>Link origin</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="273" />
+            <location filename="../src/mainwindow.cpp" line="274" />
             <source>本文検索</source>
             <translation>Find text</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="296" />
-            <location filename="../src/thumbnailgrid.cpp" line="132" />
+            <location filename="../src/foldertree.cpp" line="212" />
+            <location filename="../src/foldertree.cpp" line="334" />
+            <location filename="../src/thumbnailgrid.cpp" line="141" />
             <source>フォルダ</source>
             <translation>Folders</translation>
         </message>
         <message>
             <location filename="../src/mainwindow.cpp" line="300" />
-            <location filename="../src/mainwindownavigation.cpp" line="173" />
+            <location filename="../src/mainwindownavigation.cpp" line="188" />
             <source>表紙サムネイル — フォルダ・書庫・画像を選択して開く</source>
             <translation>Cover thumbnails — select a folder, archive, or image to open</translation>
         </message>
@@ -1958,76 +1954,76 @@ Documents: PDF (built-in Poppler), TXT (UTF-8/CP932 etc.), Markdown (.md/.markdo
             <translation>Open a folder, image, or archive</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="570" />
+            <location filename="../src/mainwindow.cpp" line="572" />
             <source>%1    %2項目    Enter: 開く</source>
             <translation>%1    %2 items    Enter: Open</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="571" />
+            <location filename="../src/mainwindow.cpp" line="573" />
             <source>%1    %2 / %3    Enter: 決定 / Escape: 戻る</source>
             <translation>%1    %2 / %3    Enter: confirm / Escape: back</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="581" />
+            <location filename="../src/mainwindow.cpp" line="583" />
             <source>文書・見開き</source>
             <translation>Document / two-page spread</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="581" />
+            <location filename="../src/mainwindow.cpp" line="583" />
             <source>文書・単ページ</source>
             <translation>Document / single page</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="583" />
-            <location filename="../src/mainwindow.cpp" line="584" />
+            <location filename="../src/mainwindow.cpp" line="585" />
+            <location filename="../src/mainwindow.cpp" line="586" />
             <location filename="../src/mainwindowdocument.cpp" line="285" />
             <source>単ページ</source>
             <translation>Single page</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="587" />
+            <location filename="../src/mainwindow.cpp" line="589" />
             <location filename="../src/mainwindowmenus.cpp" line="125" />
             <source>右開き</source>
             <translation>Right-to-left</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="587" />
+            <location filename="../src/mainwindow.cpp" line="589" />
             <location filename="../src/mainwindowmenus.cpp" line="125" />
             <source>左開き</source>
             <translation>Left-to-right</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="588" />
+            <location filename="../src/mainwindow.cpp" line="590" />
             <source>    読み込み中…</source>
             <translation>    Loading…</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="591" />
+            <location filename="../src/mainwindow.cpp" line="593" />
             <source>    名前: </source>
             <translation>    Names: </translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="591" />
+            <location filename="../src/mainwindow.cpp" line="593" />
             <source>（仮定）</source>
             <translation> (assumed)</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="592" />
+            <location filename="../src/mainwindow.cpp" line="594" />
             <source>  ※名前の解釈を確認</source>
             <translation>  ⚠ Check filename interpretation</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="594" />
+            <location filename="../src/mainwindow.cpp" line="596" />
             <source>画像・書庫を読み込み中…</source>
             <translation>Loading images or archive…</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="594" />
+            <location filename="../src/mainwindow.cpp" line="596" />
             <source>フォルダの書庫・画像をダブルクリックして開きます</source>
             <translation>Double-click an archive or image in the folder to open it</translation>
         </message>
         <message>
-            <location filename="../src/mainwindow.cpp" line="808" />
+            <location filename="../src/mainwindow.cpp" line="812" />
             <source>設定ファイルに書き込めません: </source>
             <translation>Cannot write settings file: </translation>
         </message>
@@ -2120,7 +2116,7 @@ Documents: PDF (built-in Poppler), TXT (UTF-8/CP932 etc.), Markdown (.md/.markdo
         </message>
         <message>
             <location filename="../src/mainwindowdocument.cpp" line="232" />
-            <location filename="../src/readerfeatureprefs.cpp" line="716" />
+            <location filename="../src/readerfeatureprefs.cpp" line="732" />
             <source>フォント名</source>
             <translation>Font family</translation>
         </message>
@@ -2141,13 +2137,13 @@ Documents: PDF (built-in Poppler), TXT (UTF-8/CP932 etc.), Markdown (.md/.markdo
         </message>
         <message>
             <location filename="../src/mainwindowdocument.cpp" line="251" />
-            <location filename="../src/readerfeatureprefs.cpp" line="709" />
+            <location filename="../src/readerfeatureprefs.cpp" line="725" />
             <source>文字サイズ（px）</source>
             <translation>Text size (px)</translation>
         </message>
         <message>
             <location filename="../src/mainwindowdocument.cpp" line="252" />
-            <location filename="../src/readerfeatureprefs.cpp" line="713" />
+            <location filename="../src/readerfeatureprefs.cpp" line="729" />
             <source>余白（px）</source>
             <translation>Margins (px)</translation>
         </message>
@@ -2215,7 +2211,7 @@ Settings apply in this order: book, format defaults, then global defaults.</tran
         </message>
         <message>
             <location filename="../src/mainwindowdocument.cpp" line="291" />
-            <location filename="../src/readerfeatureprefs.cpp" line="708" />
+            <location filename="../src/readerfeatureprefs.cpp" line="724" />
             <source>縦書き</source>
             <translation>Vertical</translation>
         </message>
@@ -2487,7 +2483,6 @@ Settings apply in this order: book, format defaults, then global defaults.</tran
         </message>
         <message>
             <location filename="../src/mainwindowmenus.cpp" line="131" />
-            <location filename="../src/mainwindownavigation.cpp" line="113" />
             <source>サムネイルの配置</source>
             <translation>Thumbnail layout</translation>
         </message>
@@ -2507,7 +2502,7 @@ Settings apply in this order: book, format defaults, then global defaults.</tran
             <translation>Magnifier adjustment</translation>
         </message>
         <message>
-            <location filename="../src/mainwindowmenus.cpp" line="139" />
+            <location filename="../src/featurecommands.cpp" line="157" />
             <source>ツールバー表示</source>
             <translation>Toolbars</translation>
         </message>
@@ -2659,7 +2654,7 @@ Settings apply in this order: book, format defaults, then global defaults.</tran
         <message>
             <location filename="../src/mainwindowmenus.cpp" line="205" />
             <location filename="../src/readerfeatureio.cpp" line="142" />
-            <location filename="../src/shortcuts.cpp" line="249" />
+            <location filename="../src/shortcuts.cpp" line="250" />
             <source>保存</source>
             <translation>Save</translation>
         </message>
@@ -2674,34 +2669,31 @@ Settings apply in this order: book, format defaults, then global defaults.</tran
             <translation>&amp;Help</translation>
         </message>
         <message>
-            <location filename="../src/mainwindownavigation.cpp" line="113" />
-            <source>列数（1〜20）</source>
-            <translation>Columns (1–20)</translation>
-        </message>
-        <message>
-            <location filename="../src/mainwindownavigation.cpp" line="167" />
+            <location filename="../src/foldertree.cpp" line="91" />
+            <location filename="../src/foldertree.cpp" line="149" />
+            <location filename="../src/mainwindownavigation.cpp" line="182" />
             <source>フォルダを開けません: </source>
             <translation>Cannot open folder: </translation>
         </message>
         <message>
-            <location filename="../src/mainwindownavigation.cpp" line="226" />
+            <location filename="../src/mainwindownavigation.cpp" line="241" />
             <source>書庫内ファイル — %1（%2項目）</source>
             <translation>Files in archive — %1 (%2 items)</translation>
         </message>
         <message>
-            <location filename="../src/mainwindownavigation.cpp" line="300" />
+            <location filename="../src/mainwindownavigation.cpp" line="315" />
             <source>画像・書庫を読み込んでいます… </source>
             <translation>Loading images or archive… </translation>
         </message>
         <message>
-            <location filename="../src/mainwindownavigation.cpp" line="301" />
+            <location filename="../src/mainwindownavigation.cpp" line="316" />
             <source>画像・書庫を読み込んでいます…
 </source>
             <translation>Loading images or archive…
 </translation>
         </message>
         <message>
-            <location filename="../src/mainwindownavigation.cpp" line="334" />
+            <location filename="../src/mainwindownavigation.cpp" line="349" />
             <source>ページサムネイル — %1（%2ページ）</source>
             <translation>Page thumbnails — %1 (%2 pages)</translation>
         </message>
@@ -2818,7 +2810,7 @@ Changes are remembered for this archive without modifying the original file. The
             <location filename="../src/readerfeatureio.cpp" line="189" />
             <location filename="../src/readerfeatureio.cpp" line="310" />
             <location filename="../src/readerfeatureio.cpp" line="524" />
-            <location filename="../src/shortcuts.cpp" line="251" />
+            <location filename="../src/shortcuts.cpp" line="252" />
             <source>キャンセル</source>
             <translation>Cancel</translation>
         </message>
@@ -2840,7 +2832,7 @@ Left click: next    Right click: previous
 Change shortcuts in Tools</translation>
         </message>
         <message>
-            <location filename="../src/pageview.cpp" line="192" />
+            <location filename="../src/pageview.cpp" line="200" />
             <source>拡縮処理の上限のため標準描画で表示</source>
             <translation>Using standard rendering due to resize processing limits</translation>
         </message>
@@ -2969,7 +2961,7 @@ Change shortcuts in Tools</translation>
         </message>
         <message>
             <location filename="../src/power.cpp" line="82" />
-            <location filename="../src/readerfeatureprefs.cpp" line="478" />
+            <location filename="../src/readerfeatureprefs.cpp" line="481" />
             <source>
 直近の失敗：</source>
             <translation>
@@ -3025,7 +3017,7 @@ Order: crop (original image pixels) → trim margins → rotate/flip → tone �
         </message>
         <message>
             <location filename="../src/processingdialog.cpp" line="57" />
-            <location filename="../src/readerfeatureprefs.cpp" line="623" />
+            <location filename="../src/readerfeatureprefs.cpp" line="639" />
             <location filename="../src/shortcuts.cpp" line="96" />
             <source>画像加工を有効</source>
             <translation>Enable image processing</translation>
@@ -3126,8 +3118,8 @@ Order: crop (original image pixels) → trim margins → rotate/flip → tone �
         </message>
         <message>
             <location filename="../src/processingdialog.cpp" line="88" />
-            <location filename="../src/readerfeatureprefs.cpp" line="521" />
-            <location filename="../src/readerfeatureprefs.cpp" line="669" />
+            <location filename="../src/readerfeatureprefs.cpp" line="526" />
+            <location filename="../src/readerfeatureprefs.cpp" line="685" />
             <source>なし</source>
             <translation>None</translation>
         </message>
@@ -3257,125 +3249,125 @@ Order: crop (original image pixels) → trim margins → rotate/flip → tone �
             <translation>Invalid EPUB XHTML (line %1): %2</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="222" />
-            <location filename="../src/publication.cpp" line="291" />
+            <location filename="../src/publication.cpp" line="225" />
+            <location filename="../src/publication.cpp" line="295" />
             <source>EPUBのZIPを開けません。</source>
             <translation>Cannot open EPUB ZIP.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="230" />
-            <location filename="../src/publication.cpp" line="250" />
-            <location filename="../src/publication.cpp" line="297" />
-            <location filename="../src/publication.cpp" line="314" />
-            <location filename="../src/publication.cpp" line="643" />
+            <location filename="../src/publication.cpp" line="233" />
+            <location filename="../src/publication.cpp" line="253" />
+            <location filename="../src/publication.cpp" line="301" />
+            <location filename="../src/publication.cpp" line="318" />
+            <location filename="../src/publication.cpp" line="647" />
             <source>EPUBの読み込みを中止しました。</source>
             <translation>EPUB loading canceled.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="242" />
+            <location filename="../src/publication.cpp" line="245" />
             <source>EPUBに未対応・不正な項目、重複パス、または大きすぎる項目があります。</source>
             <translation>EPUB contains unsupported, invalid, oversized, or duplicate-path entries.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="259" />
+            <location filename="../src/publication.cpp" line="262" />
             <source>EPUBの展開上限（項目32 MiB／合計128 MiB）を超えたか、ZIPが壊れています。</source>
             <translation>EPUB exceeds extraction limits (32 MiB per entry / 128 MiB total), or the ZIP is corrupt.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="266" />
-            <location filename="../src/publication.cpp" line="322" />
+            <location filename="../src/publication.cpp" line="269" />
+            <location filename="../src/publication.cpp" line="326" />
             <source>EPUBのZIPを読み終えられません。</source>
             <translation>Cannot finish reading EPUB ZIP.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="270" />
-            <location filename="../src/publication.cpp" line="640" />
+            <location filename="../src/publication.cpp" line="273" />
+            <location filename="../src/publication.cpp" line="644" />
             <source>EPUBのmimetypeがありません。</source>
             <translation>EPUB mimetype is missing.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="303" />
+            <location filename="../src/publication.cpp" line="307" />
             <source>EPUBに不正な項目・重複パスがあります。</source>
             <translation>EPUB contains invalid entries or duplicate paths.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="308" />
+            <location filename="../src/publication.cpp" line="312" />
             <source>EPUB表紙の項目が大きすぎるか、暗号化されています。</source>
             <translation>EPUB cover entry is oversized or encrypted.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="315" />
+            <location filename="../src/publication.cpp" line="319" />
             <source>EPUB表紙の項目上限を超えています。</source>
             <translation>EPUB cover entry exceeds the size limit.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="319" />
+            <location filename="../src/publication.cpp" line="323" />
             <source>EPUB表紙の項目を展開できません。</source>
             <translation>Cannot extract EPUB cover entry.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="434" />
+            <location filename="../src/publication.cpp" line="438" />
             <source>EPUBのpackageが見つかりません。</source>
             <translation>EPUB package not found.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="473" />
+            <location filename="../src/publication.cpp" line="477" />
             <source>EPUBのpackage／spineが不正です。</source>
             <translation>Invalid EPUB package/spine.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="495" />
+            <location filename="../src/publication.cpp" line="499" />
             <source>暗号化リソースの件数上限を超えています。</source>
             <translation>Encrypted resource count exceeds the limit.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="505" />
+            <location filename="../src/publication.cpp" line="509" />
             <source>EPUBに重複した暗号化リソース指定があります。</source>
             <translation>Duplicate encrypted resource declaration in EPUB.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="510" />
+            <location filename="../src/publication.cpp" line="514" />
             <source>暗号化された本文・画像など、未対応の保護リソースを含むEPUBです。</source>
             <translation>EPUB contains unsupported protected resources such as encrypted text or images.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="515" />
+            <location filename="../src/publication.cpp" line="519" />
             <source>難読化フォントを代替フォントで表示：</source>
             <translation>Using a fallback for obfuscated font: </translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="518" />
+            <location filename="../src/publication.cpp" line="522" />
             <source>EPUBのencryption.xmlが不正です。</source>
             <translation>Invalid EPUB encryption.xml.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="526" />
+            <location filename="../src/publication.cpp" line="530" />
             <source>EPUB本文・注釈の件数上限を超えています。</source>
             <translation>EPUB text/annotation count exceeds the limit.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="532" />
+            <location filename="../src/publication.cpp" line="536" />
             <source>EPUBのspineに未対応または存在しない本文があります。</source>
             <translation>EPUB spine contains unsupported or missing content.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="551" />
+            <location filename="../src/publication.cpp" line="555" />
             <source>EPUB本文の文字コードがUTF-8 / UTF-16として解釈できません。</source>
             <translation>Cannot decode EPUB text as UTF-8 / UTF-16.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="642" />
+            <location filename="../src/publication.cpp" line="646" />
             <source>EPUBのpackageを読み込めません。</source>
             <translation>Cannot read EPUB package.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="649" />
-            <location filename="../src/publication.cpp" line="652" />
+            <location filename="../src/publication.cpp" line="653" />
+            <location filename="../src/publication.cpp" line="656" />
             <source>EPUB表紙の読み込み上限を超えています。</source>
             <translation>EPUB cover exceeds the read limit.</translation>
         </message>
         <message>
-            <location filename="../src/publication.cpp" line="657" />
+            <location filename="../src/publication.cpp" line="661" />
             <source>EPUBの表紙画像が見つかりません。</source>
             <translation>EPUB cover image not found.</translation>
         </message>
@@ -3572,13 +3564,13 @@ Change limits or delete thumbnails in Preferences → Cache.</translation>
         </message>
         <message>
             <location filename="../src/readerfeatureio.cpp" line="184" />
-            <location filename="../src/readerfeatureprefs.cpp" line="703" />
+            <location filename="../src/readerfeatureprefs.cpp" line="719" />
             <source>中止</source>
             <translation>Abort</translation>
         </message>
         <message>
             <location filename="../src/readerfeatureio.cpp" line="184" />
-            <location filename="../src/readerfeatureprefs.cpp" line="703" />
+            <location filename="../src/readerfeatureprefs.cpp" line="719" />
             <source>スキップ</source>
             <translation>Skip</translation>
         </message>
@@ -3833,45 +3825,45 @@ Change limits or delete thumbnails in Preferences → Cache.</translation>
             <translation>Timed list playback started.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="188" />
+            <location filename="../src/readerfeatureprefs.cpp" line="189" />
             <source>このコマンドは現在の画面では実行できません。</source>
             <translation>This command is unavailable in the current view.</translation>
         </message>
         <message>
             <location filename="../src/legacysettingsdialog.cpp" line="38" />
-            <location filename="../src/readerfeatureprefs.cpp" line="194" />
+            <location filename="../src/readerfeatureprefs.cpp" line="195" />
             <source>MangaMeeyaの設定を取り込む</source>
             <translation>Import MangaMeeya settings</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="195" />
-            <location filename="../src/readerfeatureprefs.cpp" line="198" />
+            <location filename="../src/readerfeatureprefs.cpp" line="196" />
+            <location filename="../src/readerfeatureprefs.cpp" line="199" />
             <source>設定 (*.ini)</source>
             <translation>Settings (*.ini)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="220" />
+            <location filename="../src/readerfeatureprefs.cpp" line="221" />
             <source>設定を一時保存できません。</source>
             <translation>Cannot create a temporary settings file.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="228" />
+            <location filename="../src/readerfeatureprefs.cpp" line="229" />
             <source>設定を書き出せません。</source>
             <translation>Cannot export settings.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="236" />
+            <location filename="../src/readerfeatureprefs.cpp" line="237" />
             <source>設定を保存しました。</source>
             <translation>Settings saved.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="241" />
+            <location filename="../src/readerfeatureprefs.cpp" line="242" />
             <source>設定ファイルを読めないか、サイズが上限を超えています。</source>
             <translation>Cannot read settings file, or it exceeds the size limit.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="249" />
-            <location filename="../src/readerfeatureprefs.cpp" line="258" />
+            <location filename="../src/readerfeatureprefs.cpp" line="250" />
+            <location filename="../src/readerfeatureprefs.cpp" line="259" />
             <source>設定の文字コードを解釈できません。</source>
             <translation>Cannot decode settings file encoding.</translation>
         </message>
@@ -3880,7 +3872,7 @@ Change limits or delete thumbnails in Preferences → Cache.</translation>
             <location filename="../src/legacysettingsdialog.cpp" line="196" />
             <location filename="../src/legacysettingsdialog.cpp" line="206" />
             <location filename="../src/legacysettingsdialog.cpp" line="255" />
-            <location filename="../src/readerfeatureprefs.cpp" line="290" />
+            <location filename="../src/readerfeatureprefs.cpp" line="291" />
             <source>設定を適用できません</source>
             <translation>Cannot apply settings</translation>
         </message>
@@ -3967,87 +3959,87 @@ Change limits or delete thumbnails in Preferences → Cache.</translation>
         </message>
         <message>
             <location filename="../src/legacysettingsdialog.cpp" line="288" />
-            <location filename="../src/readerfeatureprefs.cpp" line="319" />
+            <location filename="../src/readerfeatureprefs.cpp" line="320" />
             <source>設定インポートの結果</source>
             <translation>Settings import results</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="329" />
+            <location filename="../src/readerfeatureprefs.cpp" line="330" />
             <source>プロファイル%1を保存しました。</source>
             <translation>Profile %1 saved.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="341" />
+            <location filename="../src/readerfeatureprefs.cpp" line="342" />
             <source>プロファイル%1を読み込みました。</source>
             <translation>Profile %1 loaded.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="372" />
+            <location filename="../src/readerfeatureprefs.cpp" line="373" />
             <source>標準プロファイル%1を適用しました。加工設定で調整し、同じスロットへ保存できます。</source>
             <translation>Built-in profile %1 applied. Adjust image processing and save to the same slot if desired.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="383" />
+            <location filename="../src/readerfeatureprefs.cpp" line="384" />
             <source>この設定スロットはまだ保存されていません。</source>
             <translation>This settings slot has not been saved yet.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="451" />
+            <location filename="../src/readerfeatureprefs.cpp" line="454" />
             <source>一般</source>
             <translation>General</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="454" />
+            <location filename="../src/readerfeatureprefs.cpp" line="457" />
             <source>システムに従う / System default</source>
             <translation>System default</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="458" />
+            <location filename="../src/readerfeatureprefs.cpp" line="461" />
             <source>表示言語 / UI language</source>
             <translation>UI language</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="459" />
+            <location filename="../src/readerfeatureprefs.cpp" line="462" />
             <source>言語の変更は次回起動時に反映します。</source>
             <translation>Language changes take effect next time the app starts.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="462" />
+            <location filename="../src/readerfeatureprefs.cpp" line="465" />
             <source>配色モード</source>
             <translation>Color theme</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="462" />
+            <location filename="../src/readerfeatureprefs.cpp" line="465" />
             <source>システムに合わせる</source>
             <translation>Follow system</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="462" />
+            <location filename="../src/readerfeatureprefs.cpp" line="465" />
             <source>ライト</source>
             <translation>Light</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="462" />
+            <location filename="../src/readerfeatureprefs.cpp" line="465" />
             <source>ダーク</source>
             <translation>Dark</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="463" />
+            <location filename="../src/readerfeatureprefs.cpp" line="466" />
             <source>メニュー・一覧・読書画面の周囲の配色を変更します。画像や本文の文字色・背景色は変更しません。</source>
             <translation>Changes colors around menus, lists, and the reading view. Image colors and document text/background colors are unchanged.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="464" />
+            <location filename="../src/readerfeatureprefs.cpp" line="467" />
             <source>単一起動（次回起動から）</source>
             <translation>Single instance (next startup)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="465" />
+            <location filename="../src/readerfeatureprefs.cpp" line="468" />
             <source>読書中のスクリーンセーバー・自動消灯を抑制</source>
             <translation>Inhibit screensaver and display sleep while reading</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="467" />
+            <location filename="../src/readerfeatureprefs.cpp" line="470" />
             <source>KomaMimicの読書画面が前面の間だけOSへ抑制を要求します。
 最小化・他のアプリへの移動・本を閉じたときに解放します。
 macOSは自動消灯の抑制です。ロックやOSのセキュリティポリシーは変更しません。</source>
@@ -4056,339 +4048,403 @@ Released when minimized, switching apps, or closing the book.
 On macOS this inhibits display sleep. Locking and OS security policies are unchanged.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="485" />
+            <location filename="../src/readerfeatureprefs.cpp" line="488" />
             <source>抑制の状態</source>
             <translation>Inhibition status</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="486" />
+            <location filename="../src/readerfeatureprefs.cpp" line="489" />
             <source>固定ページ移動の枚数</source>
             <translation>Fixed page jump count</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="487" />
+            <location filename="../src/readerfeatureprefs.cpp" line="490" />
             <source>固定割合移動（%）</source>
             <translation>Fixed percentage jump (%)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="488" />
+            <location filename="../src/readerfeatureprefs.cpp" line="491" />
             <source>リストのカスタム列数</source>
             <translation>Custom list columns</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="489" />
+            <location filename="../src/readerfeatureprefs.cpp" line="492" />
             <source>読み込み</source>
             <translation>Loading</translation>
         </message>
         <message>
             <location filename="../src/legacysettings.cpp" line="134" />
-            <location filename="../src/readerfeatureprefs.cpp" line="490" />
+            <location filename="../src/readerfeatureprefs.cpp" line="493" />
             <source>サブフォルダの画像も読む</source>
             <translation>Include images in subfolders</translation>
         </message>
         <message>
             <location filename="../src/legacysettings.cpp" line="120" />
-            <location filename="../src/readerfeatureprefs.cpp" line="494" />
+            <location filename="../src/readerfeatureprefs.cpp" line="497" />
             <source>現在のファイルの更新を監視</source>
             <translation>Watch current file for changes</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="495" />
+            <location filename="../src/readerfeatureprefs.cpp" line="498" />
             <source>PDFをページではなく内部画像単位で読む</source>
             <translation>Read PDF image resources instead of pages</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="499" />
+            <location filename="../src/readerfeatureprefs.cpp" line="502" />
             <source>書庫・PDFのパスワード（今回の起動中のみ）</source>
             <translation>Archive/PDF password (this session only)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="500" />
+            <location filename="../src/readerfeatureprefs.cpp" line="503" />
             <source>表示</source>
             <translation>Display</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="501" />
+            <location filename="../src/readerfeatureprefs.cpp" line="504" />
             <source>読書ツールバーを表示（下部）</source>
             <translation>Show reading toolbar (bottom)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="508" />
+            <location filename="../src/readerfeatureprefs.cpp" line="513" />
             <source>マウス移動でサムネイルを選択する</source>
             <translation>Select thumbnails on mouse movement</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="510" />
+            <location filename="../src/readerfeatureprefs.cpp" line="515" />
             <source>表紙・ページサムネイル共通。選択後のキー移動もその項目を基準にします。
 一覧にキーボードフォーカスがある間だけ追従し、開く操作や読書位置の確定は行いません。</source>
             <translation>Applies to covers and page thumbnails. Subsequent key movement starts from the selected item.
 Follows the pointer only while the list has keyboard focus. Does not open books or confirm reading positions.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="512" />
+            <location filename="../src/readerfeatureprefs.cpp" line="517" />
             <source>表紙一覧の並び順</source>
             <translation>Cover sort order</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="512" />
+            <location filename="../src/readerfeatureprefs.cpp" line="517" />
             <source>名前（自然順）</source>
             <translation>Name (natural order)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="512" />
+            <location filename="../src/foldertree.cpp" line="116" />
+            <source>ホーム</source>
+            <translation>Home</translation>
+        </message>
+        <message>
+            <location filename="../src/foldertree.cpp" line="116" />
+            <location filename="../src/foldertree.cpp" line="205" />
+            <source>デスクトップ</source>
+            <translation>Desktop</translation>
+        </message>
+        <message>
+            <location filename="../src/foldertree.cpp" line="117" />
+            <source>ダウンロード</source>
+            <translation>Downloads</translation>
+        </message>
+        <message>
+            <location filename="../src/foldertree.cpp" line="117" />
+            <source>ドキュメント</source>
+            <translation>Documents</translation>
+        </message>
+        <message>
+            <location filename="../src/foldertree.cpp" line="118" />
+            <source>画像</source>
+            <translation>Pictures</translation>
+        </message>
+        <message>
+            <location filename="../src/foldertree.cpp" line="123" />
+            <source>コンピュータ</source>
+            <translation>Computer</translation>
+        </message>
+        <message>
+            <location filename="../src/foldertree.cpp" line="125" />
+            <source>ファイルシステム</source>
+            <translation>File system</translation>
+        </message>
+        <message>
+            <location filename="../src/foldertree.cpp" line="206" />
+            <source>場所</source>
+            <translation>Places</translation>
+        </message>
+        <message>
+            <location filename="../src/foldertree.cpp" line="207" />
+            <source>PC</source>
+            <translation>PC</translation>
+        </message>
+        <message>
+            <location filename="../src/foldertree.cpp" line="285" />
+            <source>上へ</source>
+            <translation>Up</translation>
+        </message>
+        <message>
+            <location filename="../src/foldertree.cpp" line="285" />
+            <source>最上位へ</source>
+            <translation>Top level</translation>
+        </message>
+        <message>
+            <location filename="../src/foldertree.cpp" line="291" />
+            <location filename="../src/readerfeatureprefs.cpp" line="517" />
             <source>更新日時</source>
             <translation>Modified date</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="512" />
+            <location filename="../src/foldertree.cpp" line="291" />
+            <location filename="../src/readerfeatureprefs.cpp" line="517" />
             <source>種類</source>
             <translation>Type</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="512" />
+            <location filename="../src/foldertree.cpp" line="291" />
+            <location filename="../src/readerfeatureprefs.cpp" line="517" />
             <source>サイズ</source>
             <translation>Size</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="513" />
+            <location filename="../src/foldertree.cpp" line="291" />
+            <source>名前</source>
+            <translation>Name</translation>
+        </message>
+        <message>
+            <location filename="../src/readerfeatureprefs.cpp" line="518" />
             <source>表紙一覧を逆順にする</source>
             <translation>Reverse cover order</translation>
         </message>
         <message>
             <location filename="../src/legacysettings.cpp" line="123" />
-            <location filename="../src/readerfeatureprefs.cpp" line="514" />
+            <location filename="../src/readerfeatureprefs.cpp" line="519" />
             <source>スクロールで端まで読んだらページをめくる</source>
             <translation>Turn the page when scrolling reaches the edge</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="515" />
+            <location filename="../src/readerfeatureprefs.cpp" line="520" />
             <source>スクロールの重複幅（%）</source>
             <translation>Scroll overlap (%)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="516" />
+            <location filename="../src/readerfeatureprefs.cpp" line="521" />
             <source>ページの表示開始位置</source>
             <translation>Initial image position</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="517" />
+            <location filename="../src/readerfeatureprefs.cpp" line="522" />
             <source>中心</source>
             <translation>Center</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="517" />
+            <location filename="../src/readerfeatureprefs.cpp" line="522" />
             <source>左上</source>
             <translation>Top left</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="517" />
+            <location filename="../src/readerfeatureprefs.cpp" line="522" />
             <source>右上</source>
             <translation>Top right</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="517" />
+            <location filename="../src/readerfeatureprefs.cpp" line="522" />
             <source>中央上</source>
             <translation>Top center</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="517" />
+            <location filename="../src/readerfeatureprefs.cpp" line="522" />
             <source>前の位置を保持</source>
             <translation>Keep previous position</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="518" />
+            <location filename="../src/readerfeatureprefs.cpp" line="523" />
             <source>画像ごとのスクロール位置を記憶</source>
             <translation>Remember scroll position per image</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="520" />
+            <location filename="../src/readerfeatureprefs.cpp" line="525" />
             <source>ページ移動効果</source>
             <translation>Page transition</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="521" />
+            <location filename="../src/readerfeatureprefs.cpp" line="526" />
             <source>フェード</source>
             <translation>Fade</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="521" />
+            <location filename="../src/readerfeatureprefs.cpp" line="526" />
             <source>スライド</source>
             <translation>Slide</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="522" />
+            <location filename="../src/readerfeatureprefs.cpp" line="527" />
             <source>移動効果の時間（ミリ秒）</source>
             <translation>Transition duration (ms)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="523" />
+            <location filename="../src/readerfeatureprefs.cpp" line="528" />
             <source>ページめくり音を鳴らす</source>
             <translation>Play a page-turn sound</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="524" />
+            <location filename="../src/readerfeatureprefs.cpp" line="529" />
             <source>効果音WAV（空欄はシステム音）</source>
             <translation>Sound WAV (blank: system sound)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="525" />
+            <location filename="../src/readerfeatureprefs.cpp" line="530" />
             <source>ページバーの方向を開き方向に合わせる</source>
             <translation>Match page bar direction to reading direction</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="527" />
+            <location filename="../src/readerfeatureprefs.cpp" line="532" />
             <source>ルーペの半径（DIP）</source>
             <translation>Magnifier radius (DIP)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="528" />
+            <location filename="../src/readerfeatureprefs.cpp" line="533" />
             <source>ルーペの倍率</source>
             <translation>Magnifier zoom</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="529" />
+            <location filename="../src/readerfeatureprefs.cpp" line="534" />
             <source>丸いルーペ</source>
             <translation>Round magnifier</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="530" />
+            <location filename="../src/readerfeatureprefs.cpp" line="535" />
             <source>全画面時のメニュー</source>
             <translation>Fullscreen menu</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="531" />
-            <location filename="../src/readerfeatureprefs.cpp" line="533" />
-            <location filename="../src/readerfeatureprefs.cpp" line="535" />
+            <location filename="../src/readerfeatureprefs.cpp" line="536" />
+            <location filename="../src/readerfeatureprefs.cpp" line="538" />
+            <location filename="../src/readerfeatureprefs.cpp" line="540" />
             <source>端でポップアップ</source>
             <translation>Show at screen edge</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="531" />
-            <location filename="../src/readerfeatureprefs.cpp" line="533" />
-            <location filename="../src/readerfeatureprefs.cpp" line="535" />
+            <location filename="../src/readerfeatureprefs.cpp" line="536" />
+            <location filename="../src/readerfeatureprefs.cpp" line="538" />
+            <location filename="../src/readerfeatureprefs.cpp" line="540" />
             <source>固定表示</source>
             <translation>Always visible</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="531" />
-            <location filename="../src/readerfeatureprefs.cpp" line="533" />
-            <location filename="../src/readerfeatureprefs.cpp" line="535" />
+            <location filename="../src/readerfeatureprefs.cpp" line="536" />
+            <location filename="../src/readerfeatureprefs.cpp" line="538" />
+            <location filename="../src/readerfeatureprefs.cpp" line="540" />
             <source>非表示</source>
             <translation>Hidden</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="532" />
+            <location filename="../src/readerfeatureprefs.cpp" line="537" />
             <source>全画面時のツールバー</source>
             <translation>Fullscreen toolbars</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="534" />
+            <location filename="../src/readerfeatureprefs.cpp" line="539" />
             <source>全画面時のペイン</source>
             <translation>Fullscreen panes</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="536" />
+            <location filename="../src/readerfeatureprefs.cpp" line="541" />
             <source>本と同名の時間付きリストを自動読込</source>
             <translation>Auto-load timed list with the book's filename</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="538" />
+            <location filename="../src/readerfeatureprefs.cpp" line="543" />
             <source>自動再生の間隔（ミリ秒）</source>
             <translation>Automatic playback interval (ms)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="541" />
+            <location filename="../src/readerfeatureprefs.cpp" line="557" />
             <source>自動組版</source>
             <translation>Automatic layout</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="542" />
+            <location filename="../src/readerfeatureprefs.cpp" line="558" />
             <source>見開き条件（数値式）</source>
             <translation>Spread condition (numeric expression)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="544" />
+            <location filename="../src/readerfeatureprefs.cpp" line="560" />
             <source>左右分割の条件</source>
             <translation>Left/right split condition</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="546" />
+            <location filename="../src/readerfeatureprefs.cpp" line="562" />
             <source>上下分割の条件</source>
             <translation>Top/bottom split condition</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="548" />
+            <location filename="../src/readerfeatureprefs.cpp" line="564" />
             <source>左右分割の位置（元画像px）</source>
             <translation>Left/right split position (original pixels)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="550" />
+            <location filename="../src/readerfeatureprefs.cpp" line="566" />
             <source>上下分割の位置（元画像px）</source>
             <translation>Top/bottom split position (original pixels)</translation>
         </message>
         <message>
             <location filename="../src/legacysettings.cpp" line="108" />
-            <location filename="../src/readerfeatureprefs.cpp" line="552" />
+            <location filename="../src/readerfeatureprefs.cpp" line="568" />
             <source>左右分割の重複幅（px）</source>
             <translation>Left/right split overlap (px)</translation>
         </message>
         <message>
             <location filename="../src/legacysettings.cpp" line="111" />
-            <location filename="../src/readerfeatureprefs.cpp" line="554" />
+            <location filename="../src/readerfeatureprefs.cpp" line="570" />
             <source>上下分割の重複幅（px）</source>
             <translation>Top/bottom split overlap (px)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="557" />
+            <location filename="../src/readerfeatureprefs.cpp" line="573" />
             <source>変数: @width @height @page @totalpage。四則・比較・論理・?:・min/max/abs/floor/ceil/round。</source>
             <translation>Variables: @width @height @page @totalpage. Arithmetic, comparisons, logic, ?:, min/max/abs/floor/ceil/round.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="560" />
+            <location filename="../src/readerfeatureprefs.cpp" line="576" />
             <source>キャッシュ</source>
             <translation>Cache</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="561" />
+            <location filename="../src/readerfeatureprefs.cpp" line="577" />
             <source>メモリに残したデータを再利用し、読み直しを減らします。
 アプリ全体の使用メモリを制限する値ではありません。</source>
             <translation>Reuse data held in memory to reduce repeated reading.
 These values do not limit the app's total memory usage.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="563" />
+            <location filename="../src/readerfeatureprefs.cpp" line="579" />
             <source>ファイルデータのキャッシュ容量（MiB）</source>
             <translation>File data cache size (MiB)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="565" />
+            <location filename="../src/readerfeatureprefs.cpp" line="581" />
             <source>JPEG・PNG等のファイルデータをメモリに保持します。書庫の場合は取り出した画像ファイルのデータです。0で無効。変更は次に本を開くときに適用します。</source>
             <translation>Keeps JPEG/PNG file data in memory, including extracted archive image data. 0 disables this cache. Changes apply when the book is reopened.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="566" />
+            <location filename="../src/readerfeatureprefs.cpp" line="582" />
             <source>表示用画像のキャッシュ容量（MiB）</source>
             <translation>Display image cache size (MiB)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="567" />
+            <location filename="../src/readerfeatureprefs.cpp" line="583" />
             <source>復号した画素データと先読み画像をメモリに保持します。3000×4000画素・32 bitなら約46 MiBです。容量を超えると古いキャッシュを解放して、必要なときに読み直します。</source>
             <translation>Keeps decoded and preloaded image pixels in memory. A 3000×4000 image at 32 bits is about 46 MiB. Old entries are evicted when the limit is exceeded and reloaded as needed.</translation>
         </message>
         <message>
             <location filename="../src/legacysettings.cpp" line="100" />
-            <location filename="../src/readerfeatureprefs.cpp" line="568" />
+            <location filename="../src/readerfeatureprefs.cpp" line="584" />
             <source>前方向の先読み（表示単位）</source>
             <translation>Preload ahead (display units)</translation>
         </message>
         <message>
             <location filename="../src/legacysettings.cpp" line="104" />
-            <location filename="../src/readerfeatureprefs.cpp" line="569" />
+            <location filename="../src/readerfeatureprefs.cpp" line="585" />
             <source>逆方向の先読み（表示単位）</source>
             <translation>Preload behind (display units)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="320" />
+            <location filename="../src/readerfeatureprefs.cpp" line="321" />
             <source>KomaMimicの設定を%1件取り込みました。</source>
             <translation>Imported %1 KomaMimic settings.</translation>
         </message>
@@ -4478,127 +4534,187 @@ Your current KomaMimic settings will be backed up before applying changes. Legac
 Backup: %2</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="491" />
+            <location filename="../src/readerfeatureprefs.cpp" line="494" />
             <source>フォルダ内の画像書庫・PDFも連続して読む</source>
             <translation>Also read image archives and PDFs in the folder as a sequence</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="493" />
+            <location filename="../src/readerfeatureprefs.cpp" line="496" />
             <source>書庫内の画像書庫も連続して読む（3階層まで）</source>
             <translation>Read nested image archives as a sequence (up to 3 levels)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="570" />
+            <location filename="../src/readerfeatureprefs.cpp" line="586" />
             <source>進んでいる方向のページを先に読み込みます。見開きなら1表示単位は通常2ページ。0で無効。</source>
             <translation>Preloads pages in the reading direction. A display unit is usually two pages in spread mode. 0 disables preloading.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="571" />
+            <location filename="../src/readerfeatureprefs.cpp" line="587" />
             <source>進んでいる方向とは反対側のページを先に読み込みます。0で無効。</source>
             <translation>Preloads pages opposite to the reading direction. 0 disables preloading.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="572" />
+            <location filename="../src/readerfeatureprefs.cpp" line="588" />
             <source>サムネイルをディスクに保存する</source>
             <translation>Save thumbnails to disk</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="573" />
+            <location filename="../src/readerfeatureprefs.cpp" line="589" />
             <source>表紙・ページサムネイルを保存し、次回起動時も再利用します。無効にしても保存済み画像は残ります。削除ボタンで消せます。</source>
             <translation>Saves cover/page thumbnails for reuse after restarting. Disabling keeps existing images. Use the delete button to remove them.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="574" />
+            <location filename="../src/readerfeatureprefs.cpp" line="590" />
             <source>サムネイルのディスク使用量の上限（MiB）</source>
             <translation>Thumbnail disk space limit (MiB)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="579" />
+            <location filename="../src/readerfeatureprefs.cpp" line="595" />
             <source>保存したPNGの合計容量です。上限を超える前に、最近使っていないサムネイルから削除します。設定ファイルや本の原本は削除しません。</source>
             <translation>Total size of cached PNG files. Older thumbnails are removed before exceeding the limit. Settings and original books are not deleted.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="585" />
+            <location filename="../src/readerfeatureprefs.cpp" line="601" />
             <source>サムネイルの保存先</source>
             <translation>Thumbnail folder</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="586" />
+            <location filename="../src/readerfeatureprefs.cpp" line="602" />
             <source>使用量を確認中…</source>
             <translation>Checking usage…</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="586" />
+            <location filename="../src/readerfeatureprefs.cpp" line="602" />
             <source>ディスク使用量</source>
             <translation>Disk usage</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="587" />
+            <location filename="../src/readerfeatureprefs.cpp" line="603" />
             <source>保存済みサムネイルを削除</source>
             <translation>Delete cached thumbnails</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="592" />
+            <location filename="../src/readerfeatureprefs.cpp" line="608" />
             <source>%1 MiB / %2枚</source>
             <translation>%1 MiB / %2 images</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="598" />
+            <location filename="../src/readerfeatureprefs.cpp" line="614" />
             <source>削除中…</source>
             <translation>Deleting…</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="606" />
+            <location filename="../src/readerfeatureprefs.cpp" line="622" />
             <source>スクリプト</source>
             <translation>Scripts</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="676" />
+            <location filename="../src/readerfeatureprefs.cpp" line="692" />
             <source>未登録：</source>
             <translation>Not registered: </translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="625" />
+            <location filename="../src/readerfeatureprefs.cpp" line="641" />
             <source>画像フィルター</source>
             <translation>Image filter</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="502" />
+            <location filename="../src/readerfeatureprefs.cpp" line="505" />
+            <source>読書画面の下部にファイル名を表示</source>
+            <translation>Show filenames below reading images</translation>
+        </message>
+        <message>
+            <location filename="../src/readerfeatureprefs.cpp" line="506" />
+            <source>上下2ペインのフォルダブラウザーを使う</source>
+            <translation>Use the two-pane folder browser</translation>
+        </message>
+        <message>
+            <location filename="../src/readerfeatureprefs.cpp" line="507" />
             <source>画像の周囲の背景色（#RRGGBB）</source>
             <translation>Background around images (#RRGGBB)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="503" />
+            <location filename="../src/readerfeatureprefs.cpp" line="508" />
             <source>ホイール移動量を画像サイズの割合にする</source>
             <translation>Measure wheel movement as a percentage of the image</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="504" />
+            <location filename="../src/readerfeatureprefs.cpp" line="509" />
             <source>ホイールの移動量（%）</source>
             <translation>Wheel movement (%)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="505" />
+            <location filename="../src/readerfeatureprefs.cpp" line="510" />
             <source>スムーズスクロール</source>
             <translation>Smooth scrolling</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="506" />
+            <location filename="../src/readerfeatureprefs.cpp" line="511" />
             <source>スクロール速度（px/秒）</source>
             <translation>Scroll speed (px/second)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="507" />
+            <location filename="../src/readerfeatureprefs.cpp" line="512" />
             <source>キーの縦スクロール量（画像の%）</source>
             <translation>Vertical keyboard scroll (image %)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="540" />
+            <location filename="../src/readerfeatureprefs.cpp" line="545" />
             <source>自動再生で大きい画像をスクロールしてからめくる</source>
             <translation>Scroll through large images before turning the page during playback</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="580" />
+            <location filename="../src/readerfeatureprefs.cpp" line="547" />
+            <source>ページサムネイルに連番を表示</source>
+            <translation>Show page numbers on thumbnails</translation>
+        </message>
+        <message>
+            <location filename="../src/readerfeatureprefs.cpp" line="548" />
+            <source>カスタム列数（0は自動）</source>
+            <translation>Custom columns (0: automatic)</translation>
+        </message>
+        <message>
+            <location filename="../src/readerfeatureprefs.cpp" line="549" />
+            <source>カスタムサムネイルの幅（DIP）</source>
+            <translation>Custom thumbnail width (DIP)</translation>
+        </message>
+        <message>
+            <location filename="../src/readerfeatureprefs.cpp" line="550" />
+            <source>カスタムサムネイルの高さ（DIP）</source>
+            <translation>Custom thumbnail height (DIP)</translation>
+        </message>
+        <message>
+            <location filename="../src/readerfeatureprefs.cpp" line="551" />
+            <source>横の間隔（DIP）</source>
+            <translation>Horizontal spacing (DIP)</translation>
+        </message>
+        <message>
+            <location filename="../src/readerfeatureprefs.cpp" line="552" />
+            <source>縦の間隔（DIP）</source>
+            <translation>Vertical spacing (DIP)</translation>
+        </message>
+        <message>
+            <location filename="../src/readerfeatureprefs.cpp" line="553" />
+            <source>ファイル名の行数</source>
+            <translation>Filename lines</translation>
+        </message>
+        <message>
+            <location filename="../src/readerfeatureprefs.cpp" line="554" />
+            <source>右上から配置する</source>
+            <translation>Start at the upper right</translation>
+        </message>
+        <message>
+            <location filename="../src/readerfeatureprefs.cpp" line="555" />
+            <source>本・フォルダの装飾枠を表示</source>
+            <translation>Show decorative book and folder frames</translation>
+        </message>
+        <message>
+            <location filename="../src/readerfeatureprefs.cpp" line="556" />
+            <source>配置設定はカスタムモードの表紙・ページ一覧に共通です。連番の設定は全モードに適用します。</source>
+            <translation>Layout settings apply to covers and pages in custom mode. Page numbering applies to every mode.</translation>
+        </message>
+        <message>
+            <location filename="../src/readerfeatureprefs.cpp" line="596" />
             <source>表示した分だけ保存します。元ファイル変更時は作り直します。
 F6の再取得では保存済み画像を使わず再生成します。
 サムネイル画像はディスクに残るため、共有PCでは無効化・削除してください。</source>
@@ -4607,214 +4723,214 @@ F6 regenerates thumbnails without using saved images.
 Thumbnails remain on disk; disable or delete them on shared computers.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="607" />
+            <location filename="../src/readerfeatureprefs.cpp" line="623" />
             <source>画像読込・複数ページ・画像フィルターはAPI 1を使います。
 登録フォルダの追加・削除は保存して再起動すると反映します。</source>
             <translation>Image readers, multiple pages and image filters use API 1.
 Save and restart to apply changes to registered folders.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="611" />
+            <location filename="../src/readerfeatureprefs.cpp" line="627" />
             <source>追加スクリプトのフォルダ</source>
             <translation>Additional script folders</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="613" />
+            <location filename="../src/readerfeatureprefs.cpp" line="629" />
             <source>登録するフォルダ</source>
             <translation>Folder to register</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="615" />
+            <location filename="../src/readerfeatureprefs.cpp" line="631" />
             <source>参照…</source>
             <translation>Browse…</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="616" />
+            <location filename="../src/readerfeatureprefs.cpp" line="632" />
             <source>検査して追加</source>
             <translation>Validate and add</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="617" />
+            <location filename="../src/readerfeatureprefs.cpp" line="633" />
             <source>選択フォルダを削除</source>
             <translation>Remove selected folder</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="621" />
+            <location filename="../src/readerfeatureprefs.cpp" line="637" />
             <source>登録内容（選択すると設定を表示）</source>
             <translation>Registered packages (select to view settings)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="684" />
+            <location filename="../src/readerfeatureprefs.cpp" line="700" />
             <source>スクリプトのフォルダ</source>
             <translation>Script folder</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="697" />
+            <location filename="../src/readerfeatureprefs.cpp" line="713" />
             <source>書き出し</source>
             <translation>Export naming</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="698" />
+            <location filename="../src/readerfeatureprefs.cpp" line="714" />
             <source>一括出力名</source>
             <translation>Bulk output names</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="698" />
+            <location filename="../src/readerfeatureprefs.cpp" line="714" />
             <source>連番</source>
             <translation>Sequence number</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="698" />
+            <location filename="../src/readerfeatureprefs.cpp" line="714" />
             <source>元ファイル名</source>
             <translation>Original filename</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="698" />
+            <location filename="../src/readerfeatureprefs.cpp" line="714" />
             <source>元ファイル名＋連番</source>
             <translation>Original filename + sequence</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="699" />
+            <location filename="../src/readerfeatureprefs.cpp" line="715" />
             <source>名前の先頭文字</source>
             <translation>Filename prefix</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="700" />
+            <location filename="../src/readerfeatureprefs.cpp" line="716" />
             <source>連番の桁数</source>
             <translation>Sequence digits</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="701" />
+            <location filename="../src/readerfeatureprefs.cpp" line="717" />
             <source>連番の開始値</source>
             <translation>Starting sequence number</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="702" />
+            <location filename="../src/readerfeatureprefs.cpp" line="718" />
             <source>一括画像形式</source>
             <translation>Bulk image format</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="703" />
+            <location filename="../src/readerfeatureprefs.cpp" line="719" />
             <source>同名ファイル</source>
             <translation>Existing files</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="703" />
+            <location filename="../src/readerfeatureprefs.cpp" line="719" />
             <source>上書き（出力前に確認）</source>
             <translation>Overwrite (confirm before exporting)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="704" />
+            <location filename="../src/readerfeatureprefs.cpp" line="720" />
             <source>加工画像のICC色プロファイルを保持</source>
             <translation>Keep ICC color profile in processed images</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="705" />
+            <location filename="../src/readerfeatureprefs.cpp" line="721" />
             <source>元画像の保存はメタデータを含め原本を保持。加工出力は文字・EXIF・XMPを引き継ぎません。</source>
             <translation>Saving original data preserves metadata. Processed output does not inherit text, EXIF, or XMP.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="706" />
+            <location filename="../src/readerfeatureprefs.cpp" line="722" />
             <source>テキスト</source>
             <translation>Text</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="707" />
+            <location filename="../src/readerfeatureprefs.cpp" line="723" />
             <source>青空文庫形式のルビ（｜漢字《よみ》）</source>
             <translation>Aozora ruby (｜漢字《よみ》)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="710" />
+            <location filename="../src/readerfeatureprefs.cpp" line="726" />
             <source>行間／縦書きの列間（px）</source>
             <translation>Line/vertical-column spacing (px)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="711" />
+            <location filename="../src/readerfeatureprefs.cpp" line="727" />
             <source>文字色（#RRGGBB）</source>
             <translation>Text color (#RRGGBB)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="712" />
+            <location filename="../src/readerfeatureprefs.cpp" line="728" />
             <source>背景色（#RRGGBB）</source>
             <translation>Background color (#RRGGBB)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="722" />
+            <location filename="../src/readerfeatureprefs.cpp" line="738" />
             <source>文字コード（UTF-8の不正列はCP932へ）</source>
             <translation>Encoding (invalid UTF-8 falls back to CP932)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="723" />
+            <location filename="../src/readerfeatureprefs.cpp" line="739" />
             <source>通信</source>
             <translation>Network</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="724" />
+            <location filename="../src/readerfeatureprefs.cpp" line="740" />
             <source>ダウンロードの制限（MiB）</source>
             <translation>Download size limit (MiB)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="725" />
+            <location filename="../src/readerfeatureprefs.cpp" line="741" />
             <source>タイムアウト（秒）</source>
             <translation>Timeout (seconds)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="727" />
+            <location filename="../src/readerfeatureprefs.cpp" line="743" />
             <source>出力</source>
             <translation>Export</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="728" />
+            <location filename="../src/readerfeatureprefs.cpp" line="744" />
             <source>一括保存・ZIP/PDF/GIFの対象</source>
             <translation>Bulk image/ZIP/PDF/GIF export range</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="729" />
+            <location filename="../src/readerfeatureprefs.cpp" line="745" />
             <source>全ページ</source>
             <translation>All pages</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="729" />
+            <location filename="../src/readerfeatureprefs.cpp" line="745" />
             <source>選択した範囲</source>
             <translation>Selected range</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="729" />
+            <location filename="../src/readerfeatureprefs.cpp" line="745" />
             <source>現在表示中</source>
             <translation>Currently displayed</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="730" />
+            <location filename="../src/readerfeatureprefs.cpp" line="746" />
             <source>一括出力は2頁を1枚に結合（アニメは先頭フレーム）</source>
             <translation>Combine two pages per image (first frame for animation)</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="732" />
+            <location filename="../src/readerfeatureprefs.cpp" line="748" />
             <source>JPEG/WebPの品質</source>
             <translation>JPEG/WebP quality</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="736" />
+            <location filename="../src/readerfeatureprefs.cpp" line="752" />
             <source>この画面のマンガ用初期値に戻す</source>
             <translation>Restore manga defaults in this dialog</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="777" />
+            <location filename="../src/readerfeatureprefs.cpp" line="793" />
             <source>式が不正です</source>
             <translation>Invalid expression</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="820" />
+            <location filename="../src/readerfeatureprefs.cpp" line="838" />
             <source>環境設定を保存しました。読み込み設定は次に本を開くときに適用します。</source>
             <translation>Preferences saved. Loading settings apply the next time a book is opened.</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="823" />
+            <location filename="../src/readerfeatureprefs.cpp" line="841" />
             <source>再起動が必要です</source>
             <translation>Restart required</translation>
         </message>
         <message>
-            <location filename="../src/readerfeatureprefs.cpp" line="824" />
+            <location filename="../src/readerfeatureprefs.cpp" line="842" />
             <source>表示言語の変更は次回起動時に反映されます。
 KomaMimicを終了し、起動し直してください。</source>
             <translation>The UI language will change after restarting KomaMimic.
@@ -5167,7 +5283,7 @@ Reading position %1 / %2</translation>
         </message>
         <message>
             <location filename="../src/readerinput.cpp" line="427" />
-            <location filename="../src/shortcuts.cpp" line="183" />
+            <location filename="../src/shortcuts.cpp" line="184" />
             <source>操作</source>
             <translation>Command</translation>
         </message>
@@ -6081,6 +6197,7 @@ Reading position %1 / %2</translation>
             <translation>Global</translation>
         </message>
         <message>
+            <location filename="../src/readerfeatureprefs.cpp" line="546" />
             <location filename="../src/shortcuts.cpp" line="130" />
             <source>サムネイル</source>
             <translation>Thumbnails</translation>
@@ -6091,133 +6208,133 @@ Reading position %1 / %2</translation>
             <translation>Assign one key combination per command.</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="148" />
+            <location filename="../src/shortcuts.cpp" line="149" />
             <source>「%1」と「%2」のキーが重複しています。</source>
             <translation>Keys for "%1" and "%2" conflict.</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="166" />
+            <location filename="../src/shortcuts.cpp" line="167" />
             <source>文書用の上書きは読書画面の操作に指定してください。</source>
             <translation>Document overrides apply only to reading-view commands.</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="175" />
+            <location filename="../src/shortcuts.cpp" line="176" />
             <source>キーボードショートカット</source>
             <translation>Keyboard shortcuts</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="178" />
+            <location filename="../src/shortcuts.cpp" line="179" />
             <source>キー欄を選んでキーを押してください。空欄は割り当てなしです。
 読書・サムネイル・ツリーで同じキーを別の操作に使えます。共通のキーはすべての画面で有効です。</source>
             <translation>Select a key field and press a key combination. Blank means unassigned.
 The same key can have different actions in reading, thumbnails, and tree views. Global keys apply in all views.</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="183" />
+            <location filename="../src/shortcuts.cpp" line="184" />
             <source>共通キー</source>
             <translation>Base key</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="183" />
+            <location filename="../src/shortcuts.cpp" line="184" />
             <source>対象</source>
             <translation>Scope</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="183" />
+            <location filename="../src/shortcuts.cpp" line="184" />
             <source>文書表示での上書き</source>
             <translation>Document override</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="183" />
+            <location filename="../src/shortcuts.cpp" line="184" />
             <source>文書用キー</source>
             <translation>Document key</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="184" />
+            <location filename="../src/shortcuts.cpp" line="185" />
             <source>文書用のキー設定を表示</source>
             <translation>Show document-specific key settings</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="212" />
+            <location filename="../src/shortcuts.cpp" line="213" />
             <source>共通設定を使う</source>
             <translation>Use base setting</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="212" />
+            <location filename="../src/shortcuts.cpp" line="213" />
             <source>別のキーを指定</source>
             <translation>Specify another key</translation>
         </message>
         <message>
             <location filename="../src/legacysettingsdialog.cpp" line="129" />
-            <location filename="../src/shortcuts.cpp" line="212" />
+            <location filename="../src/shortcuts.cpp" line="213" />
             <source>割り当てなし</source>
             <translation>Unassigned</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="227" />
+            <location filename="../src/shortcuts.cpp" line="228" />
             <source>すべての操作</source>
             <translation>All commands</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="231" />
+            <location filename="../src/shortcuts.cpp" line="232" />
             <source>操作名・対象で絞り込む</source>
             <translation>Filter by command or scope</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="252" />
+            <location filename="../src/shortcuts.cpp" line="253" />
             <source>すべて初期値に戻す</source>
             <translation>Reset all to defaults</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="253" />
+            <location filename="../src/shortcuts.cpp" line="254" />
             <source>表示中の操作を初期値に戻す</source>
             <translation>Reset visible commands to defaults</translation>
         </message>
         <message>
-            <location filename="../src/shortcuts.cpp" line="281" />
+            <location filename="../src/shortcuts.cpp" line="282" />
             <source>文書用キーを指定するか「割り当てなし」を選んでください。</source>
             <translation>Specify a document key or select Unassigned.</translation>
         </message>
         <message>
-            <location filename="../src/main.cpp" line="175" />
+            <location filename="../src/main.cpp" line="178" />
             <location filename="../src/startup.cpp" line="58" />
             <source>実行できないコマンド: </source>
             <translation>Cannot execute command: </translation>
         </message>
         <message>
-            <location filename="../src/thumbnailcache.cpp" line="44" />
+            <location filename="../src/thumbnailcache.cpp" line="47" />
             <source>サムネイルの保存先を使用できません。</source>
             <translation>Thumbnail folder is unavailable.</translation>
         </message>
         <message>
-            <location filename="../src/thumbnailcache.cpp" line="49" />
+            <location filename="../src/thumbnailcache.cpp" line="52" />
             <source>サムネイルの保存先を作成できません。</source>
             <translation>Cannot create thumbnail folder.</translation>
         </message>
         <message>
-            <location filename="../src/thumbnailcache.cpp" line="97" />
+            <location filename="../src/thumbnailcache.cpp" line="108" />
             <source>サムネイルの読み込みを取り消しました。</source>
             <translation>Thumbnail loading canceled.</translation>
         </message>
         <message>
-            <location filename="../src/thumbnailcache.cpp" line="160" />
-            <location filename="../src/thumbnailcache.cpp" line="169" />
-            <location filename="../src/thumbnailcache.cpp" line="179" />
+            <location filename="../src/thumbnailcache.cpp" line="184" />
+            <location filename="../src/thumbnailcache.cpp" line="193" />
+            <location filename="../src/thumbnailcache.cpp" line="203" />
             <source>サムネイルキャッシュを別の処理が使用中です。</source>
             <translation>Thumbnail cache is in use by another operation.</translation>
         </message>
         <message>
-            <location filename="../src/thumbnailcache.cpp" line="171" />
+            <location filename="../src/thumbnailcache.cpp" line="195" />
             <source>一部のサムネイルを削除できませんでした。</source>
             <translation>Some thumbnails could not be deleted.</translation>
         </message>
         <message>
-            <location filename="../src/thumbnailgrid.cpp" line="132" />
+            <location filename="../src/thumbnailgrid.cpp" line="141" />
             <source>画像・書庫</source>
             <translation>Image/archive</translation>
         </message>
         <message>
-            <location filename="../src/thumbnailsource.cpp" line="60" />
+            <location filename="../src/thumbnailsource.cpp" line="73" />
             <source>表紙画像を読めません。</source>
             <translation>Cannot read cover image.</translation>
         </message>

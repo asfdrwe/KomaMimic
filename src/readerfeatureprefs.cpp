@@ -7,6 +7,7 @@
 #include "appearance.h"
 #include <QDoubleSpinBox>
 #include "mainwindow.h"
+#include "foldertree.h"
 #include "pageview.h"
 #include "readerfeatures.h"
 #include "readertoolbar.h"
@@ -200,7 +201,8 @@ void ReaderFeatures::settingsFile(bool import, const QString &provided, bool man
     return;
   if (!import) {
     w->saveImageSettings();
-    w->saveSettings();
+    w->m_treePanel->saveSettings();
+  w->saveSettings();
     QVariantMap snapshot;
     for (const auto &key : w->m_settings->allKeys())
       snapshot[key] = w->m_settings->value(key);
@@ -313,6 +315,7 @@ void ReaderFeatures::settingsFile(bool import, const QString &provided, bool man
     w->restoreImageSettings();
     w->m_view->setBackgroundColor(QColor(w->m_settings->value("display/background").toString()));
   w->restoreThumbnailSettings();
+  w->m_treePanel->restoreSettings();
   }
   w->restoreToolbarSettings();
   w->m_settings->sync();
@@ -386,6 +389,8 @@ void ReaderFeatures::settingsSlot(int slot, bool save) {
   settingsFile(!save, path);
 }
 void ReaderFeatures::preferences(const QString &pageName) {
+  const int oldCoverSort=w->m_settings->value("covers/sort",0).toInt();
+  const bool oldCoverReverse=w->m_settings->value("covers/reverse",false).toBool();
   QDialog dialog(w);
   dialog.setObjectName("preferencesDialog");
   dialog.setWindowTitle(QCoreApplication::translate("KomaMimic", "環境設定"));
@@ -499,6 +504,8 @@ void ReaderFeatures::preferences(const QString &pageName) {
   source->addRow(QCoreApplication::translate("KomaMimic", "書庫・PDFのパスワード（今回の起動中のみ）"), password);
   auto *display = form("display", QCoreApplication::translate("KomaMimic", "表示"));
   check(display, QCoreApplication::translate("KomaMimic", "読書ツールバーを表示（下部）"), "window/readerToolbar", false);
+  check(display,QCoreApplication::translate("KomaMimic", "読書画面の下部にファイル名を表示"),"display/filename",false);
+  check(display,QCoreApplication::translate("KomaMimic", "上下2ペインのフォルダブラウザーを使う"),"folders/twoPane",true);
   line(display,QCoreApplication::translate("KomaMimic", "画像の周囲の背景色（#RRGGBB）"),"display/background");
   check(display,QCoreApplication::translate("KomaMimic", "ホイール移動量を画像サイズの割合にする"),"input/wheelImageUnits",false);
   spin(display,QCoreApplication::translate("KomaMimic", "ホイールの移動量（%）"),"input/wheelPercent",25,1,100);
@@ -538,6 +545,17 @@ void ReaderFeatures::preferences(const QString &pageName) {
   spin(display, QCoreApplication::translate("KomaMimic", "自動再生の間隔（ミリ秒）"), "slideshow/interval", 3000, 100,
        3600000);
   check(display,QCoreApplication::translate("KomaMimic", "自動再生で大きい画像をスクロールしてからめくる"),"slideshow/scroll",false);
+  auto *thumbnails = form("thumbnails", QCoreApplication::translate("KomaMimic", "サムネイル"));
+  check(thumbnails,QCoreApplication::translate("KomaMimic", "ページサムネイルに連番を表示"),"thumbnails/numbers",false);
+  spin(thumbnails,QCoreApplication::translate("KomaMimic", "カスタム列数（0は自動）"),"thumbnails/columns",0,0,100);
+  spin(thumbnails,QCoreApplication::translate("KomaMimic", "カスタムサムネイルの幅（DIP）"),"thumbnails/width",64,16,1024);
+  spin(thumbnails,QCoreApplication::translate("KomaMimic", "カスタムサムネイルの高さ（DIP）"),"thumbnails/height",64,16,1024);
+  spin(thumbnails,QCoreApplication::translate("KomaMimic", "横の間隔（DIP）"),"thumbnails/horizontalGap",0,0,200);
+  spin(thumbnails,QCoreApplication::translate("KomaMimic", "縦の間隔（DIP）"),"thumbnails/verticalGap",0,0,200);
+  spin(thumbnails,QCoreApplication::translate("KomaMimic", "ファイル名の行数"),"thumbnails/filenameLines",1,0,2);
+  check(thumbnails,QCoreApplication::translate("KomaMimic", "右上から配置する"),"thumbnails/rightOrigin",false);
+  check(thumbnails,QCoreApplication::translate("KomaMimic", "本・フォルダの装飾枠を表示"),"thumbnails/frames",false);
+  thumbnails->addRow(new QLabel(QCoreApplication::translate("KomaMimic", "配置設定はカスタムモードの表紙・ページ一覧に共通です。連番の設定は全モードに適用します。"),&dialog));
   auto *automatic = form("automatic", QCoreApplication::translate("KomaMimic", "自動組版"));
   line(automatic, QCoreApplication::translate("KomaMimic", "見開き条件（数値式）"), "reading/spreadCondition",
        "@height>@width");
@@ -811,7 +829,9 @@ void ReaderFeatures::preferences(const QString &pageName) {
   (void)QtConcurrent::run([disk=w->m_thumbnailDiskCache,stop=w->m_backgroundCancel]{disk->maintain([stop]{return stop->load();});});
   w->m_view->setBackgroundColor(QColor(w->m_settings->value("display/background").toString()));
   w->restoreThumbnailSettings();
-  if (!w->m_directory.isEmpty()) w->populateDirectory(w->m_directory, false, false);
+  if (!w->m_directory.isEmpty() && (oldCoverSort!=w->m_settings->value("covers/sort",0).toInt()
+      || oldCoverReverse!=w->m_settings->value("covers/reverse",false).toBool()))
+    w->populateDirectory(w->m_directory, false, false);
   updateInhibit();
   QTimer::singleShot(0, this, [this] { updateInhibit(); });
   w->m_imageCache.setMaxCost(

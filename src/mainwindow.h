@@ -24,6 +24,7 @@ class QToolBar;
 class QStackedWidget;
 class QMenu;
 class FolderTree;
+class FolderBrowser;
 class PageView;
 class DocumentView;
 class ReaderFeatures;
@@ -175,7 +176,7 @@ private:
     QWidget *m_browser = nullptr;
     ThumbnailGrid *m_library;
     ThumbnailGrid *m_pages;
-    QWidget *m_treePanel;
+    FolderBrowser *m_treePanel;
     FolderTree *m_tree;
     QStackedWidget *m_stack;
     QLabel *m_pageTitle;

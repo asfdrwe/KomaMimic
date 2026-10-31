@@ -115,7 +115,7 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
     m_features = std::make_unique<ReaderFeatures>(this, inhibitor);
     buildMenus();
     setThumbnailLayout(ThumbnailGrid::Layout(std::clamp(m_settings->value("thumbnails/layout", 0).toInt(), 0, 2)),
-                       m_settings->value("thumbnails/columns", 5).toInt());
+                       m_settings->value("thumbnails/columns", 0).toInt());
     restoreThumbnailSettings();
     // Mouse tracking is needed to reveal the fullscreen controls without a click.
     setMouseTracking(true);
@@ -292,9 +292,8 @@ void MainWindow::buildUi() {
     visibility(m_toolbar, "toolbarToggle", "window/readerToolbar", false, &m_toolbarBeforeFullscreen);
     updateNavigationIcons();
     m_splitter = new QSplitter(this);
-    m_treePanel = new QWidget(m_splitter); m_treePanel->setObjectName("folderTreePanel"); m_treePanel->setMinimumWidth(150);
-    auto *treeLayout = new QVBoxLayout(m_treePanel); treeLayout->setContentsMargins(4, 4, 4, 4);
-    treeLayout->addWidget(new QLabel(QCoreApplication::translate("KomaMimic", "フォルダ"), m_treePanel)); m_tree = new FolderTree(m_treePanel); treeLayout->addWidget(m_tree);
+    m_treePanel = new FolderBrowser(*m_settings,m_splitter);
+    m_tree = m_treePanel->tree();
     m_stack = new QStackedWidget(m_splitter); m_stack->setObjectName("contentStack");
     m_browser = new QWidget(m_stack); m_browser->setObjectName("libraryPanel");
     auto *browserLayout = new QVBoxLayout(m_browser); browserLayout->setContentsMargins(6, 6, 6, 6);
@@ -321,7 +320,9 @@ void MainWindow::buildUi() {
     m_status = new QLabel(QCoreApplication::translate("KomaMimic", "フォルダ・画像・書庫を開いてください"), this); m_status->setObjectName("readerStatus"); m_status->setMinimumWidth(100);
     statusBar()->addWidget(m_status, 1);
     connect(m_slider, &QSlider::valueChanged, this, &MainWindow::jump);
-    connect(m_tree, &FolderTree::directoryActivated, this, &MainWindow::openDirectory);
+    connect(m_treePanel, &FolderBrowser::directoryActivated, this, &MainWindow::openDirectory);
+    connect(m_treePanel, &FolderBrowser::fileActivated, this, &MainWindow::openBook);
+    connect(m_treePanel, &FolderBrowser::errorOccurred, this, [this](const QString &error) { m_status->setText(error); });
     connect(m_library, &QListWidget::itemActivated, this, &MainWindow::activateLibraryItem);
     connect(m_pages, &QListWidget::itemActivated, this, [this] { acceptThumbnail(); });
     for (auto *grid : {m_library, m_pages}) {
@@ -710,7 +711,7 @@ void MainWindow::updateShortcutBindings() {
     const bool document = m_book && isTextDocumentPath(m_currentPath) && m_mode == ViewMode::Reader;
     const auto *focus = QApplication::focusWidget();
     ShortcutScope scope = ShortcutScope::Global;
-    if (focus && isOwnedBy(focus, m_tree)) scope = ShortcutScope::Tree;
+    if (focus && isOwnedBy(focus, m_treePanel)) scope = ShortcutScope::Tree;
     else if (focus && m_mode != ViewMode::Reader && isOwnedBy(focus, activeGrid())) scope = ShortcutScope::Thumbnails;
     else if (focus && m_mode == ViewMode::Reader && (isOwnedBy(focus, m_view)
         || (m_documentView && isOwnedBy(focus, m_documentView)))) scope = ShortcutScope::Reader;
@@ -819,7 +820,7 @@ void MainWindow::cancelBackgroundWork() {
 void MainWindow::closeEvent(QCloseEvent *event) {
     cancelBackgroundWork();
     if (m_features) {m_features->setProperty("closing",true);m_features->updateInhibit();m_features->closingBook();}
-    saveSettings(); QMainWindow::closeEvent(event);
+    m_treePanel->saveSettings(); saveSettings(); QMainWindow::closeEvent(event);
 }
 void MainWindow::dragEnterEvent(QDragEnterEvent *event) {
     if (event->mimeData()->hasUrls() && event->mimeData()->urls().first().isLocalFile()) event->acceptProposedAction();

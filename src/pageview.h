@@ -33,6 +33,9 @@ public:
     double zoomFactor() const { return m_zoom; }
     bool scaleReady() const { return m_scaleReady; }
     QVector<QRectF> pageRects() const;
+    QRectF imageArea() const;
+    void setFilenameVisible(bool visible);
+    bool filenameVisible() const { return m_filenameVisible; }
     QVector<QImage> images() const { return m_images; }
     MemoryCacheInfo resizeCacheInfo() const { return {int(m_scaleCache.size()),qint64(m_scaleCache.totalCost())*1024,qint64(m_scaleCache.maxCost())*1024}; }
     QPointF pan() const { return m_pan; }
@@ -93,6 +96,7 @@ private:
     QString m_message, m_caption;
     int m_scanEntry = 0; bool m_scanRtl = true;
     bool m_rtl = true;
+    bool m_filenameVisible = false;
     int m_wheelRemainder = 0;
     bool m_loupe = false, m_loupeRound = true;
     int m_loupeRadius = 100;

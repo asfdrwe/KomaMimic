@@ -130,13 +130,13 @@ void MainWindow::buildMenus() {
     view->addSeparator(); add(view, {"thumbnails"});
     add(sub(view, "menuThumbnailLayout", QCoreApplication::translate("KomaMimic", "サムネイルの配置")), {"thumbFit", "thumbEight", "thumbCustom"});
     add(view, {"library", "thumbRefresh"});
-    settings(view, "menuThumbnailSettings", QCoreApplication::translate("KomaMimic", "サムネイルの設定…"), "display");
+    settings(view, "menuThumbnailSettings", QCoreApplication::translate("KomaMimic", "サムネイルの設定…"), "thumbnails");
     add(sub(view, "menuThumbnailSelection", QCoreApplication::translate("KomaMimic", "サムネイルの選択")),
         {"thumbAccept", "thumbCancel", "thumbLeft", "thumbRight", "thumbUp", "thumbDown", "thumbFirst", "thumbLast", "thumbPageUp", "thumbPageDown"});
     view->addSeparator(); add(view, {"fullscreenGlobal", "exitFullscreen"});
     view->addSeparator(); add(view, {"loupe"});
     add(sub(view, "menuLoupe", QCoreApplication::translate("KomaMimic", "ルーペの調整")), {"loupeLarger", "loupeSmaller", "loupeZoomIn", "loupeZoomOut"});
-    add(sub(view, "menuToolbars", QCoreApplication::translate("KomaMimic", "ツールバー表示")), {"toolbarToggle"});
+    add(view, {"toolbarToggle"});
     add(view, {"tree", "bookLists", "bookshelf", "toc"});
     settings(view, "menuFullscreenSettings", QCoreApplication::translate("KomaMimic", "フルスクリーン時の設定…"), "display");
     view->addSeparator();

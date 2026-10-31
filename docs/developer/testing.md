@@ -25,19 +25,23 @@ instructions.
 
 ## Test scopes
 
-`full` contains 17 groups: reader, UI, feature, format, PDF, CLI, script, PIC,
+`full` contains 18 groups: compatibility, reader, UI, feature, format, PDF, CLI, script, PIC,
 document, power, evolution, cache, i18n, archive_text, legacy_settings, plus format
 checks under the C locale and Python distribution checks.
 
-`platform` contains nine groups: CLI, UI, PDF, script, document, power, cache, i18n,
+`platform` contains ten groups: compatibility, CLI, UI, PDF, script, document, power, cache, i18n,
 and distribution. Some Qt groups run only the functions needed for OS integration.
 This is the Windows-fast default. Its cache group is limited to the regression
 that verifies process exit at 48 cancellation points during ZIP reading and image
-extraction. Do not report nine passing platform groups as 17 passing full groups.
+extraction. Do not report ten passing platform groups as 18 passing full groups.
 
 ```sh
 ctest --test-dir build-test -R '^(ui|script)_tests$' --output-on-failure
 ```
+
+`compatibility_tests` checks the reading filename area, custom thumbnail layout,
+independent browser navigation, settings persistence, and the direct toolbar toggle.
+It runs in both scopes, including native Windows/macOS jobs.
 
 ## Execution conditions and interpreting results
 
