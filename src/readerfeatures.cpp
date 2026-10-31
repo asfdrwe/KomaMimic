@@ -969,7 +969,10 @@ void ReaderFeatures::openedBook() {
   if (resume) {
     if (item.state.contains("rtl"))
       w->m_actions["rtl"]->setChecked(item.state.value("rtl").toBool());
-    if (item.state.contains("spread"))
+    // Document layout belongs to documentOptions, not the image-reader history.
+    // Toggling this shared action while opening a document would write the old
+    // image spread value back through setDocumentOption and reload it again.
+    if (!w->documentViewActive() && item.state.contains("spread"))
       w->m_actions["spread"]->setChecked(item.state.value("spread").toBool());
     const auto key = item.state.value("positionKey").toString();
     for (int i = 0; i < w->pageCount(); ++i)

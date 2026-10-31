@@ -557,6 +557,47 @@ private slots:
     w.close();
   }
 
+  void documentLayoutSurvivesHistoryReload_data() {
+    QTest::addColumn<QString>("extension");
+    for(const auto &extension:{"txt","md","epub"})QTest::newRow(extension)<<QString(extension);
+  }
+  void documentLayoutSurvivesHistoryReload() {
+    if(!webEngineIpcAvailable())QSKIP("Chromium IPC is denied; run document layout history regression on a desktop or CI.");
+    QFETCH(QString,extension);
+    QTemporaryDir d;QString path=d.filePath("book."+extension);const auto config=d.filePath("settings.ini");
+    const auto content=extension=="epub" ? epub() : QStringLiteral("｜本文《ほんぶん》\n\nParagraph\n").repeated(80).toUtf8();
+    if(extension=="epub")QVERIFY(TestData::write(path,content));
+    else {
+      // Archived text automatically resumes history when settings reload it,
+      // matching illustrated Aozora TXT opened from a ZIP.
+      const auto archive=d.filePath("book.zip");
+      QVERIFY(TestData::write(archive,TestData::zip({{("book."+extension).toUtf8(),content}})));
+      const auto root=Book::open(archive);QVERIFY(root.book);QCOMPARE(root.book->pages.size(),1);path=root.book->entryPath(0);
+    }
+    {QSettings settings(config,QSettings::IniFormat);settings.setValue("text/pageLayout",1);settings.setValue("reading/spread",true);}
+    {
+      MainWindow w(config);w.show();w.openBook(path);
+      QTRY_VERIFY_WITH_TIMEOUT(w.renderReady(),10000);QVERIFY(w.command("spread")->isChecked());
+      QTimer::singleShot(0,&w,[&] {
+        auto *dialog=w.findChild<QDialog *>("documentSettingsDialog");QVERIFY(dialog);
+        auto *layout=dialog->findChild<QComboBox *>("document_pageLayout");QVERIFY(layout);QCOMPARE(layout->currentIndex(),1);
+        layout->setCurrentIndex(0);dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();
+      });
+      w.command("documentSettings")->trigger();
+      QTRY_VERIFY_WITH_TIMEOUT(!w.isLoading() && w.renderReady(),10000);
+      QVERIFY(!w.command("spread")->isChecked());
+      {QSettings settings(config,QSettings::IniFormat);QCOMPARE(documentOptions(settings,path).value("pageLayout").toInt(),0);}
+      QTimer::singleShot(0,&w,[&] {
+        auto *dialog=w.findChild<QDialog *>("documentSettingsDialog");QVERIFY(dialog);
+        auto *layout=dialog->findChild<QComboBox *>("document_pageLayout");QVERIFY(layout);QCOMPARE(layout->currentIndex(),0);
+        layout->setCurrentIndex(1);dialog->reject();
+      });
+      w.command("documentSettings")->trigger();QVERIFY(!w.command("spread")->isChecked());w.close();
+    }
+    MainWindow restored(config);restored.show();restored.openBook(path);
+    QTRY_VERIFY_WITH_TIMEOUT(restored.renderReady(),10000);QVERIFY(!restored.command("spread")->isChecked());restored.close();
+  }
+
   void documentWindowAndSettings() {
     if (!webEngineIpcAvailable()) QSKIP("Chromium IPC is denied; run document settings and markers on a desktop or CI.");
     QTemporaryDir d;
