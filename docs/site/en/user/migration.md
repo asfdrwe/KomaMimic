@@ -26,3 +26,5 @@ not imported; current assignments are preserved.
 
 This operation does not migrate mouse/gamepad settings, plugins, external programs,
 paths, or history.
+
+See [Differences from MangaMeeya](compatibility.md) for compatibility and sorting persistence.

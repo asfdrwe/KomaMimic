@@ -814,6 +814,9 @@ void ReaderFeatures::build() {
 }
 void ReaderFeatures::refresh() {
   updateInhibit();
+  const QStringList sortIds{"sortNatural","sortDate","sortType","sortSize","sortEntry","sortUnicode","sortRandom","sortName"};
+  for(int i=0;i<sortIds.size();++i) {auto *action=w->m_actions[sortIds[i]];action->setCheckable(true);action->setChecked(i==w->m_settings->value("covers/sort",0).toInt());}
+  w->m_actions["sortReverse"]->setCheckable(true);w->m_actions["sortReverse"]->setChecked(w->m_settings->value("covers/reverse",false).toBool());
   const bool loaded = w->pageCount() > 0;
   for (const auto &spec : featureShortcutSpecs())
     if (spec.scope == ShortcutScope::Reader)
@@ -1389,19 +1392,32 @@ void ReaderFeatures::beforeRender() {
   if (!m_lastPositionKey.isEmpty())
     m_panPositions[m_lastPositionKey] = m_previousPan;
 }
-void ReaderFeatures::applySort(int mode) {
-  if(w->m_mode==MainWindow::ViewMode::Covers) {
+void ReaderFeatures::applySavedSort() {
+  // A saved structural edit (blank insertion, deletion, split, pasted page)
+  // takes precedence over automatic defaults. Explicit sorting still works.
+  if(m_sourceBook && w->m_book) {
+    if(m_sourceBook->pages.size()!=w->m_book->pages.size())return;
+    QSet<QString> source;
+    for(const auto &page:m_sourceBook->pages)source.insert(positionKey(page));
+    for(const auto &page:w->m_book->pages)if(!source.contains(positionKey(page)))return;
+  }
+  const int modes[]{0,4,2,3,5,6,8,1};
+  applySort(modes[std::clamp(w->m_settings->value("covers/sort",0).toInt(),0,7)],false);
+}
+void ReaderFeatures::applySort(int mode, bool savePreference) {
+  if(savePreference) {
+    if(mode==8)w->m_coverSortSeed=QRandomGenerator::global()->generate()|1u;
     if(mode==7)w->m_settings->setValue("covers/reverse",!w->m_settings->value("covers/reverse",false).toBool());
-    else {
-      const int mapping[]{0,7,2,3,1,4,5,0,6};
-      w->m_settings->setValue("covers/sort",mapping[std::clamp(mode,0,8)]);
-    }
+    else {const int mapping[]{0,7,2,3,1,4,5,0,6};w->m_settings->setValue("covers/sort",mapping[std::clamp(mode,0,8)]);}
     w->m_settings->sync();
+  }
+  if(w->m_mode==MainWindow::ViewMode::Covers && savePreference) {
     if(w->m_archiveDirectory)w->populateArchiveDirectory(w->m_archiveDirectory,false);
     else if(!w->m_directory.isEmpty())w->populateDirectory(w->m_directory,false,false);
-    return;
+    applySavedSort();
+    w->refreshState();return;
   }
-  if (!w->m_book || !w->pageCount())
+  if (!w->m_book || !w->pageCount() || w->documentViewActive())
     return;
   auto pages = w->m_book->pages;
   const auto current = positionKey(pages[w->m_anchor]);
@@ -1430,14 +1446,22 @@ void ReaderFeatures::applySort(int mode) {
                          return a.name < b.name;
                        return naturalLess(a.name, b.name);
                      });
+  if(mode!=7 && w->m_settings->value("covers/reverse",false).toBool())std::reverse(pages.begin(),pages.end());
+  bool same=true;
+  for(int i=0;i<pages.size();++i)if(positionKey(pages[i])!=positionKey(w->m_book->pages[i])) {same=false;break;}
+  if(same) {w->refreshState();return;}
   int anchor = 0;
   for (int i = 0; i < pages.size(); ++i)
     if (positionKey(pages[i]) == current) {
       anchor = i;
       break;
     }
-  m_undo->push(new PageEdit(this, w->m_book->pages, pages, w->m_anchor, anchor,
+  if(savePreference)m_undo->push(new PageEdit(this, w->m_book->pages, pages, w->m_anchor, anchor,
                             QCoreApplication::translate("KomaMimic", "並び順を変更")));
+  else {
+    changeBook(w->m_book->withPages(pages),anchor);
+  }
+  w->refreshState();
 }
 void ReaderFeatures::splitPages(int axis) {
   if (!w->m_book)

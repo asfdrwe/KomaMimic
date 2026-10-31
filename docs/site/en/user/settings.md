@@ -49,3 +49,5 @@ The memory-cache setting is not a limit on total application memory use.
 Preferences → General lets you choose system/light/dark colors and Japanese,
 English, or the system language. Save and restart to apply the UI language.
 The color mode does not replace configured document or image colors.
+
+See [Differences from MangaMeeya](compatibility.md) for compatibility and sorting persistence.

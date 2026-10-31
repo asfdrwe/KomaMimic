@@ -23,6 +23,5 @@ KomaMimicはMangaMeeyaの独立した実装で、完全互換ではありませ�
 Susie/AviSynthのDLL、旧独自スクリプト、GCA、バイナリMMTの互換実行は提供しません。
 画像読込・filterの拡張は[JavaScript API 1](../scripts/api.md)を使います。
 
-カスタムサムネイルは列数・寸法・間隔・名前行数・配置起点・装飾枠を設定できますが、
-原作の縮小アルゴリズム全選択、JPEG読み込み時の間引き設定、BMP/JPEG/PNGキャッシュ保存形式、
-専用拡張子・専用保存先は互換実装していません。原作のキャッシュを読み込む機能もありません。
+
+詳細は[MangaMeeyaとの違い](compatibility.md)を参照してください。

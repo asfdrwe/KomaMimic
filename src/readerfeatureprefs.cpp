@@ -272,7 +272,7 @@ void ReaderFeatures::settingsFile(bool import, const QString &provided, bool man
   QSettings input(temporary.fileName(), QSettings::IniFormat);
   const auto inputKeys = input.allKeys();
   const bool own = std::any_of(inputKeys.cbegin(), inputKeys.cend(), [](const QString &key) {
-    return key.startsWith("reading/") || key.startsWith("keys/") || key.startsWith("text/") ||
+    return key.startsWith("covers/") || key.startsWith("reading/") || key.startsWith("keys/") || key.startsWith("text/") ||
         key.startsWith("display/") || key.startsWith("ui/") || key.startsWith("documents/") || key.startsWith("cache/");
   });
   if (!own || mangaMeeyaOnly) { importMangaMeeyaSettings(text); return; }
@@ -316,6 +316,8 @@ void ReaderFeatures::settingsFile(bool import, const QString &provided, bool man
     w->m_view->setBackgroundColor(QColor(w->m_settings->value("display/background").toString()));
   w->restoreThumbnailSettings();
   w->m_treePanel->restoreSettings();
+  applySavedSort();
+  if(!w->m_directory.isEmpty())w->populateDirectory(w->m_directory,false,false);
   }
   w->restoreToolbarSettings();
   w->m_settings->sync();
@@ -832,6 +834,7 @@ void ReaderFeatures::preferences(const QString &pageName) {
   if (!w->m_directory.isEmpty() && (oldCoverSort!=w->m_settings->value("covers/sort",0).toInt()
       || oldCoverReverse!=w->m_settings->value("covers/reverse",false).toBool()))
     w->populateDirectory(w->m_directory, false, false);
+  if(oldCoverSort!=w->m_settings->value("covers/sort",0).toInt() || oldCoverReverse!=w->m_settings->value("covers/reverse",false).toBool())applySavedSort();
   updateInhibit();
   QTimer::singleShot(0, this, [this] { updateInhibit(); });
   w->m_imageCache.setMaxCost(

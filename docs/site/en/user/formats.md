@@ -25,7 +25,5 @@ compatible. It does not provide compatible execution of Susie/AviSynth DLLs, leg
 proprietary scripts, GCA, or binary MMT. Use [JavaScript API 1](../scripts/api.md)
 to extend image readers and filters.
 
-Custom thumbnails support columns, dimensions, spacing, filename lines, starting
-corner and decorative frames. They do not reproduce all original downsampling
-algorithms, JPEG subsampling controls, BMP/JPEG/PNG cache formats, custom cache
-extensions or custom storage locations. Original thumbnail caches are not imported.
+
+See [Differences from MangaMeeya](compatibility.md) for compatibility and sorting persistence.

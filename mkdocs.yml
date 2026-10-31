@@ -27,6 +27,7 @@ nav:
           - 設定とキャッシュ: user/settings.md
           - 対応形式: user/formats.md
           - 設定の取り込み: user/migration.md
+          - MangaMeeyaとの違い: user/compatibility.md
           - macOSの違い: user/macos.md
       - スクリプト開発:
           - 導入と登録: scripts/index.md
@@ -45,6 +46,7 @@ nav:
           - Settings and caches: en/user/settings.md
           - Supported formats: en/user/formats.md
           - Importing settings: en/user/migration.md
+          - Differences from MangaMeeya: en/user/compatibility.md
           - macOS differences: en/user/macos.md
       - Script development:
           - Installation and registration: en/scripts/index.md

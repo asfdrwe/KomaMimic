@@ -209,9 +209,10 @@ void MainWindow::populateDirectory(const QString &path, bool navigate, bool hist
     const auto generation = ++m_libraryGeneration; m_thumbnailToken->store(generation); m_library->clearItems();
     auto entries = QDir(m_directory).entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot | QDir::Readable, QDir::NoSort);
     if(m_settings->value("covers/sort",0).toInt()==6) {
-        std::mt19937 generator(QRandomGenerator::global()->generate());std::shuffle(entries.begin(),entries.end(),generator);
+        if(navigate || !m_coverSortSeed)m_coverSortSeed=QRandomGenerator::global()->generate()|1u;
+        std::mt19937 generator(m_coverSortSeed);std::shuffle(entries.begin(),entries.end(),generator);
     }
-    if(m_settings->value("covers/sort",0).toInt()==4 && m_settings->value("covers/reverse",false).toBool())std::reverse(entries.begin(),entries.end());
+    if(m_settings->value("covers/sort",0).toInt()>=4 && (m_settings->value("covers/sort",0).toInt()==4 || m_settings->value("covers/sort",0).toInt()==6) && m_settings->value("covers/reverse",false).toBool())std::reverse(entries.begin(),entries.end());
     std::stable_sort(entries.begin(), entries.end(), [sort=m_settings->value("covers/sort",0).toInt(), reverse=m_settings->value("covers/reverse",false).toBool()](const QFileInfo &a, const QFileInfo &b) {
         return browserLess(a,b,sort,reverse);
     });
@@ -249,7 +250,7 @@ void MainWindow::populateArchiveDirectory(const std::shared_ptr<const Book> &boo
     QVector<int> order; for (int i = 0; i < book->pages.size(); ++i) order.append(i);
     const int sort = m_settings->value("covers/sort", 0).toInt();
     const bool reverse = m_settings->value("covers/reverse", false).toBool();
-    if(sort==6) {std::mt19937 generator(QRandomGenerator::global()->generate());std::shuffle(order.begin(),order.end(),generator);}
+    if(sort==6) {if(navigate || !m_coverSortSeed)m_coverSortSeed=QRandomGenerator::global()->generate()|1u;std::mt19937 generator(m_coverSortSeed);std::shuffle(order.begin(),order.end(),generator);if(reverse)std::reverse(order.begin(),order.end());}
     std::stable_sort(order.begin(), order.end(), [&](int a, int b) {
         const auto &x = book->pages[a], &y = book->pages[b];
         int result=0;
@@ -341,7 +342,8 @@ void MainWindow::loadBook(const QString &path, ViewMode mode, bool startAtLastPa
         }
         m_book = result.book; m_anchor = startAtLastPage ? pageCount() - 1 : m_book->initialPage;
         if (m_book->archiveParent) populateArchiveDirectory(m_book->archiveParent, false);
-        if (m_features) m_features->openedBook();
+        if (m_features) {m_features->openedBook();m_features->applySavedSort();}
+        if(startAtLastPage)m_anchor=pageCount()-1;
         if (m_restoreDocumentLocation && !documentViewActive()) {
             m_anchor=resolveDocumentLocation(m_pendingDocumentLocation);m_restoreDocumentLocation=false;
         }

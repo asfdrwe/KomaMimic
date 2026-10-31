@@ -2,6 +2,8 @@
 #include "test_support.h"
 #include "foldertree.h"
 #include "pageview.h"
+#include "readerfeatures.h"
+#include <QMessageBox>
 #include <QAction>
 #include <QCheckBox>
 #include <QDialog>
@@ -72,6 +74,33 @@ private slots:
         QCOMPARE(grid->currentItem()->data(PathRole),selected);window.close();
         MainWindow restored(config);restored.openDirectory(d.path());
         QCOMPARE(restored.findChild<ThumbnailGrid *>("zipLibrary")->item(0)->text(),QString("2.png"));restored.close();
+    }
+    void sharedSortRestoresForReadingAndSettingsSlots() {
+        QTemporaryDir d;const auto config=d.filePath("settings.ini");
+        for(const auto &name:{"10.png","2.png","1.png"})QVERIFY(TestData::write(d.filePath(name),TestData::png(TestData::solid())));
+        MainWindow window(config);window.show();window.openDirectory(d.path());
+        window.command("sortUnicode")->trigger();window.readFolder();QTRY_VERIFY(window.renderReady());
+        auto *pages=window.findChild<ThumbnailGrid *>("pageThumbnails");QVERIFY(pages);
+        QCOMPARE(pages->item(1)->text(),QString("10.png"));
+        const auto current=window.currentPageName();window.command("sortReverse")->trigger();
+        QCOMPARE(window.currentPageName(),current);QCOMPARE(pages->item(0)->text(),QString("2.png"));
+        QVERIFY(window.command("sortUnicode")->isChecked());QVERIFY(window.command("sortReverse")->isChecked());
+        QTimer dismiss;connect(&dismiss,&QTimer::timeout,&window,[]{if(auto *box=qobject_cast<QMessageBox *>(QApplication::activeModalWidget()))box->accept();});dismiss.start(10);
+        ReaderFeatures *features=nullptr;for(auto *child:window.children())if(auto *candidate=dynamic_cast<ReaderFeatures *>(child))features=candidate;QVERIFY(features);
+        const auto exported=d.filePath("export.ini");features->settingsFile(false,exported);QVERIFY(QFileInfo::exists(exported));
+        window.command("settingsSave4")->trigger();
+        window.command("sortNatural")->trigger();window.command("settingsLoad4")->trigger();
+        QVERIFY(window.command("sortUnicode")->isChecked());QCOMPARE(pages->item(0)->text(),QString("2.png"));
+        window.command("sortNatural")->trigger();features->settingsFile(true,exported);
+        QVERIFY(window.command("sortUnicode")->isChecked());QCOMPARE(window.currentPageName(),current);
+        window.showCovers();window.command("sortRandom")->trigger();
+        auto *covers=window.findChild<ThumbnailGrid *>("zipLibrary");QStringList before;
+        for(int i=0;i<covers->count();++i)before.append(covers->item(i)->text());
+        window.command("sortReverse")->trigger();std::reverse(before.begin(),before.end());
+        for(int i=0;i<covers->count();++i)QCOMPARE(covers->item(i)->text(),before[i]);
+        dismiss.stop();window.close();
+        MainWindow restarted(config);restarted.openDirectory(d.path());restarted.readFolder();QTRY_VERIFY(restarted.renderReady());
+        QVERIFY(restarted.command("sortRandom")->isChecked());restarted.close();
     }
     void filenameBandChangesImageGeometry() {
         PageView view; view.resize(500,600); view.show();

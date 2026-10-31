@@ -152,6 +152,7 @@ private:
     QHash<QString, QString> m_archiveSelections;
     QString m_directory, m_currentPath, m_lastError;
     int m_anchor = 0, m_thumbnailActive = 0;
+    quint32 m_coverSortSeed = 0;
     quint64 m_bookGeneration = 0, m_renderGeneration = 0, m_libraryGeneration = 0;
     std::shared_ptr<std::atomic<quint64>> m_thumbnailToken;
     std::shared_ptr<std::atomic<quint64>> m_renderToken;

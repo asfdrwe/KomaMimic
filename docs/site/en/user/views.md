@@ -69,3 +69,5 @@ clipboard before quitting if you need to keep them. PDF output consists of raste
 images and does not retain text-search information or links from the original PDF.
 Image processing, page editing, image export, and printing do not apply to the
 document view.
+
+See [Differences from MangaMeeya](compatibility.md) for compatibility and sorting persistence.

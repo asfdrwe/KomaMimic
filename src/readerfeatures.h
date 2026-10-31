@@ -30,6 +30,7 @@ public:
   OpenOptions openOptions() const;
   void closingBook();
   void openedBook();
+  void applySavedSort();
   void refreshDocumentToc();
   void openFailed();
   void prepareOpen(const QString &path);
@@ -76,7 +77,7 @@ private:
   void addCollection(const QString &kind);
   void editMetadata(const QString &id);
   void editPages(const QString &operation);
-  void applySort(int mode);
+  void applySort(int mode, bool savePreference = true);
   void splitPages(int axis);
   void changeBook(std::shared_ptr<const Book> book, int anchor);
   void output(ExportKind kind, bool all = false, const QString &path = {},
