@@ -315,7 +315,9 @@ FolderTree::FolderTree(QWidget *parent):QTreeView(parent),m_files(new FolderMode
     setObjectName("folderTree"); setAccessibleName(QCoreApplication::translate("KomaMimic","フォルダツリー"));setModel(m_files);
     m_files->changed=[this](const QString &path){emit contentsChanged(path);};
     setHeaderHidden(true);setUniformRowHeights(true);setEditTriggers(QAbstractItemView::NoEditTriggers);
-    header()->setSectionResizeMode(0,QHeaderView::ResizeToContents); header()->setStretchLastSection(false);
+    // Columns do not exist yet, and resetRoot() recreates them. The global
+    // policy also applies to future columns; a section-0 override is lost.
+    header()->setSectionResizeMode(QHeaderView::ResizeToContents); header()->setStretchLastSection(false);
     setHorizontalScrollMode(QAbstractItemView::ScrollPerPixel);
     setExpandsOnDoubleClick(false);
     // activated follows the desktop's single-click policy on some platforms.

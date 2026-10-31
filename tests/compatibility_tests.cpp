@@ -7,6 +7,8 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QMenuBar>
+#include <QHeaderView>
+#include <QScrollBar>
 #include <QMenu>
 #include <QSettings>
 #include <QPushButton>
@@ -17,6 +19,47 @@
 class CompatibilityTests : public QObject {
     Q_OBJECT
 private slots:
+    void folderTreeNamesRemainReadable_data() {
+        QTest::addColumn<bool>("twoPane");
+        QTest::newRow("two-pane") << true;
+        QTest::newRow("single-pane") << false;
+    }
+    void folderTreeNamesRemainReadable() {
+        QFETCH(bool,twoPane);
+        QTemporaryDir d;QVERIFY(d.isValid());
+        QString selected=d.path();
+        for(int depth=0;depth<5;++depth)selected+=QString("/階層%1").arg(depth);
+        const QString name=QStringLiteral("スマホデータ_日本語と長いフォルダ名_abcdefghi");
+        selected+='/'+name;QVERIFY(QDir().mkpath(selected));
+        FolderTree tree;auto font=tree.font();font.setPointSize(18);tree.setFont(font);
+        tree.resize(320,600);tree.show();tree.setTwoPane(twoPane);
+        if(twoPane)tree.setBrowseRoot(d.path(),QStringLiteral("画像"));
+        qInfo() << "tree column mode/width/viewport" << tree.header()->sectionResizeMode(0)
+                << tree.columnWidth(0) << tree.viewport()->width();
+        QCOMPARE(tree.header()->sectionResizeMode(0),QHeaderView::ResizeToContents);
+        if(twoPane) {
+            auto index=tree.model()->index(0,0);
+            for(int depth=0;depth<6;++depth) {
+                tree.expand(index);
+                QTRY_COMPARE(tree.model()->rowCount(index),1);
+                index=tree.model()->index(0,0,index);
+            }
+            QCOMPARE(index.data().toString(),name);tree.setCurrentIndex(index);tree.scrollTo(index);
+        } else {
+            tree.selectPath(selected);QTRY_COMPARE(tree.selectedPath(),selected);
+        }
+        const auto index=tree.currentIndex();QVERIFY(index.isValid());
+        QTRY_VERIFY(tree.visualRect(index).width()>=tree.sizeHintForIndex(index).width());
+        QTRY_VERIFY(tree.horizontalScrollBar()->maximum()>0);
+        tree.horizontalScrollBar()->setValue(tree.horizontalScrollBar()->maximum());
+        QVERIFY(tree.visualRect(index).right()<=tree.viewport()->rect().right());
+        // Changing the root recreates the model's columns. Their sizing policy
+        // must also survive repeated one/two-pane switches and later inserts.
+        tree.setTwoPane(!twoPane);tree.setTwoPane(twoPane);
+        tree.setBrowseRoot(d.path(),QStringLiteral("画像"));
+        QCOMPARE(tree.header()->sectionResizeMode(0),QHeaderView::ResizeToContents);
+        qInfo() << "tree column after root reset" << tree.columnWidth(0);
+    }
     void filenameBandChangesImageGeometry() {
         PageView view; view.resize(500,600); view.show();
         view.setPages({TestData::solid(Qt::red,{100,1000})},false,"001.jpg");
