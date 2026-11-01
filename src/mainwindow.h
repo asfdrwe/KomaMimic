@@ -28,6 +28,7 @@ class FolderBrowser;
 class PageView;
 class DocumentView;
 class ReaderFeatures;
+class DisplayJobs;
 class IdleInhibitor;
 class ThumbnailDiskCache;
 class ReaderToolBar;
@@ -71,6 +72,9 @@ public:
     int pageCount() const { return m_book ? m_book->pages.size() : 0; }
     bool isLoading() const { return m_loading; }
     bool renderReady() const { return m_renderReady; }
+    bool requestReady() const { return !m_loading && (m_mode != ViewMode::Covers || !m_directoryLoading) && (m_mode != ViewMode::Reader || !m_book || m_renderReady); }
+    bool directoryReady() const { return !m_directoryLoading; }
+    bool backgroundWorkActive() const;
     QString bookPath() const { return m_currentPath; }
     QString directory() const { return m_directory; }
     QString lastError() const { return m_lastError; }
@@ -117,7 +121,7 @@ private:
     void startNextThumbnail(quint64 generation);
     void requestThumbnails(ThumbnailGrid *grid);
     void populatePages();
-    void populateDirectory(const QString &path, bool navigate, bool history, bool persist = true);
+    void populateDirectory(const QString &path, bool navigate, bool history, bool persist = true, bool background = false);
     void initializeDirectoryWatcher();
     void refreshDirectoryListing();
     void populateArchiveDirectory(const std::shared_ptr<const Book> &book, bool navigate = true);
@@ -145,6 +149,9 @@ private:
     QString nameSettingsKey(const QString &path) const;
     std::unique_ptr<QSettings> m_settings;
     std::unique_ptr<ReaderFeatures> m_features;
+    std::unique_ptr<DisplayJobs> m_displayJobs;
+    bool m_cacheMaintenancePending = true;
+    bool m_renderDirty = true;
     std::shared_ptr<ThumbnailDiskCache> m_thumbnailDiskCache;
     QHash<QString, QAction *> m_actions;
     ReadingOptions m_options;
@@ -152,7 +159,7 @@ private:
     std::shared_ptr<const Book> m_archiveDirectory;
     QHash<QString, QString> m_archiveSelections;
     QString m_directory, m_currentPath, m_lastError;
-    int m_anchor = 0, m_thumbnailActive = 0;
+    int m_anchor = 0;
     quint32 m_coverSortSeed = 0;
     quint64 m_bookGeneration = 0, m_renderGeneration = 0, m_libraryGeneration = 0;
     std::shared_ptr<std::atomic<quint64>> m_thumbnailToken;
@@ -162,6 +169,8 @@ private:
     std::shared_ptr<std::atomic<bool>> m_backgroundCancel=std::make_shared<std::atomic<bool>>(false);
     quint64 m_pageGeneration = 0;
     bool m_loading = false, m_renderReady = false;
+    bool m_directoryLoading = false, m_directoryDirty = false;
+    bool m_forceCoverRefresh = false;
     bool m_toolbarBeforeFullscreen = false;
     bool m_topChromeVisible = false, m_bottomChromeVisible = false;
     bool m_fullscreenTransition = false;

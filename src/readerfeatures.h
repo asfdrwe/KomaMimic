@@ -39,6 +39,7 @@ public:
   QString currentPositionKey() const;
   int resolvePosition(const QString &key, int fallback) const;
   void requestCollectionCover();
+  void requestBackgroundWork();
   void showCollection(const QString &kind, int layout);
   void beforeRender();
   void rendered(const QVector<int> &indices,
@@ -133,6 +134,10 @@ private:
   QVector<BookPage> m_pageClipboard;
   std::shared_ptr<const Book> m_sourceBook;
   QJsonArray m_tocEntries;
+  void prefetch();
+  void withCurrentImages(std::function<void(QVector<QImage>)> done);
+  int m_imageCommandsActive=0;
+  QSet<int> m_prefetchAttempted;
   bool m_restoring = false, m_prefetching = false;
   bool m_navigationBusy = false;
   int m_lastDirection = 1;

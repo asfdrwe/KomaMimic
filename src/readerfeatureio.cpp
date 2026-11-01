@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "mainwindow.h"
+#include "displayjobs.h"
 #include <QCoreApplication>
 #include "scriptreader.h"
 #include "pageview.h"
@@ -157,11 +158,11 @@ void ReaderFeatures::output(ExportKind kind, bool all, const QString &provided,
     if (range == 1)
       pages = selectedPages();
     else if (range == 2)
-      pages = m_visibleIndices;
+      pages = visiblePagesForView();
     spread = w->m_settings->value("output/spread", false).toBool();
   } else
     pages = spread
-                ? m_visibleIndices
+                ? visiblePagesForView()
                 : QVector<int>{w->viewMode() == MainWindow::ViewMode::Pages &&
                                        w->m_pages->currentRow() >= 0
                                    ? w->m_pages->currentRow()
@@ -226,9 +227,33 @@ void ReaderFeatures::output(ExportKind kind, bool all, const QString &provided,
             spread, rtl, naming);
       }));
 }
+void ReaderFeatures::withCurrentImages(std::function<void(QVector<QImage>)> done) {
+  if(w->viewMode()==MainWindow::ViewMode::Reader && w->renderReady()){done(w->m_view->images());return;}
+  if(!w->m_book || w->documentViewActive()) {done({});return;}
+  const auto book=w->m_book;
+  const auto indices=w->viewMode()==MainWindow::ViewMode::Pages && w->m_pages->currentRow()>=0
+      ? QVector<int>{w->m_pages->currentRow()} : visiblePagesForView();
+  auto options=w->m_imageOptions;options.scriptFilter=configuredScriptFilter(w->m_settings->value("scripts/filter"));
+  if(!options.scriptFilter.isEmpty())options.scriptSettings=book->openOptions.scriptSettings;
+  ++m_imageCommandsActive;
+  w->m_displayJobs->submit<QVector<QImage>>(DisplayJobs::Lane::Display,"command-image",QUuid::createUuid().toString(),
+    [book,indices,options](const DisplayJobs::Cancel &cancel) {
+      QVector<QImage> images;
+      for(int index:indices) {
+        if(cancel())return QVector<QImage>{};
+        auto image=processMedia(book->image(index,{},cancel),options,cancel);
+        if(!image.error.isEmpty() || image.image.isNull())return QVector<QImage>{};
+        images.append(std::move(image.image));
+      }
+      return images;
+    },[this,book,done=std::move(done)](QVector<QImage> images,bool cancelled) {
+      --m_imageCommandsActive;
+      if(!cancelled && book==w->m_book)done(std::move(images));
+    });
+}
 void ReaderFeatures::clipboard(bool paste) {
   if (!paste) {
-    const auto images = w->m_view->images();
+    withCurrentImages([this](QVector<QImage> images) {
     if (images.isEmpty())
       return;
     QImage image = images.first();
@@ -241,6 +266,7 @@ void ReaderFeatures::clipboard(bool paste) {
     }
     QApplication::clipboard()->setImage(image);
     message(QCoreApplication::translate("KomaMimic", "画像をクリップボードへコピーしました。"));
+    });
     return;
   }
   const auto image = QApplication::clipboard()->image();

@@ -136,7 +136,7 @@ private slots:
   // Restoring the collection does not change the shared default. An explicit
   // user sort still overrides this book's restored order and keeps its page.
   {QSettings settings(config,QSettings::IniFormat);QCOMPARE(settings.value("covers/sort",0).toInt(),0);}
-  w.command("sortNatural")->trigger();QCOMPARE(w.currentPageName(),"1.png");w.nextPage();QTRY_VERIFY(w.renderReady());QCOMPARE(w.currentPageName(),"2.png");w.close();
+  w.command("sortNatural")->trigger();QTRY_VERIFY(w.viewMode()!=MainWindow::ViewMode::Covers || w.directoryReady());QCOMPARE(w.currentPageName(),"1.png");w.nextPage();QTRY_VERIFY(w.renderReady());QCOMPARE(w.currentPageName(),"2.png");w.close();
  }
  void epubNoteRoundTripRendering() {
 #ifdef Q_OS_UNIX
@@ -158,7 +158,7 @@ private slots:
   for(const auto *name:{"2.cbz","10.cbz","3.zip"})QVERIFY(TestData::write(d.filePath(name),TestData::zip({{"p.png",TestData::png(TestData::solid())}})));
   const auto config=d.filePath("settings.ini");
   {QSettings s(config,QSettings::IniFormat);s.setValue("covers/reverse",true);s.setValue("cache/ahead",0);s.setValue("cache/behind",0);}
-  MainWindow w(config);w.show();w.openDirectory(d.path());
+  MainWindow w(config);w.show();w.openDirectory(d.path());QTRY_VERIFY(w.directoryReady());
   auto *grid=w.findChild<ThumbnailGrid*>("zipLibrary");QVERIFY(grid);QCOMPARE(grid->item(0)->text(),"10.cbz");
   grid->setCurrentRow(1);w.openBook(d.filePath("10.cbz"));QTRY_VERIFY(w.renderReady());
   w.moveBook(1);QTRY_COMPARE(w.bookPath(),d.filePath("3.zip"));QTRY_VERIFY(w.renderReady());

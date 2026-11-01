@@ -57,7 +57,7 @@ target_sources(reader_core PRIVATE src/archivepath.cpp)
 target_include_directories(reader_core PUBLIC src)
 target_link_libraries(reader_core PUBLIC komamimic_options Qt6::Gui LibArchive::LibArchive ICU::uc ZLIB::ZLIB komamimic_pdf_dependencies)
 add_library(reader_ui src/pageview.cpp src/shortcuts.cpp src/mainwindow.cpp src/namesdialog.cpp src/thumbnailgrid.cpp src/foldertree.cpp src/processingdialog.cpp src/mainwindownavigation.cpp src/mainwindowimage.cpp src/librarystore.cpp src/bookexport.cpp src/readerfeatures.cpp src/readerfeatureio.cpp src/readerfeatureprefs.cpp src/featurecommands.cpp src/readerinput.cpp src/startup.cpp src/power.cpp src/idleinhibitor.cpp src/inhibitprotocol.cpp src/collectiondetails.cpp src/documentsettings.cpp src/mainwindowdocument.cpp)
-target_sources(reader_ui PRIVATE src/defaultpreferences.cpp src/legacysettings.cpp src/legacysettingsdialog.cpp src/readertoolbar.cpp src/mainwindowmenus.cpp src/thumbnailcache.cpp src/thumbnailsource.cpp src/appearance.cpp)
+target_sources(reader_ui PRIVATE src/displayjobs.cpp src/defaultpreferences.cpp src/legacysettings.cpp src/legacysettingsdialog.cpp src/readertoolbar.cpp src/mainwindowmenus.cpp src/thumbnailcache.cpp src/thumbnailsource.cpp src/appearance.cpp)
 target_link_libraries(reader_ui PUBLIC reader_core Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::PrintSupport Qt6::Sql ${KOMAMIMIC_SDL_TARGET})
 # Qt owns main() and event handling; SDL is used for input/audio only.
 target_compile_definitions(reader_ui PUBLIC SDL_MAIN_HANDLED)

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "mainwindow.h"
+#include "displayjobs.h"
 #include "defaultpreferences.h"
 #include "archivepath.h"
 #include <QCoreApplication>
@@ -24,6 +25,7 @@
 #include <QCursor>
 #include <QCryptographicHash>
 #include <QDateTime>
+#include <QElapsedTimer>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -90,9 +92,33 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
     m_restoreFullscreen = m_settings->value("window/fullscreen", false).toBool();
     m_imageCache.setMaxCost(std::clamp(m_settings->value("cache/megabytes",128).toInt(),16,2048)*1024);
     setApplicationAppearance(m_settings->value("display/appearance",0).toInt());
+    m_displayJobs=std::make_unique<DisplayJobs>();
     m_thumbnailDiskCache=std::make_shared<ThumbnailDiskCache>();
     m_thumbnailDiskCache->configure(m_settings->value("cache/thumbnailsEnabled",true).toBool(),m_settings->value("cache/thumbnailMegabytes",512).toInt());
-    (void)QtConcurrent::run([cache=m_thumbnailDiskCache,stop=m_backgroundCancel]{cache->maintain([stop]{return stop->load();});});
+    m_thumbnailDiskCache->setDeferredWrites(true);
+    auto *cacheTimer=new QTimer(this);cacheTimer->setInterval(100);
+    connect(cacheTimer,&QTimer::timeout,this,[this] {
+        if(m_backgroundCancel->load() || !isVisible() || m_loading)return;
+        if(m_directoryDirty && !m_directoryLoading && !m_archiveDirectory && !m_directory.isEmpty())
+            populateDirectory(m_directory,false,false,false,true);
+        if(m_features)m_features->requestBackgroundWork();
+        const auto cache=m_thumbnailDiskCache;
+        if(cache->hasPendingWrites()) {
+            m_displayJobs->submit<bool>(DisplayJobs::Lane::Background,"cache-store","cache-store",
+                [cache](const DisplayJobs::Cancel &cancel){
+                    QElapsedTimer elapsed;elapsed.start();bool stored=false;
+                    for(int i=0;i<8 && elapsed.elapsed()<20 && !cancel() && cache->hasPendingWrites();++i) {
+                        if(!cache->flushPending(cancel))break;
+                        stored=true;
+                    }
+                    return stored;
+                },[](bool,bool){});
+        } else if(m_cacheMaintenancePending) {
+            m_displayJobs->submit<QString>(DisplayJobs::Lane::Background,"cache-maintain","cache-maintain",
+                [cache](const DisplayJobs::Cancel &cancel){return cache->maintain(cancel);},
+                [this](const QString &,bool cancelled){if(!cancelled)m_cacheMaintenancePending=false;});
+        }
+    });cacheTimer->start();
     setObjectName("mainWindow");
     setWindowTitle("KomaMimic");
     setAcceptDrops(true);
@@ -131,7 +157,7 @@ MainWindow::~MainWindow() {
     cancelBackgroundWork();
     disconnect(qApp, nullptr, this, nullptr);
     if (m_features) m_features->closingBook();
-    m_features.reset(); qApp->removeEventFilter(this);
+    m_features.reset(); m_displayJobs.reset(); qApp->removeEventFilter(this);
 }
 
 void MainWindow::showEvent(QShowEvent *event) {
@@ -388,7 +414,11 @@ void MainWindow::activateLibraryItem(QListWidgetItem *item) {
 }
 
 void MainWindow::render() {
-    if (!m_book) return;
+    m_renderDirty=true;
+    if (!m_book || m_mode != ViewMode::Reader) return;
+    m_displayJobs->retain("render");m_displayJobs->retain("navigation");
+    m_displayJobs->retain("prefetch");m_displayJobs->retain("preload");
+    m_renderDirty=false;
     if (documentViewActive()) {
         if (m_documentView && m_documentView->ready()) m_documentView->jump(m_anchor);
         refreshState(); return;
@@ -419,9 +449,8 @@ void MainWindow::render() {
     }
     m_renderReady = false;
     refreshState();
-    auto *watcher = new QFutureWatcher<RenderResult>(this);
-    connect(watcher, &QFutureWatcher<RenderResult>::finished, this, [this, watcher, generation] {
-        const auto result = watcher->result(); watcher->deleteLater();
+    auto completed = [this, generation](RenderResult result,bool cancelled) {
+        if(cancelled)return;
         if (generation != m_renderGeneration || !m_book) return;
         QStringList names;
         for (int n = 0; n < result.indices.size(); ++n) {
@@ -443,13 +472,14 @@ void MainWindow::render() {
         if (m_features) m_features->rendered(result.indices, result.originals);
         m_view->applyScanEntry();
         refreshState();
-    });
+    };
     const bool automatic = m_features && m_features->autoSpread();
-    watcher->setFuture(QtConcurrent::run([book, indices, cached, targets, automatic, filter=configuredScriptFilter(m_settings->value("scripts/filter")), condition=m_settings->value("reading/spreadCondition","@height>@width").toString(), options = m_imageOptions, token = m_renderToken, generation] {
+    m_displayJobs->submit<RenderResult>(DisplayJobs::Lane::Display,"render",QString("render/%1").arg(generation),[book, indices, cached, targets, automatic, filter=configuredScriptFilter(m_settings->value("scripts/filter")), condition=m_settings->value("reading/spreadCondition","@height>@width").toString(), options = m_imageOptions, token = m_renderToken, generation](const DisplayJobs::Cancel &cancel) {
+        const auto stale=[token,generation,cancel]{return cancel() || token->load()!=generation;};
         RenderResult result;
         for (int n = 0; n < indices.size(); ++n) {
-            if (token->load() != generation) return RenderResult{};
-            auto original = !cached[n].image.isNull() ? cached[n] : book->image(indices[n],targets[n],[token,generation]{return token->load()!=generation;});
+            if (stale()) return RenderResult{};
+            auto original = !cached[n].image.isNull() ? cached[n] : book->image(indices[n],targets[n],stale);
             const double rasterScale=targets[n].isEmpty() ? 1 : targets[n].width()/2400.0;
             original.image.setDevicePixelRatio(rasterScale);
             if (automatic && n > 0 && !evaluateExpression(condition,{{"width",original.image.width()/original.image.devicePixelRatio()},{"height",original.image.height()/original.image.devicePixelRatio()},{"page",double(indices[n]+1)},{"totalpage",double(book->pages.size())}}).value) break;
@@ -462,19 +492,23 @@ void MainWindow::render() {
               adjusted.crop=margins(adjusted.crop); adjusted.border=margins(adjusted.border);
               if(!adjusted.overlay.isEmpty())adjusted.textSize=qRound(adjusted.textSize*rasterScale);
             }
-            auto image = processMedia(original, adjusted, [token, generation] { return token->load() != generation; });
+            auto image = processMedia(original, adjusted, stale);
             if (!image.image.isNull()) image.image.setDevicePixelRatio(options.resize.isValid() ? 1 : rasterScale);
             if (image.image.isNull()) image.image = errorPage(image.error);
             result.media.append(std::move(image));
             if (automatic && !evaluateExpression(condition,{{"width",original.image.width()/original.image.devicePixelRatio()},{"height",original.image.height()/original.image.devicePixelRatio()},{"page",double(indices[n]+1)},{"totalpage",double(book->pages.size())}}).value) break;
         }
         return result;
-    }));
+    },std::move(completed));
 }
 
 void MainWindow::jump(int anchor) {
     if (!m_book || anchor < 0 || anchor >= pageCount() || anchor == m_anchor) return;
-    m_anchor = anchor; render();
+    m_anchor = anchor;
+    if(m_mode==ViewMode::Pages) {
+        m_pages->setCurrentRow(anchor);m_pages->scrollToItem(m_pages->currentItem());refreshState();
+    }
+    render();
 }
 void MainWindow::nextPage() { stepPage(1); }
 void MainWindow::previousPage() { stepPage(-1); }
@@ -825,8 +859,11 @@ void MainWindow::saveSettings() {
     if (m_settings->status() != QSettings::NoError)
         statusBar()->showMessage(QCoreApplication::translate("KomaMimic", "設定ファイルに書き込めません: ") + m_settings->fileName(), 15000);
 }
+bool MainWindow::backgroundWorkActive() const {return m_displayJobs && m_displayJobs->active();}
 void MainWindow::cancelBackgroundWork() {
     m_backgroundCancel->store(true);
+    if(m_displayJobs)m_displayJobs->stop();
+    if(m_thumbnailDiskCache)m_thumbnailDiskCache->discardPending();
     m_thumbnailToken->store(++m_libraryGeneration);
     m_pageThumbnailToken->store(++m_pageGeneration);
     m_renderToken->fetch_add(1); ++m_renderGeneration;

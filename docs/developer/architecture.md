@@ -39,3 +39,31 @@ changes to the original input.
 
 See the [specification](specification.md) for limits and [automated tests](testing.md)
 for verifying changes.
+
+## Display work and cache persistence
+
+`displayjobs.*` owns GUI-thread request queues and three single-worker pools:
+committed-cache lookup, current display work, and idle/background work. Only active
+jobs enter the pools. Viewport and source changes remove queued obsolete jobs and
+cancel active ones cooperatively; completed jobs retain their worker slot until
+completion. Cache hits are independent of slow source generation.
+
+Directory enumeration and sorting run off the GUI thread. Placeholder entries are
+installed in small batches, and passive refresh retains the existing list until a
+replacement is ready. Thumbnail requests cover intersecting viewport cells.
+Reader rendering and page-model readiness are separate; Pages mode does not render
+a hidden reading frame. Reader prefetch loads one page per cancellable job.
+
+The live thumbnail cache enables deferred persistence. Display lookup reads valid
+committed PNGs without inventory or file-lock waits. Generated thumbnails enter a
+bounded RAM/write queue and can appear before PNG encoding, inventory, trimming,
+or atomic commit. Queue and recent-image RAM each have a 32 MiB accounting limit;
+identical images can share QImage storage. Configuration changes and explicit clear
+invalidate queued stores. Synchronous cache APIs remain available for non-display
+callers and cache contract tests. On shutdown, pending writes are discarded rather
+than drained; running work stops at a safe cancellation/commit boundary.
+
+Optional diagnostics use `QT_LOGGING_RULES` with `komamimic.display.debug=true` and
+`komamimic.cache.debug=true`. The display category separates queue and execution
+milliseconds by task scope. Cache format and key schema are unchanged. Native
+codec and Poppler calls already in progress cannot always stop immediately.

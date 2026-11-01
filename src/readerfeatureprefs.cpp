@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "expression.h"
+#include "displayjobs.h"
 #include "defaultpreferences.h"
 #include <QCoreApplication>
 #include "scriptreader.h"
@@ -25,6 +26,8 @@
 #include <QFileDialog>
 #include <QFormLayout>
 #include <QFutureWatcher>
+#include <QPointer>
+#include <QUuid>
 #include <QJsonDocument>
 #include <QLabel>
 #include <QLineEdit>
@@ -623,23 +626,30 @@ void ReaderFeatures::preferences(const QString &pageName) {
   cache->addRow(QCoreApplication::translate("KomaMimic", "サムネイルの保存先"),diskPath);
   auto *usage=new QLabel(QCoreApplication::translate("KomaMimic", "使用量を確認中…"),&dialog);usage->setObjectName("thumbnailCacheUsage");cache->addRow(QCoreApplication::translate("KomaMimic", "ディスク使用量"),usage);
   auto *clearDisk=new QPushButton(QCoreApplication::translate("KomaMimic", "保存済みサムネイルを削除"),&dialog);clearDisk->setObjectName("clearThumbnailDiskCache");cache->addRow(clearDisk);
-  const auto refreshUsage=[&,disk=w->m_thumbnailDiskCache] {
-    auto *watcher=new QFutureWatcher<ThumbnailDiskCache::Stats>(&dialog);
-    connect(watcher,&QFutureWatcherBase::finished,&dialog,[watcher,usage] {
-      const auto result=watcher->result();watcher->deleteLater();
-      usage->setText(result.error.isEmpty()?QCoreApplication::translate("KomaMimic", "%1 MiB / %2枚").arg(result.bytes/(1024.0*1024),0,'f',1).arg(result.entries):result.error);
-    });
-    watcher->setFuture(QtConcurrent::run([disk]{return disk->stats();}));
+  auto refreshUsage=std::make_shared<std::function<void()>>();
+  std::weak_ptr<std::function<void()>> weakRefresh=refreshUsage;
+  *refreshUsage=[&,disk=w->m_thumbnailDiskCache,weakRefresh] {
+    QPointer<QLabel> target=usage;
+    w->m_displayJobs->submit<ThumbnailDiskCache::Stats>(DisplayJobs::Lane::Background,"cache-usage",QUuid::createUuid().toString(),
+      [disk](const DisplayJobs::Cancel &cancel){return disk->stats(cancel);},
+      [target,weakRefresh](const ThumbnailDiskCache::Stats &result,bool cancelled) {
+        if(!target)return;
+        if(cancelled){QTimer::singleShot(100,target.data(),[weakRefresh]{if(auto retry=weakRefresh.lock())(*retry)();});return;}
+        target->setText(result.error.isEmpty()?QCoreApplication::translate("KomaMimic", "%1 MiB / %2枚").arg(result.bytes/(1024.0*1024),0,'f',1).arg(result.entries):result.error);
+      });
   };
-  refreshUsage();
+  (*refreshUsage)();
   connect(clearDisk,&QPushButton::clicked,&dialog,[&,disk=w->m_thumbnailDiskCache,refreshUsage] {
     clearDisk->setEnabled(false);usage->setText(QCoreApplication::translate("KomaMimic", "削除中…"));
-    auto *watcher=new QFutureWatcher<QString>(&dialog);
-    connect(watcher,&QFutureWatcherBase::finished,&dialog,[watcher,clearDisk,usage,refreshUsage] {
-      const auto error=watcher->result();watcher->deleteLater();clearDisk->setEnabled(true);
-      if(error.isEmpty()) refreshUsage();else usage->setText(error);
-    });
-    watcher->setFuture(QtConcurrent::run([disk]{return disk->clear();}));
+    disk->discardPending();
+    QPointer<QPushButton> button=clearDisk;QPointer<QLabel> target=usage;
+    w->m_displayJobs->submit<QString>(DisplayJobs::Lane::Background,"cache-clear",QUuid::createUuid().toString(),
+      [disk](const DisplayJobs::Cancel &){return disk->clear();},
+      [button,target,refreshUsage](const QString &error,bool) {
+        if(!button || !target)return;
+        button->setEnabled(true);
+        if(error.isEmpty())(*refreshUsage)();else target->setText(error);
+      });
   });
   auto *scripts=form("scripts", QCoreApplication::translate("KomaMimic", "スクリプト"));
   auto *scriptHelp=new QLabel(QCoreApplication::translate("KomaMimic", "画像読込・複数ページ・画像フィルターはAPI 1を使います。\n登録フォルダの追加・削除は保存して再起動すると反映します。"),&dialog);
@@ -847,7 +857,7 @@ void ReaderFeatures::preferences(const QString &pageName) {
   w->setFullscreen(fullscreen->isChecked());
   if (w->isFullScreen()) w->setFullscreenChromeVisible(w->m_topChromeVisible, w->m_bottomChromeVisible);
   w->m_thumbnailDiskCache->configure(w->m_settings->value("cache/thumbnailsEnabled",true).toBool(),w->m_settings->value("cache/thumbnailMegabytes",512).toInt());
-  (void)QtConcurrent::run([disk=w->m_thumbnailDiskCache,stop=w->m_backgroundCancel]{disk->maintain([stop]{return stop->load();});});
+  w->m_cacheMaintenancePending=true;
   w->m_view->setBackgroundColor(QColor(w->m_settings->value("display/background").toString()));
   w->restoreThumbnailSettings();
   if (!w->m_directory.isEmpty() && (oldCoverSort!=w->m_settings->value("covers/sort",0).toInt()

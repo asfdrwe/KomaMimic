@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "readerfeatures.h"
+#include "displayjobs.h"
 #include "archivepath.h"
 #include <QCoreApplication>
 #include "readertoolbar.h"
@@ -651,6 +652,7 @@ void ReaderFeatures::build() {
     m_timedIndex = 0;
   });
   bind("clearCache", [this] {
+    w->m_displayJobs->retain("prefetch");w->m_displayJobs->retain("preload");
     w->m_imageCache.clear();
     if (w->m_book)
       w->m_book->clearEncodedCache();
@@ -662,25 +664,22 @@ void ReaderFeatures::build() {
     m_prefetching = true;
     auto book = w->m_book;
     auto generation = w->m_bookGeneration;
-    auto *watcher = new QFutureWatcher<QVector<QPair<int, ImageResult>>>(this);
-    connect(watcher, &QFutureWatcherBase::finished, this,
-            [this, watcher, generation] {
-              auto images = watcher->result();
-              watcher->deleteLater();
+    auto completed = [this, generation](QVector<QPair<int,ImageResult>> images,bool cancelled) {
               m_prefetching = false;
-              if (generation != w->m_bookGeneration)
+              if (cancelled || generation != w->m_bookGeneration)
                 return;
               for (auto &[index, image] : images)
                 w->m_imageCache.insert(index, new ImageResult(image),
                                        int((image.memoryCost() + 1023) / 1024));
               message(QCoreApplication::translate("KomaMimic", "設定した容量内の画像をキャッシュしました。"));
-            });
-    watcher->setFuture(QtConcurrent::run(
-        [book, budget = qint64(w->m_imageCache.maxCost()) * 1024] {
+            };
+    w->m_displayJobs->submit<QVector<QPair<int,ImageResult>>>(DisplayJobs::Lane::Background,"preload","preload",
+        [book, budget = qint64(w->m_imageCache.maxCost()) * 1024](const DisplayJobs::Cancel &cancel) {
           QVector<QPair<int, ImageResult>> values;
           qint64 used = 0;
           for (int i = 0; i < book->pages.size(); ++i) {
-            auto image = book->image(i);
+            if(cancel())break;
+            auto image = book->image(i,{},cancel);
             if (!image.error.isEmpty())
               continue;
             if (used + image.memoryCost() > budget)
@@ -689,7 +688,7 @@ void ReaderFeatures::build() {
             values.append({i, std::move(image)});
           }
           return values;
-        }));
+        },std::move(completed));
   });
   bind("importMangaMeeyaSettings", [this] { settingsFile(true, {}, true); });
   bind("importSettings", [this] { settingsFile(true); });
@@ -1066,8 +1065,12 @@ void ReaderFeatures::rendered(const QVector<int> &indices,
       m_input->pageTurned();
   }
   m_previousAnchor = w->m_anchor;
-  if (m_prefetching || !w->m_book)
-    return;
+  m_prefetchAttempted.clear();
+  prefetch();
+}
+void ReaderFeatures::prefetch() {
+  if(m_prefetching || !w->m_book || w->viewMode()!=MainWindow::ViewMode::Reader ||
+     !w->renderReady() || w->m_backgroundCancel->load() || w->m_displayJobs->contains("prefetch"))return;
   QVector<int> wanted;
   for (int sign : {m_lastDirection, -m_lastDirection}) {
     int anchor = w->m_anchor;
@@ -1085,47 +1088,28 @@ void ReaderFeatures::rendered(const QVector<int> &indices,
         break;
       anchor = next;
       for (int page : visiblePages(w->pageCount(), anchor, w->m_options))
-        if (!w->m_imageCache.contains(page) && !wanted.contains(page))
+        if (!w->m_imageCache.contains(page) && !wanted.contains(page) && !m_prefetchAttempted.contains(page))
           wanted.append(page);
     }
   }
-  if (wanted.isEmpty())
-    return;
-  m_prefetching = true;
-  const auto book = w->m_book;
-  const auto generation = w->m_bookGeneration;
-  auto *watcher = new QFutureWatcher<QVector<QPair<int, ImageResult>>>(this);
-  connect(watcher, &QFutureWatcherBase::finished, this,
-          [this, watcher, generation, book] {
-            const auto images = watcher->result();
-            watcher->deleteLater();
-            m_prefetching = false;
-            if (generation != w->m_bookGeneration || book != w->m_book)
-              return;
-            for (const auto &[index, image] : images) {
-              m_dimensions[index] = image.image.size()/image.image.devicePixelRatio();
-              const auto cost = (image.memoryCost() + 1023) / 1024;
-              if (cost <= w->m_imageCache.maxCost())
-                w->m_imageCache.insert(index, new ImageResult(image),
-                                       int(cost));
-            }
-          });
-  const auto budget = qint64(w->m_imageCache.maxCost()) * 1024;
-  watcher->setFuture(QtConcurrent::run([book, wanted, budget] {
-    QVector<QPair<int, ImageResult>> values;
-    qint64 used = 0;
-    for (int page : wanted) {
-      auto image = book->image(page);
-      if (!image.error.isEmpty())
-        continue;
-      if (used + image.memoryCost() > budget)
-        break;
-      used += image.memoryCost();
-      values.append({page, std::move(image)});
-    }
-    return values;
-  }));
+  if(wanted.isEmpty())return;
+  const int page=wanted.first();m_prefetchAttempted.insert(page);
+  const auto book=w->m_book;const auto generation=w->m_renderGeneration;
+  w->m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Background,"prefetch","prefetch",
+      [book,page](const DisplayJobs::Cancel &cancel){return book->image(page,{},cancel);},
+      [this,book,generation,page](ImageResult image,bool cancelled) {
+        if(generation==w->m_renderGeneration && book==w->m_book) {
+          if(cancelled)m_prefetchAttempted.remove(page);
+          else if(image.error.isEmpty() && !image.image.isNull()) {
+            m_dimensions[page]=image.image.size()/image.image.devicePixelRatio();
+            const auto cost=(image.memoryCost()+1023)/1024;
+            if(cost<=w->m_imageCache.maxCost())w->m_imageCache.insert(page,new ImageResult(image),int(cost));
+          }
+        }
+        if(!cancelled)prefetch();
+      });
 }
+
 void ReaderFeatures::saveState() {
   if (m_activeId.isEmpty() || !w->m_book || m_restoring)
     return;
@@ -1616,23 +1600,20 @@ bool ReaderFeatures::navigate(int direction, bool onePage) {
   }
   m_navigationBusy = true;
   w->refreshState();
-  auto *watcher = new QFutureWatcher<int>(this);
-  connect(watcher, &QFutureWatcherBase::finished, this,
-          [this, watcher, book, before] {
-            const int target = watcher->result();
-            watcher->deleteLater();
+  auto completed = [this, book, before](int target,bool cancelled) {
             m_navigationBusy = false;
-            if (book == w->m_book && before == w->m_anchor)
+            if (!cancelled && book == w->m_book && before == w->m_anchor)
               w->jump(target);
             w->refreshState();
-          });
-  watcher->setFuture(QtConcurrent::run(
+          };
+  w->m_displayJobs->retain("navigation");
+  w->m_displayJobs->submit<int>(DisplayJobs::Lane::Display,"navigation","navigation",
       [book, before,
        condition =
            w->m_settings->value("reading/spreadCondition", "@height>@width")
-               .toString()] {
-        const auto previous = book->image(before - 1, QSize(128, 128)).image;
-        const auto earlier = book->image(before - 2, QSize(128, 128)).image;
+               .toString()](const DisplayJobs::Cancel &cancel) {
+        const auto previous = book->image(before - 1, QSize(128, 128),cancel).image;
+        const auto earlier = book->image(before - 2, QSize(128, 128),cancel).image;
         return previous.isNull() || earlier.isNull() ||
                        !evaluateExpression(
                             condition,
@@ -1650,7 +1631,7 @@ bool ReaderFeatures::navigate(int direction, bool onePage) {
                             .value
                    ? before - 1
                    : before - 2;
-      }));
+      },std::move(completed));
   return true;
 }
 void ReaderFeatures::fullscreenChanging(bool fullscreen) {
@@ -1717,7 +1698,14 @@ void ReaderFeatures::showCollection(const QString &kind, int layout) {
   list->setFocus();
   rebuildLists();
 }
+void ReaderFeatures::requestBackgroundWork() {
+  if(w->m_backgroundCancel->load())return;
+  prefetch();requestCollectionCover();
+}
 void ReaderFeatures::requestCollectionCover() {
+  if(m_shelf && m_tabs && !m_shelf->isVisible() && !m_tabs->isVisible()) {
+    w->m_displayJobs->retain("collection");return;
+  }
   if (w->m_backgroundCancel->load() || m_coverBusy || !m_shelf || !m_tabs)
     return;
   QListWidget *target = nullptr;
@@ -1742,13 +1730,10 @@ void ReaderFeatures::requestCollectionCover() {
   if (chosen.id.isEmpty())
     return;
   m_coverBusy = true;
-  auto *watcher = new QFutureWatcher<QImage>(this);
-  connect(watcher, &QFutureWatcherBase::finished, this,
-          [this, watcher, id = chosen.id] {
-            const auto image = watcher->result();
-            watcher->deleteLater();
+  auto completed = [this, id = chosen.id](QImage image,bool cancelled) {
             m_coverBusy = false;
             if (w->m_backgroundCancel->load()) return;
+            if(cancelled){QTimer::singleShot(0,this,&ReaderFeatures::requestCollectionCover);return;}
             if (m_collectionIcons.size() >= 512 &&
                 !m_collectionIconOrder.isEmpty()) {
               const auto stale = m_collectionIconOrder.takeFirst();
@@ -1773,12 +1758,12 @@ void ReaderFeatures::requestCollectionCover() {
                 m_shelf->item(i)->setIcon(m_collectionIcons[id]);
             QTimer::singleShot(0, this,
                                &ReaderFeatures::requestCollectionCover);
-          });
+          };
   const auto policy = w->namePolicyFor(chosen.path);
   const bool spine = target == m_shelf;
-  watcher->setFuture(QtConcurrent::run([chosen, policy, spine, cache=w->m_thumbnailDiskCache,stop=w->m_backgroundCancel] {
-    return cachedCollectionCover(chosen.path,policy,chosen.metadata,spine,cache,[stop]{return stop->load();});
-  }));
+  w->m_displayJobs->submit<QImage>(DisplayJobs::Lane::Background,"collection","collection",[chosen, policy, spine, cache=w->m_thumbnailDiskCache,stop=w->m_backgroundCancel](const DisplayJobs::Cancel &cancel) {
+    return cachedCollectionCover(chosen.path,policy,chosen.metadata,spine,cache,[stop,cancel]{return stop->load() || cancel();});
+  },std::move(completed));
 }
 QString ReaderFeatures::currentPositionKey() const {
   return w->pageCount() ? positionKey(w->m_book->pages[w->m_anchor])

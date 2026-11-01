@@ -2,9 +2,10 @@
 #pragma once
 #include "filenames.h"
 #include <QVector>
+#include <functional>
 struct ArchiveNames {
     QVector<ArchiveName> entries;
     QString error;
 };
-ArchiveNames readZipNames(const QString &path);
-ArchiveNames readLhaNames(const QString &path);
+ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cancel={});
+ArchiveNames readLhaNames(const QString &path,const std::function<bool()> &cancel={});

@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "test_support.h"
+#include "displayjobs.h"
+#include "archivenames.h"
 #include "thumbnailcache.h"
 #include "thumbnailsource.h"
 #include "appearance.h"
@@ -32,6 +34,68 @@ class CacheTests:public QObject {
     Q_OBJECT
 private slots:
     void cleanup() {setApplicationAppearance(0);}
+    void archiveMetadataScanCanYield() {
+        QTemporaryDir d;QVector<TestData::ZipEntry> entries;
+        for(int i=0;i<20;++i)entries.append({QByteArray::number(i)+".png",TestData::png(TestData::solid())});
+        const auto path=d.filePath("many.zip");QVERIFY(TestData::write(path,TestData::zip(entries)));
+        int checks=0;const auto cancelled=readZipNames(path,[&]{return ++checks>3;});
+        QVERIFY(!cancelled.error.isEmpty());QVERIFY(cancelled.entries.isEmpty());QCOMPARE(checks,4);
+        QCOMPARE(readZipNames(path).entries.size(),20);
+    }
+    void cacheLookupHasReservedWorker() {
+        QTemporaryDir d;ThumbnailDiskCache cache(d.path());
+        cache.image("warm",[]{return ImageResult{TestData::solid(Qt::blue),{}};});
+        std::latch entered(1),release(1);bool released=false;DisplayJobs jobs;
+        const auto cleanup=qScopeGuard([&]{if(!released)release.count_down();});
+        bool generated=false,hit=false;
+        jobs.submit<int>(DisplayJobs::Lane::Display,"generation","slow",[&](const DisplayJobs::Cancel &){entered.count_down();release.wait();return 1;},[&](int,bool){generated=true;});
+        entered.wait();
+        jobs.submit<ImageResult>(DisplayJobs::Lane::Cache,"lookup","warm",[&](const DisplayJobs::Cancel &cancel){return cache.lookup("warm",cancel);},[&](ImageResult image,bool cancelled){hit=!cancelled && image.image.pixelColor(0,0)==QColor(Qt::blue);});
+        QTRY_VERIFY_WITH_TIMEOUT(hit,2000);QVERIFY(!generated);
+        release.count_down();released=true;QTRY_VERIFY(generated);
+    }
+    void obsoleteWaitingJobsAreRemoved() {
+        std::latch entered(1),release(1);bool released=false;DisplayJobs jobs;
+        const auto cleanup=qScopeGuard([&]{if(!released)release.count_down();});
+        bool activeDone=false,cancelled=false;std::atomic<int> calls=0;
+        jobs.submit<int>(DisplayJobs::Lane::Display,"active","active",[&](const DisplayJobs::Cancel &){entered.count_down();release.wait();return 1;},[&](int,bool){activeDone=true;});
+        entered.wait();
+        jobs.submit<int>(DisplayJobs::Lane::Display,"old-view","old",[&](const DisplayJobs::Cancel &){++calls;return 1;},[&](int,bool wasCancelled){cancelled=wasCancelled;});
+        jobs.retain("old-view");QVERIFY(cancelled);QVERIFY(!jobs.contains("old"));
+        release.count_down();released=true;QTRY_VERIFY(activeDone);QCOMPARE(calls.load(),0);
+    }
+    void backgroundDoesNotOccupyDisplayWorker() {
+        std::latch release(1);std::atomic<bool> entered=false;bool released=false;DisplayJobs jobs;
+        const auto cleanup=qScopeGuard([&]{if(!released)release.count_down();});
+        bool displayDone=false,backgroundCancelled=false;
+        jobs.submit<int>(DisplayJobs::Lane::Background,"prefetch","old-prefetch",[&](const DisplayJobs::Cancel &){entered=true;release.wait();return 1;},[&](int,bool cancelled){backgroundCancelled=cancelled;});
+        QTRY_VERIFY(entered.load());
+        jobs.submit<int>(DisplayJobs::Lane::Display,"render","new-frame",[](const DisplayJobs::Cancel &){return 1;},[&](int,bool cancelled){displayDone=!cancelled;});
+        QTRY_VERIFY_WITH_TIMEOUT(displayDone,2000);QVERIFY(!backgroundCancelled);
+        release.count_down();released=true;QTRY_VERIFY(backgroundCancelled);
+    }
+    void deferredDisplayDoesNotWaitForInventory() {
+        QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.setDeferredWrites(true);
+        std::latch entered(1),release(1);int checks=0;
+        std::thread maintenance([&]{cache.maintain([&]{if(++checks==2){entered.count_down();release.wait();}return false;});});
+        entered.wait();std::promise<ImageResult> answer;auto ready=answer.get_future();
+        std::thread display([&]{answer.set_value(cache.image("new",[]{return ImageResult{TestData::solid(Qt::blue),{}};}));});
+        const bool returned=ready.wait_for(std::chrono::seconds(2))==std::future_status::ready;
+        release.count_down();display.join();maintenance.join();
+        QVERIFY(returned);QCOMPARE(ready.get().image.pixelColor(0,0),QColor(Qt::blue));
+        QVERIFY(cache.hasPendingWrites());QVERIFY(cache.flushPending());
+        QCOMPARE(cache.lookup("new").image.pixelColor(0,0),QColor(Qt::blue));
+    }
+    void deferredStoresRespectClearAndMemoryBound() {
+        QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.setDeferredWrites(true);
+        const auto pixels=[] {return ImageResult{TestData::solid(Qt::blue,{1024,1024}),{}};};
+        for(int i=0;i<12;++i)cache.image(QByteArray::number(i),pixels);
+        int stored=0;while(cache.hasPendingWrites()){QVERIFY(cache.flushPending());++stored;}
+        QVERIFY(stored<=8);QVERIFY(stored>0);
+        cache.image("old",pixels);QVERIFY(cache.hasPendingWrites());
+        QVERIFY(cache.clear().isEmpty());QVERIFY(!cache.hasPendingWrites());QVERIFY(cache.lookup("old").image.isNull());
+        cache.image("changed",pixels,{},false,[]{return false;});QVERIFY(!cache.hasPendingWrites());
+    }
     void thumbnailPersistenceAcrossExecutableLocations() {
         QTemporaryDir directory; QVERIFY(directory.isValid());
         const auto source=directory.filePath("book.zip"), cachePath=directory.filePath("thumbnails");

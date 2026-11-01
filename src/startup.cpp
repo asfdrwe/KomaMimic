@@ -35,18 +35,24 @@ void ReaderFeatures::runRequest(const QJsonObject &request) {
   auto *timer = new QTimer(this);
   timer->setInterval(20);
   auto attempts = std::make_shared<int>(0);
-  connect(timer, &QTimer::timeout, this, [this, timer, request, attempts] {
-    if ((w->isLoading() || (w->pageCount() && !w->renderReady())) &&
+  auto initialized=std::make_shared<bool>(false);
+  auto commandIndex=std::make_shared<int>(0);
+  connect(timer, &QTimer::timeout, this, [this, timer, request, attempts, initialized, commandIndex] {
+    if (!w->requestReady() &&
         ++*attempts < 3000)
       return;
-    timer->stop();
-    timer->deleteLater();
+    if(!*initialized) {
+    *initialized=true;
     if (request.contains("page") && w->pageCount())
       w->jump(
           std::clamp(request.value("page").toInt() - 1, 0, w->pageCount() - 1));
     if (request.value("fullscreen").toBool())
       w->setFullscreen(true);
-    for (const auto &value : request.value("commands").toArray()) {
+    }
+    const auto commands=request.value("commands").toArray();
+    while(*commandIndex<commands.size()) {
+      if(m_imageCommandsActive)return;
+      const auto value=commands[(*commandIndex)++];
       const auto text = value.toString();
       bool numeric = false;
       const int id = text.toInt(&numeric);
@@ -57,6 +63,8 @@ void ReaderFeatures::runRequest(const QJsonObject &request) {
       else
         message(QCoreApplication::translate("KomaMimic", "実行できないコマンド: ") + text);
     }
+    if(m_imageCommandsActive)return;
+    timer->stop();timer->deleteLater();
   });
   timer->start();
 }

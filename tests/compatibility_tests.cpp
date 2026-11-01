@@ -73,24 +73,24 @@ private slots:
     void coverSortCommandsApplyWithoutAnOpenBook() {
         QTemporaryDir d;const auto config=d.filePath("settings.ini");
         for(const auto &name:{"10.png","2.png","1.png"})QVERIFY(TestData::write(d.filePath(name),TestData::png(TestData::solid())));
-        MainWindow window(config);window.show();window.openDirectory(d.path());
+        MainWindow window(config);window.show();window.openDirectory(d.path());QTRY_VERIFY(window.directoryReady());
         auto *grid=window.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(grid);QCOMPARE(window.pageCount(),0);
-        window.command("sortNatural")->trigger();QCOMPARE(grid->item(0)->text(),QString("1.png"));QCOMPARE(grid->item(1)->text(),QString("2.png"));
+        window.command("sortNatural")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());QCOMPARE(grid->item(0)->text(),QString("1.png"));QCOMPARE(grid->item(1)->text(),QString("2.png"));
         grid->setCurrentRow(1);const auto selected=grid->currentItem()->data(PathRole);
-        window.command("sortUnicode")->trigger();QCOMPARE(grid->item(1)->text(),QString("10.png"));QCOMPARE(grid->currentItem()->data(PathRole),selected);
-        window.command("sortReverse")->trigger();QCOMPARE(grid->item(0)->text(),QString("2.png"));
+        window.command("sortUnicode")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());QCOMPARE(grid->item(1)->text(),QString("10.png"));QCOMPARE(grid->currentItem()->data(PathRole),selected);
+        window.command("sortReverse")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());QCOMPARE(grid->item(0)->text(),QString("2.png"));
         QCOMPARE(grid->currentItem()->data(PathRole),selected);window.close();
-        MainWindow restored(config);restored.openDirectory(d.path());
+        MainWindow restored(config);restored.openDirectory(d.path());QTRY_VERIFY(restored.directoryReady());
         QCOMPARE(restored.findChild<ThumbnailGrid *>("zipLibrary")->item(0)->text(),QString("2.png"));restored.close();
     }
     void sharedSortRestoresForReadingAndSettingsSlots() {
         QTemporaryDir d;const auto config=d.filePath("settings.ini");
         for(const auto &name:{"10.png","2.png","1.png"})QVERIFY(TestData::write(d.filePath(name),TestData::png(TestData::solid())));
-        MainWindow window(config);window.show();window.openDirectory(d.path());
-        window.command("sortUnicode")->trigger();window.readFolder();QTRY_VERIFY(window.renderReady());
+        MainWindow window(config);window.show();window.openDirectory(d.path());QTRY_VERIFY(window.directoryReady());
+        window.command("sortUnicode")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());window.readFolder();QTRY_VERIFY(window.renderReady());
         auto *pages=window.findChild<ThumbnailGrid *>("pageThumbnails");QVERIFY(pages);
         QCOMPARE(pages->item(1)->text(),QString("10.png"));
-        const auto current=window.currentPageName();window.command("sortReverse")->trigger();
+        const auto current=window.currentPageName();window.command("sortReverse")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());
         QCOMPARE(window.currentPageName(),current);QCOMPARE(pages->item(0)->text(),QString("2.png"));
         QVERIFY(window.command("sortUnicode")->isChecked());QVERIFY(window.command("sortReverse")->isChecked());
         QStringList notices;
@@ -106,17 +106,17 @@ private slots:
         QVERIFY(TestData::write(exported,"obsolete export"));
         features->settingsFile(false,exported);verifyExport();
         window.command("settingsSave4")->trigger();
-        window.command("sortNatural")->trigger();window.command("settingsLoad4")->trigger();
+        window.command("sortNatural")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());window.command("settingsLoad4")->trigger();
         QVERIFY(window.command("sortUnicode")->isChecked());QCOMPARE(pages->item(0)->text(),QString("2.png"));
-        window.command("sortNatural")->trigger();features->settingsFile(true,exported);
+        window.command("sortNatural")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());features->settingsFile(true,exported);
         QVERIFY(window.command("sortUnicode")->isChecked());QCOMPARE(window.currentPageName(),current);
-        window.showCovers();window.command("sortRandom")->trigger();
+        window.showCovers();QTRY_VERIFY(window.requestReady());window.command("sortRandom")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());
         auto *covers=window.findChild<ThumbnailGrid *>("zipLibrary");QStringList before;
         for(int i=0;i<covers->count();++i)before.append(covers->item(i)->text());
-        window.command("sortReverse")->trigger();std::reverse(before.begin(),before.end());
+        window.command("sortReverse")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());std::reverse(before.begin(),before.end());
         for(int i=0;i<covers->count();++i)QCOMPARE(covers->item(i)->text(),before[i]);
         dismiss.stop();window.close();
-        MainWindow restarted(config);restarted.openDirectory(d.path());restarted.readFolder();QTRY_VERIFY(restarted.renderReady());
+        MainWindow restarted(config);restarted.openDirectory(d.path());QTRY_VERIFY(restarted.directoryReady());restarted.readFolder();QTRY_VERIFY(restarted.renderReady());
         QVERIFY(restarted.command("sortRandom")->isChecked());restarted.close();
     }
     void fullscreenSettingsFilesAndSlots() {
@@ -204,7 +204,7 @@ private slots:
         tree->setFocus();QTRY_VERIFY(tree->hasFocus());QTest::keyClick(tree,Qt::Key_Return);
         QTRY_COMPARE(window.directory(),b);
         QCOMPARE(window.viewMode(),MainWindow::ViewMode::Covers);QCOMPARE(browser->location(),a);QCOMPARE(tree->browseRoot(),a);
-        const auto selection=tree->selectedPath();window.openDirectory(d.path());
+        const auto selection=tree->selectedPath();window.openDirectory(d.path());QTRY_VERIFY(window.directoryReady());
         QCOMPARE(browser->location(),a);QCOMPARE(tree->browseRoot(),a);QCOMPARE(tree->selectedPath(),selection);
         QVERIFY(QDir().mkpath(a+"/C"));
         QTRY_COMPARE(tree->model()->rowCount(root),2);
@@ -227,7 +227,7 @@ private slots:
         QVERIFY(TestData::imageFolder(d.filePath("pages"),3));
         QVERIFY(QFile::rename(d.filePath("pages/1.png"),d.filePath("pages/001.png")));
         {
-            MainWindow window(config);window.show();window.openDirectory(d.filePath("pages"));window.readFolder();QTRY_VERIFY(window.renderReady());
+            MainWindow window(config);window.show();window.openDirectory(d.filePath("pages"));QTRY_VERIFY(window.directoryReady());window.readFolder();QTRY_VERIFY(window.renderReady());
             window.showPageThumbnails();auto *grid=window.findChild<ThumbnailGrid *>("pageThumbnails");QVERIFY(grid);
             QCOMPARE(grid->item(0)->text(),QString("001.png"));const int page=window.pageIndex();
             bool edited=false;

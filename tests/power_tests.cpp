@@ -535,7 +535,7 @@ private slots:
     QVERIFY(indicator);
     QVERIFY(indicator->isVisible());
     QCOMPARE(indicator->text(), QString("消灯抑制中"));
-    w.showCovers();
+    w.showCovers();QTRY_VERIFY(w.requestReady());
     QCOMPARE(manager.state(), IdleInhibitor::State::Inactive);
     w.openBook(d.filePath("pages/1.png"));
     QTRY_VERIFY(w.renderReady());

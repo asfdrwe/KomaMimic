@@ -96,6 +96,11 @@ private slots:
         LibraryStore db(d.filePath("library.sqlite3")); auto items=db.items("history"); QCOMPARE(items.size(),1);
         QCOMPARE(items.first().state.value("anchor").toInt(),2);
     }
+    void pageThumbnailStartupDoesNotWaitForReaderFrame() {
+        QTemporaryDir d;QVERIFY(TestData::imageFolder(d.filePath("images"),3));
+        const auto result=run({"--config",d.filePath("settings.ini"),"--new-window",d.filePath("images"),"--entry","3","--execute","quit"});
+        QCOMPARE(result.code,0);
+    }
     void fullscreenOptionAndSavedStartup() {
         QTemporaryDir d;const auto config=d.filePath("settings.ini");
         const auto saved=[&] {QSettings settings(config,QSettings::IniFormat);return settings.value("window/fullscreen",false).toBool();};

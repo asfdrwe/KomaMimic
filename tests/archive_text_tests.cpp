@@ -253,8 +253,8 @@ private slots:
             rendererAbsent=!dialog->findChild<QComboBox *>("document_renderer");
             dialog->findChild<QSpinBox *>("document_size")->setValue(40);dialog->accept();});
         w.command("documentSettings")->trigger();QVERIFY(rendererAbsent);QTRY_VERIFY_WITH_TIMEOUT(w.renderReady(),15000);
-        w.parentFolder();QCOMPARE(w.viewMode(),MainWindow::ViewMode::Covers);QCOMPARE(grid->count(),2);QCOMPARE(grid->currentRow(),1);
-        grid->setCurrentRow(0);w.showCovers();QCOMPARE(grid->currentRow(),0);
+        w.parentFolder();QTRY_VERIFY(w.viewMode()!=MainWindow::ViewMode::Covers || w.requestReady());QCOMPARE(w.viewMode(),MainWindow::ViewMode::Covers);QCOMPARE(grid->count(),2);QCOMPARE(grid->currentRow(),1);
+        grid->setCurrentRow(0);w.showCovers();QTRY_VERIFY(w.requestReady());QCOMPARE(grid->currentRow(),0);
         const auto first=grid->item(0)->data(PathRole).toString();QSettings settings(config,QSettings::IniFormat);
         QCOMPARE(documentOptions(settings,second).value("size").toInt(),40);QCOMPARE(documentOptions(settings,first).value("size").toInt(),22);
         grid->setCurrentRow(0);w.command("thumbAccept")->trigger();QTRY_VERIFY_WITH_TIMEOUT(w.renderReady(),15000);
@@ -262,10 +262,10 @@ private slots:
         w.command("nextOne")->trigger();QTRY_VERIFY(w.renderReady());QCOMPARE(w.pageIndex(),1);
         auto *document=w.findChild<DocumentView *>();QVERIFY(document);
         QTRY_VERIFY(document->location().offset>0);
-        w.parentFolder();QCOMPARE(grid->currentRow(),0);
+        w.parentFolder();QTRY_VERIFY(w.viewMode()!=MainWindow::ViewMode::Covers || w.requestReady());QCOMPARE(grid->currentRow(),0);
         grid->setCurrentRow(1);w.command("thumbAccept")->trigger();QTRY_VERIFY(w.renderReady());
-        w.parentFolder();grid->setCurrentRow(0);w.command("thumbAccept")->trigger();QTRY_VERIFY(w.renderReady());QTRY_COMPARE(w.pageIndex(),1);
-        w.parentFolder();w.parentFolder();QVERIFY(w.directory()==d.path());QVERIFY(grid->currentItem());
+        w.parentFolder();QTRY_VERIFY(w.viewMode()!=MainWindow::ViewMode::Covers || w.requestReady());grid->setCurrentRow(0);w.command("thumbAccept")->trigger();QTRY_VERIFY(w.renderReady());QTRY_COMPARE(w.pageIndex(),1);
+        w.parentFolder();QTRY_VERIFY(w.viewMode()!=MainWindow::ViewMode::Covers || w.requestReady());w.parentFolder();QTRY_VERIFY(w.viewMode()!=MainWindow::ViewMode::Covers || w.requestReady());QVERIFY(w.directory()==d.path());QVERIFY(grid->currentItem());
         QCOMPARE(grid->currentItem()->data(PathRole).toString(),path);w.close();
     }
     void archiveListingRefreshAndLeavingForARealFile() {
@@ -277,8 +277,8 @@ private slots:
         grid->setCurrentRow(1);
         QVERIFY(TestData::write(path,TestData::zip({{"1.txt","Text"},{"2.txt","More"},{"3.md","# Third"}})));
         w.command("thumbRefresh")->trigger();QTRY_VERIFY(!w.isLoading());QCOMPARE(grid->count(),3);QCOMPARE(grid->currentRow(),1);
-        w.openBook(file);QTRY_VERIFY(w.renderReady());w.showCovers();
-        QVERIFY(grid->count()>=2);for(int i=0;i<grid->count();++i)QVERIFY(!parseArchiveEntryPath(grid->item(i)->data(PathRole).toString()).valid());
+        w.openBook(file);QTRY_VERIFY(w.renderReady());w.showCovers();QTRY_VERIFY(w.requestReady());
+        QTRY_VERIFY(w.directoryReady());QVERIFY(grid->count()>=2);for(int i=0;i<grid->count();++i)QVERIFY(!parseArchiveEntryPath(grid->item(i)->data(PathRole).toString()).valid());
         w.close();
     }
 

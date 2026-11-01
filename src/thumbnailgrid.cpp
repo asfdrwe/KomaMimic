@@ -218,7 +218,8 @@ QVector<int> ThumbnailGrid::visibleRows() const {
     const int top = std::max(0, verticalScrollBar()->value() / std::max(1, gridSize().height()) - 1);
     const int first = std::min(count() - 1, top * columns);
     const int n = (viewport()->height() / std::max(1, gridSize().height()) + 4) * columns;
-    for (int i = first; i < std::min(count(), first + n); ++i) rows.append(i);
+    for (int i = first; i < std::min(count(), first + n); ++i)
+        if(visualItemRect(item(i)).intersects(viewport()->rect()))rows.append(i);
     return rows;
 }
 void ThumbnailGrid::clearItems() { m_cached.clear(); m_sourceImages.clear(); clear(); }

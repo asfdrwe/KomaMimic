@@ -5,6 +5,8 @@
 #include <QCoreApplication>
 #include "scriptreader.h"
 #include <QMutexLocker>
+#include <QThread>
+#include <mutex>
 #include <QUuid>
 #include "archivenames.h"
 #include <archive.h>
@@ -289,8 +291,8 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
             if (ordinal >= MaxEntries) return {{}, QCoreApplication::translate("KomaMimic", "書庫内の項目数が上限（100,000）を超えています。")};
             if (!metadataRead) {
                 const int family = archive_format(a.get()) & ARCHIVE_FORMAT_BASE_MASK;
-                if (family == ARCHIVE_FORMAT_ZIP) { metadata = readZipNames(path); book->canReinterpret = true; }
-                else if (family == ARCHIVE_FORMAT_LHA) { metadata = readLhaNames(path); book->canReinterpret = true; }
+                if (family == ARCHIVE_FORMAT_ZIP) { metadata = readZipNames(path,options.cancel); book->canReinterpret = true; }
+                else if (family == ARCHIVE_FORMAT_LHA) { metadata = readLhaNames(path,options.cancel); book->canReinterpret = true; }
                 if (!metadata.error.isEmpty()) return {{}, metadata.error};
                 book->format = QString::fromUtf8(archive_format_name(a.get()));
                 metadataRead = true;
@@ -439,6 +441,11 @@ bool Book::sourceUnchanged(int index) const {
 DataResult Book::encoded(int index, const std::function<bool()> &cancel) const {
     const auto cancelled=[cancel,bookCancel=openOptions.cancel]{return (cancel && cancel()) || (bookCancel && bookCancel());};
     if(cancelled())return {{},QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。")};
+    const auto acquire=[&] {
+        std::unique_lock<QMutex> lock(m_encodedCache->mutex,std::defer_lock);
+        while(!lock.try_lock()){if(cancelled())return lock;QThread::msleep(2);}
+        return lock;
+    };
     Utf8ArchiveLocale locale;
     if (!locale.valid()) return {{}, QCoreApplication::translate("KomaMimic", "書庫のUnicode処理に必要なUTF-8 localeを作成できません。")};
     if (index < 0 || index >= pages.size()) return {{}, QCoreApplication::translate("KomaMimic", "ページが範囲外です。")};
@@ -453,7 +460,7 @@ DataResult Book::encoded(int index, const std::function<bool()> &cancel) const {
     if (info.size() != (filesystem ? page.encodedSize : m_fileSize)
         || info.lastModified().toMSecsSinceEpoch() != (filesystem ? page.modifiedMs : m_modifiedMs))
         return {{}, QCoreApplication::translate("KomaMimic", "画像・書庫が変更されています。開き直してください。")};
-    {QMutexLocker lock(&m_encodedCache->mutex);if(const auto *value=page.identity.isEmpty()?nullptr:m_encodedCache->values.object(page.identity))return {*value,{}};}
+    {auto lock=acquire();if(!lock.owns_lock())return {{},QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。")};if(const auto *value=page.identity.isEmpty()?nullptr:m_encodedCache->values.object(page.identity))return {*value,{}};}
     if (page.encodedSize > MaxEncodedBytes || page.encodedSize < 0)
         return {{}, QCoreApplication::translate("KomaMimic", "画像データの上限（64 MiB）を超えています: %1").arg(page.name)};
     if (filesystem) {
@@ -463,7 +470,8 @@ DataResult Book::encoded(int index, const std::function<bool()> &cancel) const {
         if (bytes.size() > MaxEncodedBytes || file.error() != QFile::NoError) return {{}, QCoreApplication::translate("KomaMimic", "画像データを読めません。")};
         return cacheData(page.identity,bytes);
     }
-    QMutexLocker lock(&m_encodedCache->mutex);
+    auto lock=acquire();
+    if(!lock.owns_lock())return {{},QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。")};
     if(cancelled())return {{},QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。")};
     auto &cursor=m_encodedCache->cursor;
     if(!cursor || cursor->next>page.archiveIndex) {

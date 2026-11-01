@@ -40,7 +40,8 @@ QString unicodeExtra(const QByteArray &extra, const QByteArray &raw, QString &wa
 ArchiveNames failure(const QString &message) { return {{}, message}; }
 }
 
-ArchiveNames readZipNames(const QString &path) {
+ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cancel) {
+    if(cancel && cancel())return failure(QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。"));
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) return failure(file.errorString());
     const quint64 fileSize = quint64(file.size());
@@ -70,6 +71,7 @@ ArchiveNames readZipNames(const QString &path) {
     ArchiveNames result;
     quint64 cursor = directoryOffset;
     for (quint64 i = 0; i < count; ++i) {
+        if(cancel && cancel())return failure(QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。"));
         const auto fixed = readAt(file, cursor, 46);
         if (fixed.size() != 46 || u32(fixed, 0) != 0x02014b50) return failure(QCoreApplication::translate("KomaMimic", "ZIPのcentral headerが不正です。"));
         const quint16 nameSize = u16(fixed, 28), extraSize = u16(fixed, 30), commentSize = u16(fixed, 32);
@@ -129,12 +131,14 @@ ArchiveNames readZipNames(const QString &path) {
     return result;
 }
 
-ArchiveNames readLhaNames(const QString &path) {
+ArchiveNames readLhaNames(const QString &path,const std::function<bool()> &cancel) {
+    if(cancel && cancel())return failure(QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。"));
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) return failure(file.errorString());
     ArchiveNames result;
     quint64 offset = 0, metadataBytes = 0;
     while (offset < quint64(file.size())) {
+        if(cancel && cancel())return failure(QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。"));
         const quint64 remaining = quint64(file.size()) - offset;
         if (remaining < 21) {
             const auto end = readAt(file, offset, remaining);
@@ -171,6 +175,7 @@ ArchiveNames readLhaNames(const QString &path) {
         if (level > 0) {
             quint64 extended = 0;
             for (;;) {
+                if(cancel && cancel())return failure(QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。"));
                 const auto sizeField = readAt(file, offset + chain, quint64(width));
                 if (sizeField.size() != width) return failure(QCoreApplication::translate("KomaMimic", "LHA拡張headerが切れています。"));
                 const quint64 size = width == 2 ? u16(sizeField, 0) : u32(sizeField, 0);

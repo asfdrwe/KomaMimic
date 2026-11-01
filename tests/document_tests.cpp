@@ -193,7 +193,7 @@ private slots:
     QTemporaryDir d;
     QVERIFY(TestData::write(d.filePath("cover.epub"), imageBook()));
     MainWindow w(d.filePath("settings.ini"));
-    w.show(); w.openDirectory(d.path());
+    w.show(); w.openDirectory(d.path());QTRY_VERIFY(w.directoryReady());
     auto *grid = w.findChild<ThumbnailGrid *>("zipLibrary");
     QVERIFY(grid); QCOMPARE(grid->count(), 1);
     QTRY_VERIFY_WITH_TIMEOUT(grid->item(0)->data(ThumbnailRoleReady).toBool(), 10000);
@@ -271,7 +271,7 @@ private slots:
     field->setFocus(); field->clear(); QTest::keyClick(field,Qt::Key_Space);
     QCOMPARE(field->text(),QString(" "));
     QCOMPARE(w.command("spread")->isChecked(),spread); QCOMPARE(w.pageIndex(),page);
-    w.showCovers(); QVERIFY(w.command("next")->shortcut().isEmpty());
+    w.showCovers();QTRY_VERIFY(w.requestReady()); QVERIFY(w.command("next")->shortcut().isEmpty());
     QCOMPARE(w.bindings().value("next"),base.value("next"));
     w.close();
     MainWindow restored(config);

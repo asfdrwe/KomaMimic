@@ -68,8 +68,11 @@ See [Differences from MangaMeeya](compatibility.md) for compatibility and sortin
 
 Committed, valid thumbnail PNGs can be read without waiting for writer/maintenance locks or a full cache inventory scan.
 Last-use updates are best-effort. Writing, deletion and trimming still use a lock, and PNGs and inventory revisions use temporary-file replacement.
-If a generated image cannot obtain the save lock, it may be displayed without being saved. It may need regeneration next time;
-this does not invalidate other committed PNGs.
+PNG lookup for the current viewport runs separately from source generation; hits appear as they become available.
+Generated images are returned for display before PNG persistence. Saving, last-use updates, and maintenance run after current display work settles.
+Page-thumbnail mode does not render the hidden reading image or prefetch reading pages.
+Pending writes may be omitted because of their memory limit, writer contention, or shutdown; those images may need regeneration next time.
+This does not invalidate other committed PNGs.
 
 The cache retains at most 20,000 thumbnails as well as respecting the configured byte limit, trimming older entries first.
 Changes to the application, Qt, image readers, source path/size/modification time or filename encoding can require regeneration.

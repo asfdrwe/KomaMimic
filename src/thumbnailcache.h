@@ -3,6 +3,8 @@
 #include "media.h"
 #include <QMap>
 #include <QMutex>
+#include <QList>
+#include <QCache>
 #include <QLoggingCategory>
 #include <atomic>
 
@@ -19,13 +21,30 @@ public:
     qint64 limitBytes() const { return m_limit.load(); }
     // Configuration itself performs no disk I/O.
     void configure(bool enabled, int megabytes);
+    // Live display uses nonblocking lookup and defers persistence to its idle lane.
+    void setDeferredWrites(bool enabled) { m_deferred.store(enabled); }
+    ImageResult lookup(const QByteArray &key,const std::function<bool()> &cancel={});
+    bool hasPendingWrites() const;
+    bool flushPending(const std::function<bool()> &cancel={});
+    void discardPending();
     ImageResult image(const QByteArray &key, const std::function<ImageResult()> &generate,
                       const std::function<bool()> &cancel = {}, bool refresh = false,
                       const std::function<bool()> &sourceUnchanged = {});
-    Stats stats();
+    Stats stats(const std::function<bool()> &cancel={});
     QString clear();
     QString maintain(const std::function<bool()> &cancel = {});
 private:
+    struct Pending {
+        QByteArray key; QImage image; quint64 epoch=0;
+        std::function<bool()> sourceUnchanged;
+    };
+    void enqueue(Pending pending);
+    bool store(const Pending &,const std::function<bool()> &cancel);
+    mutable QMutex m_pendingMutex;
+    QList<Pending> m_pending;
+    QCache<QByteArray,QImage> m_recentImages{32*1024};
+    qint64 m_pendingBytes=0;
+    std::atomic<bool> m_deferred{false};
     struct Entry { qint64 bytes=0, used=0, diskUsed=0; };
     bool prepare(bool create, QString &error);
     bool inventory(const std::function<bool()> &cancel = {});

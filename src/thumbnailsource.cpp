@@ -29,10 +29,11 @@ QByteArray digest(const QByteArray &data) {return QCryptographicHash::hash(data,
 }
 ImageResult cachedCover(const QString &path,const NamePolicy &policy,
                         const std::shared_ptr<ThumbnailDiskCache> &cache,
-                        const std::function<bool()> &cancel,bool refresh,int depth) {
+                        const std::function<bool()> &cancel,bool refresh,int depth,bool cachedOnly) {
     if(cancel && cancel()) return {};
     const QFileInfo info(physicalBookPath(path));
     if(info.isDir()) {
+        if(cachedOnly)return {};
         // Cache actual source files, so changing an image within a directory
         // cannot leave its old synthetic folder cover on disk indefinitely.
         if(depth>2) return {};
@@ -65,7 +66,7 @@ ImageResult cachedCover(const QString &path,const NamePolicy &policy,
                              << "version" << KOMAMIMIC_VERSION << "qt" << qVersion()
                              << "encoding" << policy.legacyEncoding << "force" << policy.force;
     if (parseArchiveEntryPath(path).valid()) key["entry"] = bookIdentityPath(path);
-    bool cacheableCover = true;
+    auto cacheableCover = std::make_shared<bool>(true);
     const auto generate=[&]() -> ImageResult {
         if(cancel && cancel()) return {};
         if(isImagePath(path) && !parseArchiveEntryPath(path).valid()) {
@@ -77,21 +78,22 @@ ImageResult cachedCover(const QString &path,const NamePolicy &policy,
         OpenOptions options;options.cancel=cancel;
         const auto opened=Book::open(path,policy,options);
         if(!opened.book) return {{},opened.error};
-        cacheableCover = !opened.book->hasArchivedText() && !opened.book->archiveDirectory;
+        *cacheableCover = !opened.book->hasArchivedText() && !opened.book->archiveDirectory;
         return opened.book->preview(0,ThumbnailSize,cancel);
     };
     // First-page text previews depend on external images and installed fonts.
     const auto bytes=source.isEmpty() || (isTextDocumentPath(path) && info.suffix().compare("epub",Qt::CaseInsensitive)!=0)
         ? QByteArray{} : QJsonDocument(key).toJson(QJsonDocument::Compact);
-    return cache->image(bytes,generate,cancel,refresh,[path,source,&cacheableCover]{return cacheableCover && fingerprint(physicalBookPath(path))==source;});
+    if(cachedOnly)return refresh ? ImageResult{} : cache->lookup(bytes,cancel);
+    return cache->image(bytes,generate,cancel,refresh,[path,source,cacheableCover]{return *cacheableCover && fingerprint(physicalBookPath(path))==source;});
 }
 ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int index,
                                 const std::shared_ptr<ThumbnailDiskCache> &cache,
-                                const std::function<bool()> &cancel,bool refresh) {
+                                const std::function<bool()> &cancel,bool refresh,bool cachedOnly) {
     if(!book || index<0 || index>=book->pages.size()) return {{},QCoreApplication::translate("KomaMimic", "ページが範囲外です。")};
     // A disk hit must not bypass Book's stale-source check when an old Book
     // survives while the archive is replaced and another job opens its new version.
-    if(!book->sourceUnchanged(index)) return book->image(index,ThumbnailSize,cancel);
+    if(!book->sourceUnchanged(index)) return cachedOnly ? ImageResult{} : book->image(index,ThumbnailSize,cancel);
     const auto &page=book->pages[index];
     const auto path=page.archivedText ? book->path : book->filesystem || page.document ? page.filePath : book->path;
     const auto source=fingerprint(physicalBookPath(path));
@@ -106,11 +108,12 @@ ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int inde
     key["password"]=QString::fromLatin1(digest(book->openOptions.password.toUtf8()));
     const auto bytes=page.archivedText || (source.isEmpty() && page.inlineData.isEmpty()) || isTextDocumentPath(page.filePath)
         ? QByteArray{} : QJsonDocument(key).toJson(QJsonDocument::Compact);
+    if(cachedOnly)return refresh ? ImageResult{} : cache->lookup(bytes,cancel);
     return cache->image(bytes,[book,index,cancel]{return book->image(index,ThumbnailSize,cancel);},cancel,refresh,
         [book,index,path,source]{return book->sourceUnchanged(index) && fingerprint(physicalBookPath(path))==source;});
 }
 QImage cachedCollectionCover(const QString &path,const NamePolicy &policy,const QJsonObject &metadata,bool spine,
-                             const std::shared_ptr<ThumbnailDiskCache> &cache,const std::function<bool()> &cancel) {
+                             const std::shared_ptr<ThumbnailDiskCache> &cache,const std::function<bool()> &cancel,bool cachedOnly) {
     if(cancel && cancel()) return {};
     const QString field=spine && metadata.contains("spinePng") ? "spine" : "cover";
     const auto encoded=metadata.value(field+"Png").toString().toLatin1();
@@ -120,10 +123,12 @@ QImage cachedCollectionCover(const QString &path,const NamePolicy &policy,const 
         if(!image.isNull()) return image;
     }
     const int page=metadata.value(field).toInt();
-    if(page==0 || QFileInfo(path).suffix().compare("epub",Qt::CaseInsensitive)==0) return cachedCover(path,policy,cache,cancel).image;
+    if(page==0 || QFileInfo(path).suffix().compare("epub",Qt::CaseInsensitive)==0) return cachedCover(path,policy,cache,cancel,false,0,cachedOnly).image;
     const auto source=fingerprint(physicalBookPath(path));auto key=baseKey(source,policy);
     key["kind"]="registered-page";key["page"]=page;
-    return cache->image(source.isEmpty()?QByteArray{}:QJsonDocument(key).toJson(QJsonDocument::Compact),[&]() -> ImageResult {
+    const auto bytes=source.isEmpty()?QByteArray{}:QJsonDocument(key).toJson(QJsonDocument::Compact);
+    if(cachedOnly)return cache->lookup(bytes,cancel).image;
+    return cache->image(bytes,[&]() -> ImageResult {
         OpenOptions options;options.cancel=cancel;
         const auto result=Book::open(path,policy,options);
         if(!result.book) return {{},result.error};

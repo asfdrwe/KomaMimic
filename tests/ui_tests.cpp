@@ -7,9 +7,11 @@
 #include "shortcuts.h"
 #include "scriptreader.h"
 #include "defaultpreferences.h"
+#include "thumbnailsource.h"
 #include <QAction>
 #include <QCheckBox>
 #include <QComboBox>
+#include <QClipboard>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
 #include <QJsonArray>
@@ -21,6 +23,7 @@
 #include <QTableWidget>
 #include <QWheelEvent>
 #include <QCursor>
+#include <QSet>
 #include <QDialog>
 #include <QDir>
 #include <QFileSystemWatcher>
@@ -97,14 +100,63 @@ private slots:
         auto *list=window.findChild<QListWidget *>("collection_playlist"); QVERIFY(list);
         QTRY_VERIFY(list->isVisible());
         QTest::qWait(250);
-        QVERIFY(QThreadPool::globalInstance()->activeThreadCount()>0);
-        QElapsedTimer elapsed; elapsed.start();
-        window.close();
-        const bool stopped=QThreadPool::globalInstance()->waitForDone(1500);
-        qInfo() << "Background work stopped after close:" << elapsed.elapsed() << "ms";
-        // Always join before leaving the fixture, including a regression failure.
-        if (!stopped) QThreadPool::globalInstance()->waitForDone();
-        QVERIFY2(stopped,"Closing the window left collection-cover generation running");
+        QVERIFY(window.backgroundWorkActive());
+        QElapsedTimer elapsed;elapsed.start();window.close();
+        QTRY_VERIFY_WITH_TIMEOUT(!window.backgroundWorkActive(),1500);
+        qInfo()<<"Background work stopped after close:"<<elapsed.elapsed()<<"ms";
+    }
+    void visibleCachedCoverBypassesSlowGeneration() {
+        QTemporaryDir d;const auto scripts=d.filePath("scripts"),books=d.filePath("books");
+        QVERIFY(QDir().mkpath(scripts));QVERIFY(QDir().mkpath(books));
+        QVERIFY(TestData::write(scripts+"/manifest.json",R"({"apiVersion":1,"kind":"reader","id":"slow-cover","extensions":["lag"],"magic":"4c414747","script":"decode.js"})"));
+        QVERIFY(TestData::write(scripts+"/decode.js","function decode(){while(true){}}"));
+        QVERIFY(configureScriptReaders({scripts}).isEmpty());
+        const auto restore=qScopeGuard([]{configureScriptReaders({});});
+        QVERIFY(TestData::write(books+"/01.lag","LAGG first"));QVERIFY(TestData::write(books+"/02.lag","LAGG second"));
+        const auto png=books+"/03.png";QVERIFY(TestData::write(png,TestData::png(TestData::solid(Qt::blue))));
+        auto cache=std::make_shared<ThumbnailDiskCache>();QVERIFY(!cachedCover(png,{},cache).image.isNull());
+        MainWindow window(d.filePath("settings.ini"));window.show();window.openDirectory(books);QTRY_VERIFY(window.directoryReady());
+        QTRY_VERIFY(window.directoryReady());
+        auto *grid=window.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(grid);QCOMPARE(grid->count(),3);
+        QTRY_VERIFY_WITH_TIMEOUT(grid->item(2)->data(ThumbnailRoleReady).toBool(),2000);
+        QVERIFY(!grid->item(0)->data(ThumbnailRoleReady).toBool());
+        window.openBook(png);QTRY_VERIFY_WITH_TIMEOUT(window.renderReady(),3000);
+        window.close();QTRY_VERIFY_WITH_TIMEOUT(!window.backgroundWorkActive(),1500);
+    }
+    void explicitRefreshBypassesSavedCover() {
+        QTemporaryDir d;const auto books=d.filePath("books");QVERIFY(QDir().mkpath(books));
+        const auto source=books+"/page.png";QVERIFY(TestData::write(source,TestData::png(TestData::solid(Qt::red))));
+        auto cache=std::make_shared<ThumbnailDiskCache>();
+        const auto beforeList=QDir(cache->directory()).entryList({"*.png"},QDir::Files);
+        const QSet<QString> before(beforeList.begin(),beforeList.end());
+        QVERIFY(!cachedCover(source,{},cache).image.isNull());QString stored;
+        for(const auto &name:QDir(cache->directory()).entryList({"*.png"},QDir::Files))if(!before.contains(name))stored=name;
+        QVERIFY(!stored.isEmpty());QVERIFY(TestData::write(QDir(cache->directory()).filePath(stored),TestData::png(TestData::solid(Qt::blue))));
+        MainWindow w(d.filePath("settings.ini"));w.show();w.openDirectory(books);QTRY_VERIFY(w.directoryReady());
+        auto *grid=w.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(grid);QCOMPARE(grid->count(),1);
+        const auto color=[&]{const auto image=grid->item(0)->icon().pixmap(80,120).toImage();return image.pixelColor(image.rect().center());};
+        QTRY_COMPARE(color(),QColor(Qt::blue));
+        w.command("thumbRefresh")->trigger();QTRY_VERIFY(w.directoryReady());
+        QTRY_COMPARE(color(),QColor(Qt::red));w.close();
+    }
+    void pageModeDoesNotRenderHiddenReader() {
+        QTemporaryDir d;const auto books=d.filePath("books");QVERIFY(QDir().mkpath(books));
+        QVERIFY(TestData::write(books+"/pages.zip",TestData::zip({{"01.png",TestData::png(TestData::solid())},{"02.png",TestData::png(TestData::solid(Qt::blue))}})));
+        MainWindow w(d.filePath("settings.ini"));w.show();w.openDirectory(books);QTRY_VERIFY(w.directoryReady());
+        w.showPageThumbnails();QTRY_VERIFY(!w.isLoading() && w.pageCount()==2);
+        QCOMPARE(w.viewMode(),MainWindow::ViewMode::Pages);QVERIFY(w.requestReady());
+        auto *grid=w.findChild<ThumbnailGrid *>("pageThumbnails");QVERIFY(grid);
+        QTRY_VERIFY(grid->item(0)->data(ThumbnailRoleReady).toBool());QVERIFY(!w.renderReady());
+        grid->setCurrentRow(1);QApplication::clipboard()->clear();w.command("imageCopy")->trigger();
+        QTRY_VERIFY(!QApplication::clipboard()->image().isNull());
+        QCOMPARE(QApplication::clipboard()->image().pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(w.pageIndex(),0);QVERIFY(!w.renderReady());
+        grid->setCurrentRow(0);QApplication::clipboard()->clear();
+        w.runRequest({{"page",2},{"commands",QJsonArray{"imageCopy"}}});
+        QTRY_VERIFY(!QApplication::clipboard()->image().isNull());
+        QCOMPARE(grid->currentRow(),1);QCOMPARE(w.pageIndex(),1);
+        QCOMPARE(QApplication::clipboard()->image().pixelColor(0,0),QColor(Qt::blue));QVERIFY(!w.renderReady());
+        w.command("thumbAccept")->trigger();QTRY_VERIFY(w.renderReady());QCOMPARE(w.viewMode(),MainWindow::ViewMode::Reader);w.close();
     }
     void mangaDefaultsAndSavedSettings() {
         QTemporaryDir d;const auto config=d.filePath("new.ini");
@@ -180,7 +232,7 @@ private slots:
     }
     void fullscreenDefaultDoesNotOverlapAccept() {
         QTemporaryDir d;const auto images=d.filePath("images");QVERIFY(TestData::imageFolder(images,2));
-        MainWindow w(d.filePath("settings.ini"));w.show();w.activateWindow();w.openDirectory(images);
+        MainWindow w(d.filePath("settings.ini"));w.show();w.activateWindow();w.openDirectory(images);QTRY_VERIFY(w.directoryReady());
         const auto keys=w.bindings();
         QCOMPARE(keys.value("thumbAccept"),QKeySequence("Return"));
         QCOMPARE(keys.value("treeAccept"),QKeySequence("Return"));
@@ -203,7 +255,7 @@ private slots:
         auto *view=w.findChild<PageView *>();QVERIFY(view);view->setFocus();
         QTest::keyClick(view,Qt::Key_F11);QTRY_VERIFY(w.isFullScreen());
         QTest::keyClick(view,Qt::Key_F11);QTRY_VERIFY(!w.isFullScreen());
-        w.showCovers();covers->setFocus();
+        w.showCovers();QTRY_VERIFY(w.requestReady());covers->setFocus();
         QTest::keyClick(covers,Qt::Key_F11);QTRY_VERIFY(w.isFullScreen());
         QTest::keyClick(covers,Qt::Key_F11);QTRY_VERIFY(!w.isFullScreen());
 #endif
@@ -307,12 +359,12 @@ private slots:
             } else w.openBook(paths[0]);
             QTRY_VERIFY(w.renderReady());w.showPageThumbnails();QCOMPARE(w.viewMode(),MainWindow::ViewMode::Pages);
             auto *grid=w.findChild<ThumbnailGrid *>("pageThumbnails");QVERIFY(grid);QCOMPARE(grid->count(),2);
-            w.command("nextBook")->trigger();QTRY_COMPARE(w.bookPath(),paths[playlist?2:1]);QTRY_VERIFY(!w.isLoading() && w.renderReady());
+            QTRY_VERIFY(w.command("nextBook")->isEnabled());w.command("nextBook")->trigger();QTRY_COMPARE(w.bookPath(),paths[playlist?2:1]);QTRY_VERIFY(w.requestReady());
             QCOMPARE(w.viewMode(),MainWindow::ViewMode::Pages);QCOMPARE(grid->count(),playlist?4:3);
-            w.command("previousBook")->trigger();QTRY_COMPARE(w.bookPath(),paths[0]);QTRY_VERIFY(!w.isLoading() && w.renderReady());
+            QTRY_VERIFY(w.command("previousBook")->isEnabled());w.command("previousBook")->trigger();QTRY_COMPARE(w.bookPath(),paths[0]);QTRY_VERIFY(w.requestReady());
             QCOMPARE(w.viewMode(),MainWindow::ViewMode::Pages);QCOMPARE(grid->count(),2);
             w.command("thumbCancel")->trigger();QCOMPARE(w.viewMode(),MainWindow::ViewMode::Reader);
-            w.command("nextBook")->trigger();QTRY_COMPARE(w.bookPath(),paths[playlist?2:1]);QTRY_VERIFY(!w.isLoading() && w.renderReady());
+            QTRY_VERIFY(w.command("nextBook")->isEnabled());w.command("nextBook")->trigger();QTRY_COMPARE(w.bookPath(),paths[playlist?2:1]);QTRY_VERIFY(w.requestReady());
             QCOMPARE(w.viewMode(),MainWindow::ViewMode::Reader);w.close();
         }
     }
@@ -656,7 +708,7 @@ private slots:
         QVERIFY(TestData::imageFolder(directory)); QVERIFY(TestData::imageFolder(other,2));
         const auto archive=TestData::zip({{"1.png",TestData::png(TestData::solid())}});
         MainWindow w(d.filePath("settings.ini")); w.show(); w.activateWindow(); TestData::singlePage(w);
-        w.openDirectory(directory);
+        w.openDirectory(directory);QTRY_VERIFY(w.directoryReady());
         auto *grid=w.findChild<ThumbnailGrid *>("zipLibrary"); QVERIFY(grid);
         grid->setLayoutMode(ThumbnailGrid::Layout::EightColumns);
         auto *watcher=w.findChild<QFileSystemWatcher *>("browserDirectoryWatcher"); QVERIFY(watcher);
@@ -681,10 +733,10 @@ private slots:
         QVERIFY(watcher->removePath(directory));
         QVERIFY(TestData::write(directory+"/manual.zip",archive));
         grid->setFocus(); QTRY_VERIFY(grid->hasFocus());
-        QTest::keyClick(grid,Qt::Key_F6); QCOMPARE(grid->count(),6);
+        QTest::keyClick(grid,Qt::Key_F6); QTRY_VERIFY(w.directoryReady());QTRY_COMPARE(grid->count(),6);
         QVERIFY(paths().contains(directory+"/manual.zip"));
         QCOMPARE(grid->currentItem()->data(PathRole).toString(),selected);
-        w.openBook(directory+"/1.png"); QTRY_VERIFY(!w.isLoading() && w.renderReady());
+        w.openBook(directory+"/1.png"); QTRY_VERIFY(w.requestReady());
         w.nextPage(); QTRY_VERIFY(w.renderReady());
         const auto book=w.bookPath(); const int page=w.pageIndex();
         QVERIFY(TestData::write(directory+"/reader.zip",archive)); QTRY_COMPARE(grid->count(),7);
@@ -700,7 +752,7 @@ private slots:
         QCOMPARE(w.bookPath(),book); QCOMPARE(w.pageIndex(),page);
         // Discard pending notifications from the old folder when navigating.
         QVERIFY(TestData::write(directory+"/old.zip",archive));
-        w.openDirectory(other); QCOMPARE(grid->count(),2);
+        w.openDirectory(other);QTRY_VERIFY(w.directoryReady()); QCOMPARE(grid->count(),2);
         QCOMPARE(watcher->directories(),QStringList{other});
         QVERIFY(TestData::write(other+"/new.zip",archive)); QTRY_COMPARE(grid->count(),3);
         QVERIFY(paths().contains(other+"/new.zip"));
@@ -720,7 +772,7 @@ private slots:
     void directoryRefreshPreservesEditingAndStopsAfterSettingsWrites() {
         QTemporaryDir d;
         const auto config=d.filePath("settings.ini");
-        MainWindow w(config); w.show(); w.activateWindow(); w.openDirectory(d.path());
+        MainWindow w(config); w.show(); w.activateWindow(); w.openDirectory(d.path());QTRY_VERIFY(w.directoryReady());
         auto *grid=w.findChild<ThumbnailGrid *>("zipLibrary"); QVERIFY(grid);
         auto *field=new QLineEdit(&w); field->setGeometry(20,40,240,30); field->show(); field->setFocus();
         QTRY_VERIFY(field->hasFocus());
@@ -752,11 +804,11 @@ private slots:
                 TestData::zip({{"1.png",TestData::png(TestData::solid())}})));
         const auto config=d.filePath("settings.ini");
         MainWindow w(config); w.show(); w.activateWindow(); TestData::singlePage(w);
-        w.openBook(images+"/1.png"); QTRY_VERIFY(!w.isLoading() && w.renderReady());
+        w.openBook(images+"/1.png"); QTRY_VERIFY(w.requestReady());
         QTRY_VERIFY(w.isActiveWindow());
         const auto originalPath=w.bookPath();
         for (const auto &directory : {images,books}) {
-            w.openDirectory(directory);
+            w.openDirectory(directory);QTRY_VERIFY(w.directoryReady());
             auto *grid=w.findChild<ThumbnailGrid *>("zipLibrary"); QVERIFY(grid);
             QTRY_VERIFY(grid->hasFocus());
             QCOMPARE(w.viewMode(),MainWindow::ViewMode::Covers);
@@ -790,7 +842,7 @@ private slots:
         QVERIFY(w.command("next")->shortcut().isEmpty());
         QTest::keyClick(tree,Qt::Key_Right);
         QCOMPARE(w.viewMode(),MainWindow::ViewMode::Covers);
-        w.openBook(images+"/1.png"); QTRY_VERIFY(!w.isLoading() && w.renderReady());
+        w.openBook(images+"/1.png"); QTRY_VERIFY(w.requestReady());
         auto *view=w.findChild<PageView *>(); QVERIFY(view); QTRY_VERIFY(view->hasFocus());
         QCOMPARE(w.command("next")->shortcut(),QKeySequence("Right"));
         QVERIFY(w.command("thumbRight")->shortcut().isEmpty());
@@ -808,7 +860,7 @@ private slots:
         auto bindings=w.bindings(); bindings["next"]=QKeySequence("Ctrl+Alt+N");
         QVERIFY(w.applyBindings(bindings));
         QCOMPARE(w.command("next")->shortcut(),bindings.value("next"));
-        w.showCovers(); QVERIFY(w.command("next")->shortcut().isEmpty());
+        w.showCovers();QTRY_VERIFY(w.requestReady()); QVERIFY(w.command("next")->shortcut().isEmpty());
         QCOMPARE(w.bindings().value("next"),bindings.value("next"));
         w.close();
         MainWindow restored(config);
@@ -818,7 +870,7 @@ private slots:
     void thumbnailMouseKeyboardHandoff() {
         QTemporaryDir d; const auto path=d.filePath("pages"); QVERIFY(TestData::imageFolder(path));
         MainWindow w(d.filePath("settings.ini")); w.show(); w.activateWindow();
-        w.openDirectory(path);
+        w.openDirectory(path);QTRY_VERIFY(w.directoryReady());
         QTRY_VERIFY(w.isActiveWindow());
         for (const bool pages : {false, true}) {
             if (pages) {
@@ -949,7 +1001,7 @@ private slots:
         w.nextPage(); QTRY_VERIFY(w.renderReady()); QCOMPARE(w.pageIndex(),1);
         w.nextPage(); QTRY_VERIFY(w.renderReady()); QCOMPARE(w.pageIndex(),3);
         w.showPageThumbnails(); QCOMPARE(w.viewMode(),MainWindow::ViewMode::Pages);
-        w.parentFolder(); QCOMPARE(w.viewMode(),MainWindow::ViewMode::Covers);
+        w.parentFolder();QTRY_VERIFY(w.viewMode()!=MainWindow::ViewMode::Covers || w.requestReady()); QCOMPARE(w.viewMode(),MainWindow::ViewMode::Covers);
         w.close();
     }
     void newestLoadWins() {
