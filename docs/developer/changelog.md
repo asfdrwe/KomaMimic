@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.1.1
+
+- Persist fullscreen state across restarts, including native window-state changes, and add a fullscreen checkbox to Preferences.
+- Restore fullscreen after the normal window and controls are ready, retaining the normal geometry, splitter, and maximized state.
+- Preserve fullscreen state through settings slots and settings-file import/export without overwriting the imported value during application.
+- Add restart, preferences, native-state, settings-file, and CLI regression tests.
+
 ## v1.1.0
 
 - Make reading filenames and thumbnail page numbers optional and hidden by default; reclaim the filename band for image display.

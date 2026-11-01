@@ -2,6 +2,12 @@
 
 [日本語](../changelog.md) | English
 
+## v1.1.1
+
+- Remember fullscreen state across restarts. Quitting in fullscreen restores fullscreen; leaving fullscreen before quitting restores a normal window.
+- Add Preferences → Display → Fullscreen to change the current window mode.
+- Include fullscreen state in settings slots and settings-file export/import while preserving the normal window layout when leaving fullscreen.
+
 ## v1.1.0
 
 - Make reading filenames and thumbnail page numbers optional and hidden by default; reclaim the filename band for image display.
