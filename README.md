@@ -272,6 +272,7 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 
 ## Changelog
 
+- **v1.2.0**: Prioritize visible thumbnails and separate cached-image lookup from image generation. Display generated images before saving the cache, cancel obsolete work, and avoid hidden reader rendering in thumbnail mode. Load folder lists asynchronously while preserving selection and scroll position.
 - **v1.1.1**: Remember fullscreen state across restarts and add a fullscreen toggle to Preferences. Include the state in settings slots and settings-file import/export while preserving the normal window layout.
 - **v1.1.0**: Add an independent two-pane folder browser, optional reading filenames and thumbnail numbering, and detailed custom thumbnail layouts; simplify the toolbar toggle. Persist shared file-sort defaults, support illustrated Aozora TXT, fix document-layout restoration and folder-tree selection, and reuse cached thumbnails during writer contention.
 - **v1.0.3**: Fix Linux AppImage document startup and Windows EPUB Unicode paths; add document deployment checks and cache diagnostics.

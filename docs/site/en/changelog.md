@@ -2,6 +2,13 @@
 
 [日本語](../changelog.md) | English
 
+## v1.2.0
+
+- Prioritize visible cover and page thumbnails, separating saved-cache lookup from expensive image generation so cached images can appear while other thumbnails are being generated.
+- Display generated images before saving them. Run cache writes, maintenance, and reading prefetch as background work, and cancel obsolete work when the display target changes.
+- Stop hidden reader rendering and prefetch in thumbnail mode. Decode a selected page for image copying only when explicitly requested.
+- Load and sort folder lists asynchronously while preserving selection and scroll position during updates.
+
 ## v1.1.1
 
 - Remember fullscreen state across restarts. Quitting in fullscreen restores fullscreen; leaving fullscreen before quitting restores a normal window.

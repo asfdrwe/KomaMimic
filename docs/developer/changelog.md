@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.2.0
+
+- キャッシュ読取・現在表示・後続処理の専用実行枠と取消可能な要求キューを追加。可視行の変更時は旧要求を取り消し、古い結果の反映を防止。
+- サムネイルのlookup・生成・保存を分離。生成画像を先に返し、上限付き保存待ちキューとRAMキャッシュを追加。保存世代でclear・設定変更前の要求を無効化。
+- フォルダ列挙・ソートをworkerへ移し、一覧を分割登録。非表示Readerの描画・先読みを停止し、一覧準備完了とReader描画完了を分離。
+- 読書先読み、キャッシュ整理・使用量調査等を後続枠へ移動。書庫metadata走査とデータ取得mutex待ちにも取消確認を追加。
+- キャッシュhitの独立進行、不要要求の取消、保存待ちの上限とclear、F6再生成、非表示Reader停止、画像コピーと起動コマンドの回帰テストを追加。
+
 ## v1.1.1
 
 - Persist fullscreen state across restarts, including native window-state changes, and add a fullscreen checkbox to Preferences.
