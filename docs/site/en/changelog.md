@@ -2,6 +2,10 @@
 
 [日本語](../changelog.md) | English
 
+## v1.2.1
+
+- Restore a minimized existing window before requesting activation on a second launch in single-instance mode, preserving maximized/fullscreen state and reading position.
+
 ## v1.2.0
 
 - Prioritize visible cover and page thumbnails, separating saved-cache lookup from expensive image generation so cached images can appear while other thumbnails are being generated.
