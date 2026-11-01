@@ -119,6 +119,28 @@ private slots:
         MainWindow restarted(config);restarted.openDirectory(d.path());restarted.readFolder();QTRY_VERIFY(restarted.renderReady());
         QVERIFY(restarted.command("sortRandom")->isChecked());restarted.close();
     }
+    void fullscreenSettingsFilesAndSlots() {
+        QTemporaryDir d;const auto config=d.filePath("settings.ini");MainWindow w(config);w.show();
+        ReaderFeatures *features=nullptr;
+        for(auto *child:w.children())if(auto *candidate=dynamic_cast<ReaderFeatures *>(child))features=candidate;
+        QVERIFY(features);
+        QTimer dismiss;
+        connect(&dismiss,&QTimer::timeout,&w,[]{if(auto *box=qobject_cast<QMessageBox *>(QApplication::activeModalWidget()))box->accept();});
+        dismiss.start(10);
+        const auto exported=d.filePath("export.ini");
+        w.setFullscreen(true);features->settingsFile(false,exported);w.command("settingsSave4")->trigger();
+        w.setFullscreen(false);features->settingsFile(true,exported);QVERIFY(w.isFullScreen());
+        w.setFullscreen(false);w.command("settingsLoad4")->trigger();QVERIFY(w.isFullScreen());
+        // Loading other settings triggers saves; the imported target must survive.
+        const auto normal=d.filePath("normal.ini");
+        QVERIFY(TestData::write(normal,"[window]\nfullscreen=false\n[reading]\nrtl=false\n"));
+        features->settingsFile(true,normal);QVERIFY(!w.isFullScreen());
+        const auto old=d.filePath("old.ini");QVERIFY(TestData::write(old,"[reading]\nrtl=true\n"));
+        w.setFullscreen(true);features->settingsFile(true,old);QVERIFY(w.isFullScreen());
+        w.setFullscreen(false);features->settingsFile(true,old);QVERIFY(!w.isFullScreen());
+        dismiss.stop();w.close();
+        MainWindow restored(config);restored.show();QVERIFY(!restored.isFullScreen());restored.close();
+    }
     void filenameBandChangesImageGeometry() {
         PageView view; view.resize(500,600); view.show();
         view.setPages({TestData::solid(Qt::red,{100,1000})},false,"001.jpg");

@@ -79,6 +79,7 @@ public:
 protected:
     QMenu *createPopupMenu() override;
     void changeEvent(QEvent *) override;
+    void showEvent(QShowEvent *) override;
     void closeEvent(QCloseEvent *) override;
     void dragEnterEvent(QDragEnterEvent *) override;
     void dropEvent(QDropEvent *) override;
@@ -164,6 +165,7 @@ private:
     bool m_toolbarBeforeFullscreen = false;
     bool m_topChromeVisible = false, m_bottomChromeVisible = false;
     bool m_fullscreenTransition = false;
+    bool m_restoreFullscreen = false;
     bool m_treeBeforeFullscreen = true, m_wasMaximized = false;
     ViewMode m_mode = ViewMode::Covers, m_beforeThumbnails = ViewMode::Reader;
     ImageOptions m_imageOptions;

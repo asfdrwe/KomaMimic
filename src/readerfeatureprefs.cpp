@@ -282,7 +282,7 @@ void ReaderFeatures::settingsFile(bool import, const QString &provided, bool man
   const auto inputKeys = input.allKeys();
   const bool own = std::any_of(inputKeys.cbegin(), inputKeys.cend(), [](const QString &key) {
     return key.startsWith("covers/") || key.startsWith("reading/") || key.startsWith("keys/") || key.startsWith("text/") ||
-        key.startsWith("display/") || key.startsWith("ui/") || key.startsWith("documents/") || key.startsWith("cache/");
+        key.startsWith("display/") || key.startsWith("ui/") || key.startsWith("documents/") || key.startsWith("cache/") || key == "window/fullscreen";
   });
   if (!own || mangaMeeyaOnly) { importMangaMeeyaSettings(text); return; }
   auto importedKeys = w->bindings();
@@ -302,6 +302,10 @@ void ReaderFeatures::settingsFile(bool import, const QString &provided, bool man
       return;
     }
   }
+  // Applying other actions can save the current window state. Keep the imported
+  // target separately until all controls have been restored. Old files retain
+  // the current fullscreen state when they have no explicit value.
+  const bool importedFullscreen = input.value("window/fullscreen", w->isFullScreen()).toBool();
   int copied = 0;
   for (const auto &key : inputKeys) { w->m_settings->setValue(key, input.value(key)); ++copied; }
   if (own) {
@@ -329,6 +333,7 @@ void ReaderFeatures::settingsFile(bool import, const QString &provided, bool man
   if(!w->m_directory.isEmpty())w->populateDirectory(w->m_directory,false,false);
   }
   w->restoreToolbarSettings();
+  w->setFullscreen(importedFullscreen);
   w->m_settings->sync();
   QMessageBox::information(w, QCoreApplication::translate("KomaMimic", "設定インポートの結果"),
       QCoreApplication::translate("KomaMimic", "KomaMimicの設定を%1件取り込みました。").arg(copied));
@@ -514,6 +519,10 @@ void ReaderFeatures::preferences(const QString &pageName) {
   password->setEchoMode(QLineEdit::Password);
   source->addRow(QCoreApplication::translate("KomaMimic", "書庫・PDFのパスワード（今回の起動中のみ）"), password);
   auto *display = form("display", QCoreApplication::translate("KomaMimic", "表示"));
+  check(display, QCoreApplication::translate("KomaMimic", "全画面表示"), "window/fullscreen", false);
+  auto *fullscreen = qobject_cast<QCheckBox *>(editors["window/fullscreen"]);
+  fullscreen->setChecked(w->isFullScreen());
+  fullscreen->setToolTip(QCoreApplication::translate("KomaMimic", "終了時の全画面状態を保存し、次回起動時に復元します。"));
   check(display, QCoreApplication::translate("KomaMimic", "読書ツールバーを表示（下部）"), "window/readerToolbar", false);
   check(display,QCoreApplication::translate("KomaMimic", "読書画面の下部にファイル名を表示"),"display/filename",false);
   check(display,QCoreApplication::translate("KomaMimic", "上下2ペインのフォルダブラウザーを使う"),"folders/twoPane",true);
@@ -835,6 +844,7 @@ void ReaderFeatures::preferences(const QString &pageName) {
   w->m_settings->sync();
   setApplicationAppearance(w->m_settings->value("display/appearance",0).toInt());
   w->m_actions["toolbarToggle"]->setChecked(w->m_settings->value("window/readerToolbar", false).toBool());
+  w->setFullscreen(fullscreen->isChecked());
   if (w->isFullScreen()) w->setFullscreenChromeVisible(w->m_topChromeVisible, w->m_bottomChromeVisible);
   w->m_thumbnailDiskCache->configure(w->m_settings->value("cache/thumbnailsEnabled",true).toBool(),w->m_settings->value("cache/thumbnailMegabytes",512).toInt());
   (void)QtConcurrent::run([disk=w->m_thumbnailDiskCache,stop=w->m_backgroundCancel]{disk->maintain([stop]{return stop->load();});});

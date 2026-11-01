@@ -46,6 +46,7 @@
 #include <QScopedValueRollback>
 #include <QSignalBlocker>
 #include <QSlider>
+#include <QShowEvent>
 #include <QSplitter>
 #include <QStackedWidget>
 #include <QStatusBar>
@@ -86,6 +87,7 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
       m_openToken(std::make_shared<std::atomic<quint64>>(0)),
       m_pageThumbnailToken(std::make_shared<std::atomic<quint64>>(0)), m_imageCache(128 * 1024) {
     initializeMangaPreferences(*m_settings);
+    m_restoreFullscreen = m_settings->value("window/fullscreen", false).toBool();
     m_imageCache.setMaxCost(std::clamp(m_settings->value("cache/megabytes",128).toInt(),16,2048)*1024);
     setApplicationAppearance(m_settings->value("display/appearance",0).toInt());
     m_thumbnailDiskCache=std::make_shared<ThumbnailDiskCache>();
@@ -130,6 +132,13 @@ MainWindow::~MainWindow() {
     disconnect(qApp, nullptr, this, nullptr);
     if (m_features) m_features->closingBook();
     m_features.reset(); qApp->removeEventFilter(this);
+}
+
+void MainWindow::showEvent(QShowEvent *event) {
+    QMainWindow::showEvent(event);
+    // Restore only once, after the normal window and its controls are ready.
+    // Later show() calls (including IPC activation) retain the current state.
+    if (m_restoreFullscreen) setFullscreen(true);
 }
 
 void MainWindow::changeEvent(QEvent *event) {
@@ -649,14 +658,18 @@ void MainWindow::updateFullscreenChrome(const QPoint &position) {
     else if (!m_chromeHideTimer->isActive()) m_chromeHideTimer->start();
 }
 void MainWindow::setFullscreen(bool enabled) {
-    if (enabled == isFullScreen()) return;
+    m_restoreFullscreen = false;
+    if (enabled == isFullScreen()) { saveSettings(); return; }
     updateFullscreenState(enabled, true);
 }
 void MainWindow::updateFullscreenState(bool enabled, bool changeWindowState) {
     const QScopedValueRollback<bool> transition(m_fullscreenTransition, true);
     m_chromeHideTimer->stop();
     if (enabled) {
-        if (changeWindowState) m_settings->setValue("window/geometry", saveGeometry());
+        if (changeWindowState) {
+            m_settings->setValue("window/geometry", saveGeometry());
+            m_settings->setValue("window/splitter", m_splitter->saveState());
+        }
         m_toolbarBeforeFullscreen = m_actions["toolbarToggle"]->isChecked();
         m_treeBeforeFullscreen = !m_treePanel->isHidden();
         m_wasMaximized = isMaximized();
@@ -673,7 +686,7 @@ void MainWindow::updateFullscreenState(bool enabled, bool changeWindowState) {
         setFullscreenChromeVisible(true, true);
     }
     { const QSignalBlocker blocker(m_actions["tree"]); m_actions["tree"]->setChecked(!m_treePanel->isHidden()); }
-    focusCurrentView(); refreshState();
+    focusCurrentView(); refreshState(); saveSettings();
 }
 QHash<QString, QKeySequence> MainWindow::bindings() const {
     if (!m_baseBindings.isEmpty()) return m_baseBindings;
@@ -798,6 +811,8 @@ void MainWindow::saveSettings() {
     m_settings->setValue("reading/leadingBlank", m_options.leadingBlank);
     m_settings->setValue("reading/boundaryMode", int(m_options.boundaryMode));
     m_settings->setValue("reading/animationRepeat", m_actions["mediaRepeat"]->isChecked());
+    // Opening a book before the first show must not discard startup restoration.
+    m_settings->setValue("window/fullscreen", m_restoreFullscreen || isFullScreen());
     m_settings->setValue("window/tree", isFullScreen() ? m_treeBeforeFullscreen : !m_treePanel->isHidden());
     if (!isFullScreen()) {
         m_settings->setValue("window/geometry", saveGeometry());

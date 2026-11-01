@@ -24,6 +24,18 @@ To back up, quit the app and copy the entire settings folder.
 
 ![General settings](../../assets/screenshots/settings-settings-ja.png)
 
+## Fullscreen
+
+Use Preferences → Display → Fullscreen and press OK to change the current window.
+Cancel leaves it unchanged. Changes made through menus, shortcuts, or OS window controls are also remembered.
+Quitting in fullscreen restores fullscreen on the next startup; leaving fullscreen before quitting restores a normal window instead.
+Leaving fullscreen restores the normal window's position, size, and maximized state.
+
+New settings and older settings without a saved fullscreen state start in a normal window.
+`--fullscreen` (`-f`) starts in fullscreen regardless of the saved state.
+Settings slots and KomaMimic settings export/import include the fullscreen state.
+Importing an older file without this setting keeps the current fullscreen state.
+
 ## Caches
 
 Preferences → Cache controls in-memory preloading and thumbnail disk storage.

@@ -4308,6 +4308,14 @@ Follows the pointer only while the list has keyboard focus. Does not open books 
         </message>
         <message>
             <location filename="../src/readerfeatureprefs.cpp" line="535" />
+            <source>全画面表示</source>
+            <translation>Fullscreen</translation>
+        </message>
+        <message>
+            <source>終了時の全画面状態を保存し、次回起動時に復元します。</source>
+            <translation>Save the fullscreen state on exit and restore it on the next startup.</translation>
+        </message>
+        <message>
             <source>全画面時のメニュー</source>
             <translation>Fullscreen menu</translation>
         </message>

@@ -12,6 +12,7 @@
 #include <QComboBox>
 #include <QDialogButtonBox>
 #include <QDoubleSpinBox>
+#include <QJsonArray>
 #include <QKeySequenceEdit>
 #include <QLabel>
 #include <QProcess>
@@ -37,6 +38,7 @@
 #include <QTabWidget>
 #include <QToolBar>
 #include <QToolButton>
+#include <QTextStream>
 #include <QVBoxLayout>
 
 namespace {
@@ -354,6 +356,98 @@ private slots:
         for (const auto &id : {"readerToolbar"})
             QVERIFY(w.findChild<QToolBar *>(id)->isVisible());
         w.close();
+    }
+    void fullscreenPersistenceAndNormalWindow_data() {
+        QTest::addColumn<bool>("native");
+        QTest::addColumn<bool>("maximized");
+        QTest::newRow("command-normal") << false << false;
+        QTest::newRow("command-maximized") << false << true;
+        QTest::newRow("native-normal") << true << false;
+        QTest::newRow("native-maximized") << true << true;
+    }
+    void fullscreenPersistenceAndNormalWindow() {
+        QFETCH(bool,native); QFETCH(bool,maximized);
+        QTemporaryDir d; const auto config=d.filePath("settings.ini");
+        { QSettings settings(config,QSettings::IniFormat);settings.setValue("window/readerToolbar",true); }
+        QSize normalSize; QByteArray geometry;
+        {
+            MainWindow w(config);w.resize(640,480);w.show();
+            QVERIFY(!w.isFullScreen());
+            if(maximized)w.showMaximized();
+            QCoreApplication::processEvents();normalSize=w.size();
+            w.command("boundaryStop")->trigger();
+            { QSettings settings(config,QSettings::IniFormat);geometry=settings.value("window/geometry").toByteArray(); }
+            QVERIFY(!geometry.isEmpty());
+            if(native)w.showFullScreen();else w.command("fullscreenGlobal")->trigger();
+            QTRY_VERIFY(w.isFullScreen());
+            { QSettings settings(config,QSettings::IniFormat);QVERIFY(settings.value("window/fullscreen").toBool()); }
+            w.close();
+            QSettings settings(config,QSettings::IniFormat);
+            QVERIFY(settings.value("window/fullscreen").toBool());
+            QCOMPARE(settings.value("window/geometry").toByteArray(),geometry);
+        }
+        {
+            MainWindow restored(config);QVERIFY(!restored.isVisible());restored.show();
+            QTRY_VERIFY(restored.isFullScreen());
+            restored.setFullscreen(false);QTRY_VERIFY(!restored.isFullScreen());
+            QCOMPARE(restored.isMaximized(),maximized);
+            if(!maximized)QTRY_COMPARE(restored.size(),normalSize);
+            QVERIFY(restored.findChild<QToolBar *>("readerToolbar")->isVisible());
+            QVERIFY(restored.findChild<FolderBrowser *>()->isVisible());
+            restored.close();
+        }
+        MainWindow normal(config);normal.show();QVERIFY(!normal.isFullScreen());normal.close();
+        QSettings settings(config,QSettings::IniFormat);QVERIFY(!settings.value("window/fullscreen").toBool());
+    }
+    void fullscreenPreferencesApplyAndCancel() {
+        QTemporaryDir d;const auto config=d.filePath("settings.ini");MainWindow w(config);w.show();
+        const auto edit=[&](bool target,bool accept) {
+            const bool before=w.isFullScreen();bool inspected=false;
+            QTimer::singleShot(0,&w,[&] {
+                auto *dialog=w.findChild<QDialog *>("preferencesDialog");QVERIFY(dialog);
+                QTimer::singleShot(2000,dialog,&QDialog::reject);
+                auto *box=dialog->findChild<QCheckBox *>("window/fullscreen");
+                if(!box){dialog->reject();QFAIL("Missing fullscreen preference");}
+                QCOMPARE(box->isChecked(),before);inspected=true;box->setChecked(target);
+                if(accept)dialog->accept();else dialog->reject();
+            });
+            w.command("preferences")->trigger();QVERIFY(inspected);
+            QCOMPARE(w.isFullScreen(),accept?target:before);
+            QSettings settings(config,QSettings::IniFormat);
+            QCOMPARE(settings.value("window/fullscreen",false).toBool(),accept?target:before);
+        };
+        edit(true,false);edit(true,true);edit(false,false);edit(false,true);
+        w.command("fullscreenGlobal")->trigger();edit(false,false);
+        w.close();
+    }
+    void fullscreenSurvivesProcessRestart() {
+        QTemporaryDir d;const auto config=d.filePath("settings.ini");
+        {
+            MainWindow w(config);w.show();w.setFullscreen(true);w.close();
+        }
+        for(const auto &expected:{QByteArray("fullscreen"),QByteArray("normal")}) {
+            QProcess child;
+            child.start(QCoreApplication::applicationFilePath(),{"--probe-fullscreen",config});
+            QVERIFY(child.waitForFinished(15000));QCOMPARE(child.exitStatus(),QProcess::NormalExit);QCOMPARE(child.exitCode(),0);
+            QCOMPARE(child.readAllStandardOutput().trimmed(),expected);
+        }
+    }
+    void fullscreenStartupRequestsKeepCurrentState() {
+        QTemporaryDir d;const auto config=d.filePath("settings.ini");
+        {QSettings settings(config,QSettings::IniFormat);settings.setValue("window/fullscreen",true);}
+        {
+            MainWindow w(config);
+            // Saving another preference before show must retain startup restoration.
+            w.command("boundaryStop")->trigger();w.show();QTRY_VERIFY(w.isFullScreen());
+            w.runRequest({{"fullscreen",false},{"commands",QJsonArray{"toolbarToggle"}}});
+            QTRY_VERIFY(w.command("toolbarToggle")->isChecked());QVERIFY(w.isFullScreen());
+            w.setFullscreen(false);w.hide();w.show();QVERIFY(!w.isFullScreen());
+            w.runRequest({{"fullscreen",true},{"commands",QJsonArray{"toolbarToggle"}}});
+            QTRY_VERIFY(!w.command("toolbarToggle")->isChecked());QVERIFY(w.isFullScreen());w.close();
+        }
+        MainWindow overridden(config);overridden.setFullscreen(false);overridden.show();
+        QVERIFY(!overridden.isFullScreen());overridden.close();
+        QSettings settings(config,QSettings::IniFormat);QVERIFY(!settings.value("window/fullscreen").toBool());
     }
     void fullscreenChromeAtSeparateEdges() {
         QTemporaryDir d;
@@ -927,5 +1021,22 @@ private slots:
         v.stopAnimations(); QCOMPARE(v.animationFrame(),0);
     }
 };
-ISOLATED_TEST_MAIN(UiTests)
+int main(int argc,char **argv) {
+    if(argc==3 && QByteArray(argv[1])=="--probe-fullscreen") {
+        qputenv("QT_QPA_PLATFORM","offscreen");
+        QApplication app(argc,argv);
+        QCoreApplication::setOrganizationName("KomaMimicTests");
+        QCoreApplication::setApplicationName("Regression");
+        {
+            MainWindow w(QString::fromLocal8Bit(argv[2]));w.show();
+            QCoreApplication::processEvents();
+            QTextStream(stdout) << (w.isFullScreen()?"fullscreen":"normal") << '\n';
+            // Save normal mode so the next, separate process checks both ways.
+            w.setFullscreen(false);w.close();
+        }
+        QThreadPool::globalInstance()->waitForDone();
+        return 0;
+    }
+    return isolatedTestMain<UiTests>(argc,argv);
+}
 #include "ui_tests.moc"

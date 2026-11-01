@@ -96,6 +96,19 @@ private slots:
         LibraryStore db(d.filePath("library.sqlite3")); auto items=db.items("history"); QCOMPARE(items.size(),1);
         QCOMPARE(items.first().state.value("anchor").toInt(),2);
     }
+    void fullscreenOptionAndSavedStartup() {
+        QTemporaryDir d;const auto config=d.filePath("settings.ini");
+        const auto saved=[&] {QSettings settings(config,QSettings::IniFormat);return settings.value("window/fullscreen",false).toBool();};
+        auto result=run({"--config",config,"--new-window","--fullscreen","--execute","quit"});
+        QCOMPARE(result.code,0);QVERIFY(saved());
+        // With no flag, startup must restore fullscreen before this toggle.
+        result=run({"--config",config,"--new-window","--execute","fullscreenGlobal","--execute","quit"});
+        QCOMPARE(result.code,0);QVERIFY(!saved());
+        result=run({"--config",config,"--new-window","--fullscreen","--execute","quit"});
+        QCOMPARE(result.code,0);QVERIFY(saved());
+        result=run({"--config",config,"--new-window","--execute","quit"});
+        QCOMPARE(result.code,0);QVERIFY(saved());
+    }
     void ipcOrRestrictedFallback() {
         QTemporaryDir d; const auto config=d.filePath("settings.ini");
         QLocalServer probe;
