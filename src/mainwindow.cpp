@@ -160,6 +160,14 @@ MainWindow::~MainWindow() {
     m_features.reset(); m_displayJobs.reset(); qApp->removeEventFilter(this);
 }
 
+void MainWindow::restoreAndActivate() {
+    // Restore only minimization; keep maximized/fullscreen state and geometry.
+    if (isMinimized()) setWindowState(windowState() & ~Qt::WindowMinimized);
+    show();
+    raise();
+    activateWindow();
+}
+
 void MainWindow::showEvent(QShowEvent *event) {
     QMainWindow::showEvent(event);
     // Restore only once, after the normal window and its controls are ready.

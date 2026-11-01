@@ -409,6 +409,41 @@ private slots:
             QVERIFY(w.findChild<QToolBar *>(id)->isVisible());
         w.close();
     }
+    void restoreAndActivateKeepsWindowAndReadingState_data() {
+        QTest::addColumn<int>("mode");
+        QTest::addColumn<bool>("minimized");
+        for (int mode=0;mode<4;++mode) {
+            const QString name=QStringList{"normal","maximized","fullscreen","fullscreen-from-maximized"}[mode];
+            QTest::newRow(qPrintable(name+"-visible")) << mode << false;
+            QTest::newRow(qPrintable(name+"-minimized")) << mode << true;
+        }
+    }
+    void restoreAndActivateKeepsWindowAndReadingState() {
+        QFETCH(int,mode); QFETCH(bool,minimized);
+        QTemporaryDir d;const auto images=d.filePath("images");
+        QVERIFY(TestData::imageFolder(images,3));
+        MainWindow w(d.filePath("settings.ini"));w.resize(640,480);w.show();
+        TestData::singlePage(w);w.openBook(images+"/1.png");QTRY_VERIFY(w.renderReady());
+        w.nextPage();QTRY_COMPARE(w.pageIndex(),1);QTRY_VERIFY(w.renderReady());
+        const auto book=w.bookPath();const auto normalSize=w.size();
+        if(mode==1 || mode==3) {w.showMaximized();QTRY_VERIFY(w.isMaximized());}
+        if(mode>=2) {w.setFullscreen(true);QTRY_VERIFY(w.isFullScreen());}
+        if(minimized) {w.command("minimize")->trigger();QTRY_VERIFY(w.isMinimized());}
+        w.restoreAndActivate();
+        QTRY_VERIFY(w.isVisible() && !w.isMinimized());
+        QCOMPARE(w.isFullScreen(),mode>=2);
+        if(mode<2)QCOMPARE(w.isMaximized(),mode==1);
+        if(mode==0)QCOMPARE(w.size(),normalSize);
+        QCOMPARE(w.bookPath(),book);QCOMPARE(w.pageIndex(),1);
+        QCOMPARE(w.viewMode(),MainWindow::ViewMode::Reader);
+        if(mode>=2) {
+            QSettings settings(d.filePath("settings.ini"),QSettings::IniFormat);
+            QVERIFY(settings.value("window/fullscreen").toBool());
+            w.setFullscreen(false);QTRY_VERIFY(!w.isFullScreen());
+            QCOMPARE(w.isMaximized(),mode==3);
+        }
+        w.close();
+    }
     void fullscreenPersistenceAndNormalWindow_data() {
         QTest::addColumn<bool>("native");
         QTest::addColumn<bool>("maximized");

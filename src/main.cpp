@@ -343,9 +343,7 @@ int main(int argc, char **argv) {
                          socket->write("ok\n");
                          socket->flush();
                          socket->disconnectFromServer();
-                         window.show();
-                         window.raise();
-                         window.activateWindow();
+                         window.restoreAndActivate();
                          window.runRequest(document.object());
                        });
       QTimer::singleShot(5000, socket, &QLocalSocket::disconnectFromServer);

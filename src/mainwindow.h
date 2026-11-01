@@ -40,6 +40,7 @@ public:
     enum class ViewMode { Covers, Pages, Reader };
     explicit MainWindow(const QString &settingsPath, QWidget *parent = nullptr, IdleInhibitor *inhibitor = nullptr);
     ~MainWindow() override;
+    void restoreAndActivate();
     void runRequest(const QJsonObject &request);
     void openDirectory(const QString &path);
     void openBook(const QString &path);
