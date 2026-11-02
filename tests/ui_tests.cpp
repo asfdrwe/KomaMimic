@@ -830,9 +830,16 @@ private slots:
         QCOMPARE(w.directory(),other); QCOMPARE(w.viewMode(),MainWindow::ViewMode::Covers);
         QVERIFY(TestData::imageFolder(other,40)); QTRY_COMPARE(grid->count(),41);
         grid->setCurrentRow(3);
+        // A pending selection/layout update can scroll the list back to the
+        // selected item after setValue() on macOS. Drain it before testing
+        // whether a directory refresh preserves an explicitly set position.
+        grid->doItemsLayout();
+        QCoreApplication::processEvents();
+        grid->doItemsLayout();
         const auto scrollSelection=grid->currentItem()->data(PathRole).toString();
         auto *bar=grid->verticalScrollBar(); QTRY_VERIFY(bar->maximum()>100);
         bar->setValue(bar->maximum()/2); const int scroll=bar->value();
+        QVERIFY(scroll>0);
         QVERIFY(TestData::write(other+"/scroll.zip",archive)); QTRY_COMPARE(grid->count(),42);
         QCoreApplication::processEvents();
         // The scrollbar may be restored by a deferred zero-timeout timer.
