@@ -75,6 +75,20 @@ the tag, commit, canonical source hash, asset hashes, and Windows line-ending
 differences. Original package manifests retain their generation-time manual-test
 status; CI does not invent a manual pass or a completed license audit.
 
+## Before merging a branch
+
+On a pull request, confirm the Build and Pages/documentation checks.
+The Windows Build job uses the `platform` test scope,
+which includes the Windows settings-import regression and single-instance IPC
+smoke test; Fedora and macOS Build jobs run the `full` CTest scope.
+Do not treat a local CTest pass as proof that the staged Windows ZIP, macOS
+app/DMG, or Linux AppImage works after relocation. Check each packaging job
+and its distribution candidate artifacts. For the complete multi-OS release
+bundle, use the manual Release workflow on the pushed branch **before tagging**.
+The manual run assembles and verifies release assets but does not publish.
+Inspect its bundle and complete the separate dependency-notice and
+corresponding-source audit before creating a public version tag.
+
 ## Trying the workflow before tagging
 
 After committing and pushing the workflow, select **Release → Run workflow** and

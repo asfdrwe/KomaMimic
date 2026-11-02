@@ -23,17 +23,26 @@ ctest --test-dir build-windows-test -C Release --output-on-failure --parallel 2 
 Set PATH for the Qt and vcpkg DLLs and configure Qt plugin discovery as in the build
 instructions.
 
+The Windows offscreen Qt Test entry point sets `QT_QPA_FONTDIR` from
+`%WINDIR%\Fonts` if it is unset, and defaults `QTWEBENGINE_CHROMIUM_FLAGS`
+to `--disable-gpu` if it is unset. These settings affect tests, not the
+installed application. On Windows, `ui_tests` and `document_tests` have
+300-second CTest timeouts for parallel runs; the cache suite uses 300
+seconds on every OS for its 20,001-file regression. Rerun timed-out
+suites individually to distinguish contention from a genuine hang.
+
 ## Test scopes
 
-`full` contains 18 groups: compatibility, reader, UI, feature, format, PDF, CLI, script, PIC,
-document, power, evolution, cache, i18n, archive_text, legacy_settings, plus format
-checks under the C locale and Python distribution checks.
-
-`platform` contains ten groups: compatibility, CLI, UI, PDF, script, document, power, cache, i18n,
-and distribution. Some Qt groups run only the functions needed for OS integration.
-This is the Windows-fast default. Its cache group is limited to the regression
-that verifies process exit at 48 cancellation points during ZIP reading and image
-extraction. Do not report ten passing platform groups as 18 passing full groups.
+`full` registers 19 CTest entries: 16 Qt suites (compatibility, reader, UI,
+feature, format, PDF, CLI, script, PIC, document, power, evolution, cache, i18n,
+archive_text and legacy_settings), the C-locale format check, and the Python
+single-instance IPC and distribution checks.
+`platform` registers 12 CTest entries: compatibility, CLI, UI, PDF, script,
+document, power, cache, i18n, legacy_settings, single-instance IPC, and
+distribution. Some Qt suites run only selected platform integration functions.
+This is the Windows-fast CI default. Its cache suite selects cancellation,
+disk-persistence and worker-scheduling regressions; it is not the full cache suite.
+Do not report passing `platform` checks as the full test scope.
 
 ```sh
 ctest --test-dir build-test -R '^(ui|script)_tests$' --output-on-failure
@@ -49,7 +58,13 @@ CTest runs Qt tests offscreen with temporary settings and original synthetic inp
 If real WebEngine, local IPC, or D-Bus is unavailable, tests may skip with a reason.
 Record CTest successes, Qt pass/fail/skip counts, and Python test counts separately.
 A Qt skip does not complete a GUI check. The dedicated Linux D-Bus test requires
-`dbus-daemon`.
+`dbus-daemon`. The offscreen single-instance Python test checks IPC forwarding
+and `--new-window`, not a real compositor's foreground-activation policy.
+WebEngine GPU-context warnings alone are not test failures. If a Windows
+document view fails to render, a temporary launch with
+`QTWEBENGINE_CHROMIUM_FLAGS=--disable-gpu` can isolate a GPU/driver issue,
+potentially at lower performance. Do not disable the WebEngine sandbox as
+a routine graphics workaround.
 
 `distribution_tests` checks public source re-export, rejection of unclassified data,
 reproducible source archives, synthetic fixture loading and RGBA comparisons, and
@@ -61,9 +76,10 @@ inside temporary directories; they do not initialize the active public source tr
 Thumbnail-cache diagnostics are disabled by default. On Linux, enable them for
 one run with `QT_LOGGING_RULES='komamimic.cache.debug=true' ./komamimic ...`.
 The category records hashed cache keys, hits, generation, unavailable locks,
-inventory counts and evictions. `cover-key`/`page-key` also record source and
-script fingerprints, version and Qt version, so a changed key can be separated
-from regenerating the same key. Cache-directory paths appear in these local
+inventory counts and evictions. `cover-key`/`page-key` log the source
+fingerprint and relevant source/name-encoding details; application, Qt,
+script-version and script-settings fingerprints no longer enter these keys.
+Cache-directory paths appear in these local
 logs; review diagnostics before sharing them. A folder-cover lookup still scans
 candidate files before a PNG hit, and opening an archive still indexes its pages;
 that source I/O alone does not prove thumbnail regeneration.

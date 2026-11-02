@@ -208,6 +208,8 @@ private slots:
       QVERIFY(selected);
       QSettings settings(config, QSettings::IniFormat);
       QCOMPARE(w.options().spread, category != LegacySettingsCategory::Reading);
+      QCOMPARE(settings.value("reading/spread").toBool(),
+               category != LegacySettingsCategory::Reading);
       QCOMPARE(settings.value("cache/ahead").toInt(),
                category == LegacySettingsCategory::Cache ? 9 : 2);
       QCOMPARE(settings.value("toolbar/showPageBar").toBool(),
@@ -216,6 +218,8 @@ private slots:
       QCOMPARE(w.bindings().value("next"),
                category == LegacySettingsCategory::Keyboard ? QKeySequence{}
                                                             : oldNext);
+      if (category == LegacySettingsCategory::Keyboard)
+        QCOMPARE(settings.value("keys/next").toString(), QString{});
       if (category == LegacySettingsCategory::Keyboard) {
         QVERIFY(settings.contains("legacy/KeyBoardKeyConfig/CMD1"));
         QVERIFY(!settings.contains("legacy/Config/PageMode"));
@@ -302,6 +306,7 @@ private slots:
     QVERIFY(previewed && result);
     QSettings s(config, QSettings::IniFormat);
     QCOMPARE(s.value("cache/ahead").toInt(), 7);
+    QCOMPARE(s.value("reading/spread").toBool(), false);
     QCOMPARE(w.options().spread, false);
     QVERIFY(!s.contains("legacy/AvisynthPlugin/Script1"));
     QVERIFY(!s.contains("legacy/Config/PageMode"));
@@ -313,6 +318,8 @@ private slots:
     auto *bar =
         dynamic_cast<ReaderToolBar *>(w.findChild<QToolBar *>("readerToolbar"));
     QVERIFY(bar);
+    QCOMPARE(s.value("toolbar/leftActions").toStringList(),
+             (QStringList{"open"}));
     QCOMPARE(bar->leftCommands(), (QStringList{"open"}));
     QCOMPARE(bar->rightCommands(), (QStringList{"fullscreenGlobal"}));
     QVERIFY(!s.value("toolbar/showPageBar").toBool());

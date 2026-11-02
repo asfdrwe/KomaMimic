@@ -162,7 +162,8 @@ MainWindow::~MainWindow() {
 
 void MainWindow::restoreAndActivate() {
     // Restore only minimization; keep maximized/fullscreen state and geometry.
-    if (isMinimized()) setWindowState(windowState() & ~Qt::WindowMinimized);
+    if (isMinimized())
+        setWindowState((windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
     show();
     raise();
     activateWindow();

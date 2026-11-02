@@ -52,6 +52,27 @@ ZIP内から直接起動せず、展開したフォルダーから起動しま�
 ショートカットを作る場合は、この`komamimic.exe`を参照先にします。
 起動後の操作は[基本操作](basic.md)を参照してください。
 
+> **Windows版の初回起動について**
+>
+> ダウンロードしたWindows版を初めて起動する際、環境によってはウィンドウが表示されるまで数秒程度かかる場合があります。Windowsのセキュリティ検査や初回のファイル読み込みなどが影響している可能性があります。通常、2回目以降の起動ではこの遅延は軽減されます。
+
+#### 文書表示が真っ白・真っ黒になる場合（GPU回避策）
+
+WindowsのGPUドライバーやQt WebEngineとの組み合わせによっては、TXT・Markdown・EPUBの
+文書表示が真っ白・真っ黒になったり、描画に失敗したりする場合があります。
+その際は**一時的な切り分け方法**として、展開したアプリのフォルダーでPowerShellを開き、
+次のコマンドで起動を試してください。
+
+```powershell
+$env:QTWEBENGINE_CHROMIUM_FLAGS = "--disable-gpu"
+.\komamimic.exe
+Remove-Item Env:\QTWEBENGINE_CHROMIUM_FLAGS -ErrorAction SilentlyContinue
+```
+
+これはQt WebEngineのGPU使用を抑制するワークアラウンドで、表示が遅くなる場合があります。
+すべての環境で有効とは限りません。恒久的な修正ではないため、GPUドライバーの更新も
+検討してください。セキュリティ上の理由から、WebEngineのサンドボックスは無効化しないでください。
+
 #### SmartScreenの警告が表示された場合
 
 現在のWindows版はコード署名を行っていません。ダウンロードしたアプリを初めて起動すると、

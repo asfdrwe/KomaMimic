@@ -409,6 +409,41 @@ private slots:
             QVERIFY(w.findChild<QToolBar *>(id)->isVisible());
         w.close();
     }
+    void restoreAndActivateBringsWindowForward_data() {
+        QTest::addColumn<bool>("minimized");
+        QTest::newRow("background-visible") << false;
+        QTest::newRow("background-minimized") << true;
+    }
+
+    void restoreAndActivateBringsWindowForward() {
+        QFETCH(bool, minimized);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        MainWindow primary(directory.filePath("primary.ini"));
+        primary.resize(640, 480);
+        primary.show();
+        primary.activateWindow();
+        QTRY_VERIFY(primary.isActiveWindow());
+
+        if (minimized) {
+            primary.showMinimized();
+            QTRY_VERIFY(primary.isMinimized());
+        }
+
+        QWidget foreground;
+        foreground.resize(300, 200);
+        foreground.show();
+        foreground.activateWindow();
+        QTRY_VERIFY(foreground.isActiveWindow());
+
+        primary.restoreAndActivate();
+        QTRY_VERIFY(primary.isVisible() && !primary.isMinimized());
+        QTRY_VERIFY(primary.isActiveWindow());
+        QVERIFY(!foreground.isActiveWindow());
+        foreground.close();
+        primary.close();
+    }
+
     void restoreAndActivateKeepsWindowAndReadingState_data() {
         QTest::addColumn<int>("mode");
         QTest::addColumn<bool>("minimized");

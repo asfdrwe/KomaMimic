@@ -2,7 +2,6 @@
 #include "thumbnailsource.h"
 #include "archivepath.h"
 #include <QCoreApplication>
-#include "scriptreader.h"
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
@@ -21,9 +20,10 @@ QByteArray fingerprint(const QString &path) {
         {"bytes",QString::number(file.size())},{"modified",QString::number(file.lastModified().toMSecsSinceEpoch())}}).toJson(QJsonDocument::Compact);
 }
 QJsonObject baseKey(const QByteArray &source,const NamePolicy &policy) {
-    return {{"revision",2},{"version",KOMAMIMIC_VERSION},{"qt",qVersion()},
+    // Rendering inputs, rather than build/toolkit versions, determine identity.
+    return {{"revision",2},
         {"source",QString::fromUtf8(source)},{"encoding",policy.legacyEncoding},{"force",policy.force},
-        {"scripts",QString::fromLatin1(scriptReaderFingerprint().toHex())},{"width",ThumbnailSize.width()},{"height",ThumbnailSize.height()}};
+        {"width",ThumbnailSize.width()},{"height",ThumbnailSize.height()}};
 }
 QByteArray digest(const QByteArray &data) {return QCryptographicHash::hash(data,QCryptographicHash::Sha256).toHex();}
 }
@@ -62,8 +62,7 @@ ImageResult cachedCover(const QString &path,const NamePolicy &policy,
     }
     const auto source=fingerprint(physicalBookPath(path));
     auto key=baseKey(source,policy);key["kind"]="cover";
-    qCDebug(thumbnailCacheLog) << "cover-key" << digest(source) << "scripts" << key["scripts"].toString()
-                             << "version" << KOMAMIMIC_VERSION << "qt" << qVersion()
+    qCDebug(thumbnailCacheLog) << "cover-key" << digest(source)
                              << "encoding" << policy.legacyEncoding << "force" << policy.force;
     if (parseArchiveEntryPath(path).valid()) key["entry"] = bookIdentityPath(path);
     auto cacheableCover = std::make_shared<bool>(true);
@@ -98,13 +97,11 @@ ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int inde
     const auto path=page.archivedText ? book->path : book->filesystem || page.document ? page.filePath : book->path;
     const auto source=fingerprint(physicalBookPath(path));
     auto key=baseKey(source,book->namePolicy);key["kind"]="page";
-    qCDebug(thumbnailCacheLog) << "page-key" << digest(source) << "scripts" << key["scripts"].toString()
-                             << "version" << KOMAMIMIC_VERSION << "qt" << qVersion();
+    qCDebug(thumbnailCacheLog) << "page-key" << digest(source);
     key["identity"]=page.identity;key["name"]=page.name;key["ordinal"]=QString::number(page.archiveIndex);
     key["page"]=page.documentPage;key["pdfResource"]=page.pdfResource;
     key["portion"]=QJsonArray{page.portion.x(),page.portion.y(),page.portion.width(),page.portion.height()};
     key["inline"]=QString::fromLatin1(digest(page.inlineData));
-    key["settings"]=QJsonObject::fromVariantMap(book->openOptions.scriptSettings);
     key["password"]=QString::fromLatin1(digest(book->openOptions.password.toUtf8()));
     const auto bytes=page.archivedText || (source.isEmpty() && page.inlineData.isEmpty()) || isTextDocumentPath(page.filePath)
         ? QByteArray{} : QJsonDocument(key).toJson(QJsonDocument::Compact);

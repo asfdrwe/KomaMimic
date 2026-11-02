@@ -129,9 +129,12 @@ void ReaderFeatures::importMangaMeeyaSettings(const QString &text) {
                    ? QCoreApplication::translate("KomaMimic", "割り当てなし")
                    : display(value);
       };
-      new QTreeWidgetItem(item,
-                          {label, it.key(), valueLabel(currentValue(it.key())),
-                           valueLabel(it.value())});
+      auto *child = new QTreeWidgetItem(item,
+                                        {label, it.key(), valueLabel(currentValue(it.key())),
+                                         valueLabel(it.value())});
+      // The user may deselect one destination of a multi-value change.
+      // An unset child check state must not be interpreted as selected.
+      child->setCheckState(0, Qt::Checked);
       report << " → " + it.key() + " = " + display(it.value());
     }
     if (change.values.size() <= 2)
@@ -151,8 +154,13 @@ void ReaderFeatures::importMangaMeeyaSettings(const QString &text) {
   apply->setObjectName("applyMangaMeeyaImport");
   const auto update = [=] {
     bool any = false;
-    for (int i = 0; i < tree->topLevelItemCount(); ++i)
-      any |= tree->topLevelItem(i)->checkState(0) == Qt::Checked;
+    for (int i = 0; i < tree->topLevelItemCount(); ++i) {
+      const auto *group = tree->topLevelItem(i);
+      if (group->checkState(0) == Qt::Unchecked)
+        continue;
+      for (int j = 0; j < group->childCount(); ++j)
+        any |= group->child(j)->checkState(0) == Qt::Checked;
+    }
     apply->setEnabled(any);
   };
   connect(tree, &QTreeWidget::itemChanged, &dialog, [=] {
@@ -171,8 +179,12 @@ void ReaderFeatures::importMangaMeeyaSettings(const QString &text) {
               const bool matches =
                   scope < 0 || int(plan.changes[i].category) == scope;
               item->setHidden(!matches);
-              if (scope != -2)
-                item->setCheckState(0, matches ? Qt::Checked : Qt::Unchecked);
+              if (scope != -2) {
+                const auto state = matches ? Qt::Checked : Qt::Unchecked;
+                item->setCheckState(0, state);
+                for (int j = 0; j < item->childCount(); ++j)
+                  item->child(j)->setCheckState(0, state);
+              }
               if (scope >= 0 && matches)
                 item->setExpanded(true);
             }
@@ -211,20 +223,25 @@ void ReaderFeatures::importMangaMeeyaSettings(const QString &text) {
   }
   backup.setAutoRemove(false);
   backup.close();
+  // Release settings.ini before QSettings atomically replaces it on Windows.
+  previous.close();
   QVariantMap selected;
   QSet<LegacySettingsCategory> categories;
   for (int i = 0; i < plan.changes.size(); ++i) {
     const auto &change = plan.changes[i];
-    const bool checked = tree->topLevelItem(i)->checkState(0) == Qt::Checked;
-    if (checked)
-      categories.insert(change.category);
+    const auto *group = tree->topLevelItem(i);
+    int childIndex = 0;
     for (auto it = change.values.cbegin(); it != change.values.cend(); ++it) {
+      const bool checked = group->checkState(0) != Qt::Unchecked &&
+                           group->child(childIndex++)->checkState(0) == Qt::Checked;
       report << (checked
                      ? QCoreApplication::translate("KomaMimic", "適用：")
                      : QCoreApplication::translate("KomaMimic", "選択せず：")) +
                     it.key();
-      if (checked)
+      if (checked) {
         selected[it.key()] = it.value();
+        categories.insert(change.category);
+      }
     }
   }
   const bool everything = selection->currentData().toInt() == -1;

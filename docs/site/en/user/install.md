@@ -56,6 +56,28 @@ subfolders are required. Run from the extracted folder, not directly inside the
 ZIP. Any shortcut should target this `komamimic.exe`. See [basic controls](basic.md)
 after startup.
 
+> **First launch on Windows**
+>
+> On some systems, the first launch of the downloaded Windows build may take a few seconds before the window appears. Windows security checks and initial file loading may contribute to the delay. Subsequent launches are usually faster.
+
+#### Blank document view or GPU-related rendering errors
+
+On some Windows graphics drivers, Qt WebEngine can fail to render TXT,
+Markdown or EPUB documents (for example, a blank or black reading view).
+As a **temporary troubleshooting workaround**, open PowerShell in the extracted
+application folder and try:
+
+```powershell
+$env:QTWEBENGINE_CHROMIUM_FLAGS = "--disable-gpu"
+.\komamimic.exe
+Remove-Item Env:\QTWEBENGINE_CHROMIUM_FLAGS -ErrorAction SilentlyContinue
+```
+
+This disables Qt WebEngine GPU acceleration and can reduce rendering speed.
+It is not a permanent fix and may not help every configuration; also consider
+updating the graphics driver. Do not disable the WebEngine sandbox to work
+around graphics issues.
+
 #### SmartScreen warning
 
 The current Windows build is not code-signed. On first launch of the downloaded

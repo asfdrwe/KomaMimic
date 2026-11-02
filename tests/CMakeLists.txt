@@ -8,9 +8,10 @@ set_property(CACHE KOMAMIMIC_TEST_SCOPE PROPERTY STRINGS full platform)
 if(KOMAMIMIC_TEST_SCOPE STREQUAL "full")
     set(suites compatibility reader ui feature format pdf cli script pic document power evolution cache i18n archive_text legacy_settings)
 elseif(KOMAMIMIC_TEST_SCOPE STREQUAL "platform")
-    set(suites compatibility cli ui pdf script document power cache i18n)
+    # Windows CI must exercise the settings.ini replacement regression too.
+    set(suites compatibility cli ui pdf script document power cache i18n legacy_settings)
     set(cache_functions zipCancellationDuringForwardSkip diskCacheSurvivesKilledWriter archiveMetadataScanCanYield cacheLookupHasReservedWorker obsoleteWaitingJobsAreRemoved backgroundDoesNotOccupyDisplayWorker deferredDisplayDoesNotWaitForInventory deferredStoresRespectClearAndMemoryBound)
-    set(ui_functions explicitRefreshBypassesSavedCover visibleCachedCoverBypassesSlowGeneration pageModeDoesNotRenderHiddenReader folderTreeListsFilesystemRoots closeCancelsCollectionCover fullscreenDefaultDoesNotOverlapAccept slideshowScrollDefault mangaDefaultsAndSavedSettings mangaMouseDefaultsAndScroll scriptPreferencesSaveCancelAndRestart loadNavigateAndViews toolbarDefaultsAndPersistence restoreAndActivateKeepsWindowAndReadingState fullscreenPersistenceAndNormalWindow fullscreenPreferencesApplyAndCancel fullscreenSurvivesProcessRestart fullscreenStartupRequestsKeepCurrentState fullscreenChromeAtSeparateEdges fullscreenMarginsWithoutUpperBar shortcutScopesAndPersistence thumbnailShortcutScopesFollowFocus nativeApplicationMenuRoles directoryChangesRefreshCovers directoryRefreshPreservesEditingAndStopsAfterSettingsWrites)
+    set(ui_functions explicitRefreshBypassesSavedCover visibleCachedCoverBypassesSlowGeneration pageModeDoesNotRenderHiddenReader folderTreeListsFilesystemRoots closeCancelsCollectionCover fullscreenDefaultDoesNotOverlapAccept slideshowScrollDefault mangaDefaultsAndSavedSettings mangaMouseDefaultsAndScroll scriptPreferencesSaveCancelAndRestart loadNavigateAndViews toolbarDefaultsAndPersistence restoreAndActivateBringsWindowForward restoreAndActivateKeepsWindowAndReadingState fullscreenPersistenceAndNormalWindow fullscreenPreferencesApplyAndCancel fullscreenSurvivesProcessRestart fullscreenStartupRequestsKeepCurrentState fullscreenChromeAtSeparateEdges fullscreenMarginsWithoutUpperBar shortcutScopesAndPersistence thumbnailShortcutScopesFollowFocus nativeApplicationMenuRoles directoryChangesRefreshCovers directoryRefreshPreservesEditingAndStopsAfterSettingsWrites)
     set(script_functions registryPreviewAndApiOneValidation scriptContractAndIsolation foldersAndArchives)
     set(document_functions documentProbeSeparateReport epubUnicodeFilesystemPath defaultStandardDocuments fixedViewportRendering extendedWideImagesAndSharedSpace documentReflowAndResume)
     set(power_functions windowLifecycleAndCommonPreference generalPreferencesSurviveProcessRestart existingEscapedGeneralSectionIsReadAfterRestart)
@@ -31,6 +32,12 @@ foreach(suite IN LISTS suites)
 endforeach()
 # UI persistence cases include disk syncs and fresh-process startup on slow disks.
 set_tests_properties(ui_tests PROPERTIES TIMEOUT 180)
+# The disk-cache count regression populates more than 20,000 real files.
+set_tests_properties(cache_tests PROPERTIES TIMEOUT 300)
+# Parallel WebEngine and filesystem-heavy tests need more time on Windows.
+if(WIN32)
+    set_tests_properties(ui_tests document_tests cache_tests PROPERTIES TIMEOUT 300)
+endif()
 add_dependencies(ui_tests komamimic)
 target_compile_definitions(ui_tests PRIVATE KOMAMIMIC_EXECUTABLE="$<TARGET_FILE:komamimic>")
 add_dependencies(cli_tests komamimic)
@@ -79,6 +86,18 @@ set_target_properties(document_probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAK
 add_dependencies(document_tests document_probe)
 
 find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
+
+# Smoke-test real secondary-process IPC with a private configuration.
+# The offscreen runner cannot validate the compositor's focus-stealing policy.
+add_test(NAME single_instance_tests
+    COMMAND "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/test_single_instance.py"
+    --executable "$<TARGET_FILE:komamimic>")
+set_tests_properties(single_instance_tests PROPERTIES
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    TIMEOUT 120)
+
 add_test(NAME distribution_tests COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/test_distribution.py"
     --worker "$<TARGET_FILE:komamimic-script-worker>" --probe "$<TARGET_FILE:validation_probe>")
