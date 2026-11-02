@@ -5,6 +5,20 @@ the existing Build and Rocky/Ubuntu AppImage workflows, assembles their verified
 outputs, uploads them to a draft, checks the uploaded assets, and publishes the
 complete Release. It never creates or moves Git tags.
 
+## Preparing v1.3.0 before tagging
+
+After merging the feature branch, set version `1.3.0` in `CMakeLists.txt`, both
+vcpkg manifests, and README; update the Japanese, English, and developer changelogs.
+The release validator requires these values to match `v1.3.0`. A tag pushed before
+the version-bump commit reaches `main` will fail validation.
+
+Push the version-bump commit, verify the Build and Pages checks, then manually run
+**Release → Run workflow** on `main`. The manual run assembles/verifies release
+artifacts but never publishes a GitHub Release. Inspect the result, dependency
+notices, corresponding source, and checksums. Only after these checks succeed
+create an annotated `v1.3.0` tag on the exact release commit and push it. Do not
+move an existing release tag as a retry mechanism.
+
 ## Version and tag checks
 
 Use `vMAJOR.MINOR.PATCH`, for example `v1.0.0`, `v1.1.0`, or `v2.0.0`. The numeric

@@ -230,6 +230,23 @@ def release_notes(tag, version):
             'generated once on Linux; per-OS build manifests and RELEASE_MANIFEST.json record provenance.\n')
 
 
+def release_notes_with_changelog(tag, version, root):
+    """Add the matching English changelog section to release instructions."""
+    body = release_notes(tag, version)
+    path = Path(root) / 'docs/site/en/changelog.md'
+    if not path.is_file():
+        return body
+    text = path.read_text(encoding='utf-8')
+    match = re.search(r'^##[ \t]+' + re.escape(tag) + r'[ \t]*\n(.*?)(?=^##[ \t]+|\Z)',
+                      text, re.MULTILINE | re.DOTALL)
+    if not match or not match.group(1).strip():
+        return body
+    first, separator, rest = body.partition('\n\n')
+    if not separator:
+        raise ValueError('Unexpected release note format')
+    return first + '\n\n## Changes\n\n' + match.group(1).strip() + '\n\n' + rest
+
+
 def assemble(root, inputs, output, tag, commit):
     tag, version = version_for_tag(root, tag)
     if not re.fullmatch(COMMIT, commit):
@@ -273,7 +290,7 @@ def assemble(root, inputs, output, tag, commit):
         write_sums(linux)
         files = {p.relative_to(linux).as_posix(): p for p in linux.rglob('*') if p.is_file()}
         linux_zip(output / (prefix + '-linux-x86_64.zip'), files)
-    (output / 'RELEASE_NOTES.md').write_text(release_notes(tag, version), encoding='utf-8')
+    (output / 'RELEASE_NOTES.md').write_text(release_notes_with_changelog(tag, version, root), encoding='utf-8')
     manifest = dict(schema=1, tag=tag, version=version, commit=commit,
                     source_manifest=prefix + '-SOURCE_MANIFEST.json',
                     source_sha256=digest(output / (prefix + '-source.tar.gz')),

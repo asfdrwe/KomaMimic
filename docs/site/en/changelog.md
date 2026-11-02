@@ -2,6 +2,13 @@
 
 [日本語](../changelog.md) | English
 
+## v1.3.0
+
+- Remove the 20,000-entry disk thumbnail cache limit and use only the configured capacity to decide retention. Preserve existing committed PNGs if a replacement write fails.
+- Avoid unnecessary cache regeneration when application, Qt, or script versions change, or unrelated script settings are edited. Older cache-key files are not reused; clear the thumbnail cache in Preferences to reclaim disk space if needed. Original images and reading history are unaffected.
+- Fix MangaMeeya settings import on Windows failing to persist settings while the original INI file was held open.
+- Expand cross-platform regression coverage for large caches, writer/cancellation races, settings import, and single-instance activation; stabilize Windows GUI tests.
+
 ## v1.2.1
 
 - Restore a minimized existing window before requesting activation on a second launch in single-instance mode, preserving maximized/fullscreen state and reading position.

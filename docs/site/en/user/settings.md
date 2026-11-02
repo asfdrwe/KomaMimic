@@ -82,6 +82,4 @@ The cache-key format has changed, so PNGs created by older releases are not reus
 Clearing thumbnails does not remove source images, archives, the library or reading history.
 
 Incomplete temporary files left by an abnormal exit are not read as committed PNGs. Qt checks lock ownership and other stale-lock conditions before reclaiming a leftover lock.
-v1.1.0 fixes unnecessary regeneration caused by lock contention; it does not establish every cause of the previously reported full-regeneration symptom.
-Folder-cover candidate searches and archive page-index loading are separate from thumbnail regeneration.
 TXT, Markdown and covers of archives containing text may be excluded from disk persistence because they depend on fonts or external images.

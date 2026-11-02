@@ -146,6 +146,18 @@ class ReleaseTests(unittest.TestCase):
     def assemble(self):
         return release.assemble(self.root, self.inputs, self.output, TAG, COMMIT)
 
+    def test_release_notes_changelog_section(self):
+        path = self.root / 'docs/site/en/changelog.md'
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('# Changelog\n\n## v1.0.0\n\n- Fixed an issue\n\n'
+                        '## v1.1.0\n\n- A later change\n', encoding='utf-8')
+        body = release.release_notes_with_changelog(TAG, '1.0.0', self.root)
+        self.assertIn('## Changes', body)
+        self.assertIn('- Fixed an issue', body)
+        self.assertNotIn('- A later change', body)
+        self.assertIn('Windows x86_64', body)
+        self.assertNotIn('## Changes', release.release_notes_with_changelog('v9.9.9', '1.0.0', self.root))
+
     def test_stable_versions_and_mismatched_manifests(self):
         for version in ('1.0.0', '1.1.0', '2.0.0', '10.20.30'):
             (self.root / 'CMakeLists.txt').write_text('project(KomaMimic VERSION ' + version + ' LANGUAGES CXX)\n')

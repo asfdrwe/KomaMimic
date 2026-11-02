@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.3.0
+
+- ThumbnailDiskCache: remove the 20,000-entry eviction rule; enforce the configured byte capacity only. Save before trimming and retain committed pixels on replacement failure.
+- Reduce cache-key dependencies on application/Qt/script versions and unrelated script settings. Remove obsolete migration handling and add large-count, cancellation, and concurrency tests.
+- Windows: close the backup source `QFile` before updating `QSettings` to avoid an atomic-save `AccessError` in the MangaMeeya importer.
+- Expand regression coverage and stabilize Windows offscreen/WebEngine testing with explicit font and GPU test configuration and appropriate timeouts.
+
 ## v1.2.1
 
 - 単一起動IPCの受信時に最小化状態だけを解除して表示・前面化を要求する共通処理を追加。最大化・全画面状態と読書位置を保持。
