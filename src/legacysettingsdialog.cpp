@@ -223,6 +223,8 @@ void ReaderFeatures::importMangaMeeyaSettings(const QString &text) {
   }
   backup.setAutoRemove(false);
   backup.close();
+  // Release settings.ini before QSettings atomically replaces it on Windows.
+  previous.close();
   QVariantMap selected;
   QSet<LegacySettingsCategory> categories;
   for (int i = 0; i < plan.changes.size(); ++i) {
