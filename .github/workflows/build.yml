@@ -103,7 +103,8 @@ jobs:
       - run: cmake --build build-ci --parallel 4
       - run: ./build-ci/komamimic --version
       - run: ./build-ci/komamimic --formats
-      - run: ctest --test-dir build-ci --output-on-failure --parallel 2 --no-tests=error --output-junit "$GITHUB_WORKSPACE/build-ci/ctest.xml"
+      - name: Full CTest (including single-instance IPC regression)
+        run: ctest --test-dir build-ci --output-on-failure --parallel 2 --no-tests=error --output-junit "$GITHUB_WORKSPACE/build-ci/ctest.xml"
       - name: Upload diagnostics
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -136,7 +137,8 @@ jobs:
       - run: cmake --build build-ci --parallel 3
       - run: ./build-ci/komamimic --version
       - run: ./build-ci/komamimic --formats
-      - run: ctest --test-dir build-ci --output-on-failure --parallel 2 --no-tests=error --output-junit "$GITHUB_WORKSPACE/build-ci/ctest.xml"
+      - name: Full CTest (including single-instance IPC regression)
+        run: ctest --test-dir build-ci --output-on-failure --parallel 2 --no-tests=error --output-junit "$GITHUB_WORKSPACE/build-ci/ctest.xml"
       - name: Stage ad-hoc signed app and relocated reader probe
         run: python3 tools/stage_validation.py --build-dir build-ci --output stage-macos
       - name: Package and verify arm64 app and unnotarized DMG
@@ -240,7 +242,7 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           python tests/fixtures/generate_validation_samples.py --output fixtures-ci
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      - name: Release build and platform integration tests
+      - name: Release build and platform tests (including single-instance IPC)
         run: |
           python tools/run_validation.py run --build-dir build-windows-fast --fixtures fixtures-ci --output results/windows-ci --jobs 4 --test-scope platform --windows-mode prebuilt --cmake-arg=-DVCPKG_INSTALL_OPTIONS=--x-buildtrees-root=D:/kfb
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
