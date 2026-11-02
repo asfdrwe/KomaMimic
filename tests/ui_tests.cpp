@@ -835,7 +835,8 @@ private slots:
         bar->setValue(bar->maximum()/2); const int scroll=bar->value();
         QVERIFY(TestData::write(other+"/scroll.zip",archive)); QTRY_COMPARE(grid->count(),42);
         QCoreApplication::processEvents();
-        QCOMPARE(bar->value(),scroll);
+        // The scrollbar may be restored by a deferred zero-timeout timer.
+        QTRY_COMPARE_WITH_TIMEOUT(bar->value(), scroll, 10000);
         QCOMPARE(grid->currentItem()->data(PathRole).toString(),scrollSelection);
         w.close();
     }
