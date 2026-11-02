@@ -56,6 +56,10 @@ subfolders are required. Run from the extracted folder, not directly inside the
 ZIP. Any shortcut should target this `komamimic.exe`. See [basic controls](basic.md)
 after startup.
 
+> **First launch on Windows**
+>
+> On some systems, the first launch of the downloaded Windows build may take a few seconds before the window appears. Windows security checks and initial file loading may contribute to the delay. Subsequent launches are usually faster.
+
 #### SmartScreen warning
 
 The current Windows build is not code-signed. On first launch of the downloaded
