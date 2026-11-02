@@ -172,6 +172,30 @@ private slots:
         QVERIFY(validationCancelled); // Visible cache requests may cancel idle validation.
 
     }
+
+void v2ExplicitRefreshRepairsIncorrectCover() {
+        QTemporaryDir directory;QVERIFY(directory.isValid());
+        const auto source=directory.filePath("book.zip");
+        QVERIFY(TestData::write(source,TestData::zip({{"01.png",TestData::png(TestData::solid(Qt::red))}})));
+        auto cache=std::make_shared<ThumbnailDiskCache>(directory.filePath("thumbnails-v2"));
+        QCOMPARE(cachedCover(source,{},cache).image.pixelColor(0,0),QColor(Qt::red));
+        const auto original=cachedCover(source,{},cache,{},false,0,true);
+        const auto stamp=original.image.text(QStringLiteral("komamimic-cover-stamp"));
+        QVERIFY(!stamp.isEmpty());
+        const auto files=QDir(cache->directory()).entryList({"*.png"},QDir::Files);
+        QCOMPARE(files.size(),1);
+        auto incorrect=TestData::solid(Qt::blue);
+        incorrect.setText(QStringLiteral("komamimic-cover-stamp"),stamp);
+        QVERIFY(TestData::write(QDir(cache->directory()).filePath(files.first()),TestData::png(incorrect)));
+        QCOMPARE(cachedCover(source,{},cache,{},false,0,true).image.pixelColor(0,0),QColor(Qt::blue));
+        // A normal validation sees the same source stamp and leaves the image unchanged.
+        QCOMPARE(cachedCover(source,{},cache).image.pixelColor(0,0),QColor(Qt::blue));
+        // Explicit refresh must ignore even a plausible, stamped but incorrect PNG.
+        QCOMPARE(cachedCover(source,{},cache,{},true).image.pixelColor(0,0),QColor(Qt::red));
+        QCOMPARE(cachedCover(source,{},cache,{},false,0,true).image.pixelColor(0,0),QColor(Qt::red));
+        QCOMPARE(cache->stats().entries,1);
+    }
+
     void diskPersistenceAndRefresh() {
         QTemporaryDir d;int calls=0;
         const auto generate=[&] {++calls;return ImageResult{TestData::solid(Qt::red),{}};};

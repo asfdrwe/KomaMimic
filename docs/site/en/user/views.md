@@ -26,6 +26,10 @@ View → Thumbnail settings opens page-number and custom-layout preferences.
 Custom defaults are 64×64, 0 columns (automatic), zero horizontal/vertical spacing,
 one filename line, upper-left origin and no decorative frame. Set fixed columns,
 dimensions, spacing, 0/1/2 filename lines, upper-right origin and optional frames.
+
+Width, height and spacing use Qt **logical pixels**, not DPI (dots per inch).
+For example, width 64 represents 64 logical pixels; a 200% high-DPI display may use roughly 128 physical pixels to render it.
+
 Zero lines also removes the caption area. Images retain their aspect ratio;
 tooltips show full filenames. Custom layout settings are shared by covers and pages.
 Fit-to-screen and eight-column modes remain available.

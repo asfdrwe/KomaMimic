@@ -45,9 +45,9 @@ reading-history backups.
 
 | OS | Default thumbnail cache |
 |---|---|
-| Windows | `%LOCALAPPDATA%\KomaMimic\KomaMimic\cache\thumbnails-v1` |
-| macOS | `~/Library/Caches/KomaMimic/KomaMimic/thumbnails-v1` |
-| Linux | `~/.cache/KomaMimic/KomaMimic/thumbnails-v1` |
+| Windows | `%LOCALAPPDATA%\KomaMimic\KomaMimic\cache\thumbnails-v2` |
+| macOS | `~/Library/Caches/KomaMimic/KomaMimic/thumbnails-v2` |
+| Linux | `~/.cache/KomaMimic/KomaMimic/thumbnails-v2` |
 
 On Linux, `XDG_CACHE_HOME` overrides `~/.cache`. These paths use
 [Qt's OS-specific storage locations](https://doc.qt.io/qt-6/qstandardpaths.html#StandardLocation-enum).
@@ -75,11 +75,19 @@ Pending writes may be omitted because of their memory limit, writer contention, 
 This does not invalidate other committed PNGs.
 
 The configured disk capacity is the only retention limit; there is no file-count limit. Oldest-used thumbnails are removed when capacity is exceeded.
-Changes to the source path, size or modification time, or name-encoding options, regenerate affected entries. Full content hashes are not calculated.
+Cached covers are shown before accessing the original archive's metadata. A low-priority check then compares source size, modification time, resolved path and related information. Changed covers are regenerated and replaced. Full content hashes are not calculated. Other cache types, including page thumbnails, can use different validation rules.
 Changing KomaMimic, Qt, scripts or script settings alone does not invalidate thumbnails. If such a change affects the rendered image, explicitly refresh thumbnails or clear the cache.
 Changing display thumbnail dimensions or spacing alone does not clear all cached images.
-The cache-key format has changed, so PNGs created by older releases are not reused. After updating, we recommend clearing the thumbnail cache once from Preferences → Cache.
+`thumbnails-v2` does not read or migrate the earlier `thumbnails-v1` cache. We recommend clearing the old cache in the **old** app under Preferences → Cache **before updating**. Clearing the cache in the new app normally affects only `thumbnails-v2`; it does not automatically remove the old `thumbnails-v1` directory.
 Clearing thumbnails does not remove source images, archives, the library or reading history.
 
 Incomplete temporary files left by an abnormal exit are not read as committed PNGs. Qt checks lock ownership and other stale-lock conditions before reclaiming a leftover lock.
 TXT, Markdown and covers of archives containing text may be excluded from disk persistence because they depend on fonts or external images.
+
+### Workaround for incorrect thumbnails
+
+1. In the cover or page-thumbnail view, press `F6` (**Refresh thumbnails** / **サムネイルを再取得**) to regenerate images from their sources. Try this first for stale, incorrect or missing thumbnails.
+2. If the problem persists, clear the current thumbnail cache from Preferences → Cache, then reopen the affected folder or archive to regenerate it.
+3. If the problem remains, check that the original image or ZIP can be read, disk space and file permissions. Regenerating thumbnails cannot repair a damaged original file.
+
+Clearing the cache does not erase original files, bookshelves or reading history. Regeneration requires time to read the sources.

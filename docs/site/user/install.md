@@ -2,6 +2,11 @@
 
 日本語 | [English](../en/user/install.md)
 
+
+### `thumbnails-v2` への更新
+
+旧版の `thumbnails-v1` キャッシュは新版に引き継がれません。ディスク領域を回収したい場合は、**新版を入れる前に**旧版の「環境設定 → キャッシュ」で削除してください。新版のキャッシュ削除は旧版の保存先を消しません。詳しくは[設定とキャッシュ](settings.md)を参照してください。
+
 ## Windows（ZIP版）
 
 Windows版はx86_64（64bit Intel/AMD）向けのZIP版です。

@@ -14,6 +14,11 @@ compatible replacement. These are known differences, not promises of future supp
 | Folder browser | Two panes start at virtual Desktop on Windows or Places on macOS/Linux. This does not reproduce every Shell or Finder feature | Optional single tree starts at PC on Windows or `/` on macOS/Linux. See [controls](views.md) |
 | Settings migration | Converts only recognized INI settings. Unknown values are not guessed. Original mouse/gamepad, plugin, external-program, path and history settings are not migrated by this operation | Review the actual scope in the [import preview](migration.md) |
 
+
+### Thumbnail size units
+
+KomaMimic's custom width, height and spacing use **logical pixels**, not DPI. With Qt high-DPI scaling, the physical pixel count may differ from the configured number. MangaMeeya also offers numeric width and height controls, but equal values do not guarantee identical onscreen size or cached image dimensions. This guide does not assert the original program's internal DPI behavior. See [display settings](views.md).
+
 ## File sorting and persistence
 
 Tools → File sorting and Preferences → Display edit the same default for covers
