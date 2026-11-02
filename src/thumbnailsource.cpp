@@ -26,14 +26,25 @@ QJsonObject baseKey(const QByteArray &source,const NamePolicy &policy) {
         {"width",ThumbnailSize.width()},{"height",ThumbnailSize.height()}};
 }
 QByteArray digest(const QByteArray &data) {return QCryptographicHash::hash(data,QCryptographicHash::Sha256).toHex();}
+// Purely lexical: never stat/canonicalize the original archive during a disk-cache hit.
+QByteArray coverKey(const QString &path,const NamePolicy &policy) {
+    const auto absolute=QDir::cleanPath(QFileInfo(physicalBookPath(path)).absoluteFilePath());
+    auto key=baseKey(absolute.toUtf8(),policy);
+    key["revision"]=3;
+    key["kind"]="cover";
+    if(parseArchiveEntryPath(path).valid())key["entry"]=bookIdentityPath(path);
+    return QJsonDocument(key).toJson(QJsonDocument::Compact);
+}
 }
 ImageResult cachedCover(const QString &path,const NamePolicy &policy,
                         const std::shared_ptr<ThumbnailDiskCache> &cache,
                         const std::function<bool()> &cancel,bool refresh,int depth,bool cachedOnly) {
     if(cancel && cancel()) return {};
+    const auto bytes=coverKey(path,policy);
+    // The fast lane must not even query QFileInfo::isDir/size/mtime/canonicalFilePath.
+    if(cachedOnly)return refresh ? ImageResult{} : cache->lookup(bytes,cancel);
     const QFileInfo info(physicalBookPath(path));
     if(info.isDir()) {
-        if(cachedOnly)return {};
         // Cache actual source files, so changing an image within a directory
         // cannot leave its old synthetic folder cover on disk indefinitely.
         if(depth>2) return {};
@@ -61,10 +72,8 @@ ImageResult cachedCover(const QString &path,const NamePolicy &policy,
         return {};
     }
     const auto source=fingerprint(physicalBookPath(path));
-    auto key=baseKey(source,policy);key["kind"]="cover";
-    qCDebug(thumbnailCacheLog) << "cover-key" << digest(source)
+    qCDebug(thumbnailCacheLog) << "cover-key" << digest(bytes)
                              << "encoding" << policy.legacyEncoding << "force" << policy.force;
-    if (parseArchiveEntryPath(path).valid()) key["entry"] = bookIdentityPath(path);
     auto cacheableCover = std::make_shared<bool>(true);
     const auto generate=[&]() -> ImageResult {
         if(cancel && cancel()) return {};
@@ -81,10 +90,23 @@ ImageResult cachedCover(const QString &path,const NamePolicy &policy,
         return opened.book->preview(0,ThumbnailSize,cancel);
     };
     // First-page text previews depend on external images and installed fonts.
-    const auto bytes=source.isEmpty() || (isTextDocumentPath(path) && info.suffix().compare("epub",Qt::CaseInsensitive)!=0)
-        ? QByteArray{} : QJsonDocument(key).toJson(QJsonDocument::Compact);
-    if(cachedOnly)return refresh ? ImageResult{} : cache->lookup(bytes,cancel);
-    return cache->image(bytes,generate,cancel,refresh,[path,source,cacheableCover]{return *cacheableCover && fingerprint(physicalBookPath(path))==source;});
+    const auto cacheBytes=source.isEmpty() || (isTextDocumentPath(path) && info.suffix().compare("epub",Qt::CaseInsensitive)!=0)
+        ? QByteArray{} : bytes;
+    const auto stamp=QString::fromLatin1(digest(source));
+    if(!refresh && !cacheBytes.isEmpty()) {
+        const auto old=cache->lookup(cacheBytes,cancel);
+        if(!old.image.isNull() && old.image.text(QStringLiteral("komamimic-cover-stamp"))==stamp)
+            return old; // Validation finished. No archive decompression is necessary.
+    }
+    const auto stamped=[&]() -> ImageResult {
+        auto result=generate();
+        if(!result.image.isNull() && !cacheBytes.isEmpty())
+            result.image.setText(QStringLiteral("komamimic-cover-stamp"),stamp);
+        return result;
+    };
+    // cacheBytes is stable. A stale PNG must not short-circuit re-generation.
+    return cache->image(cacheBytes,stamped,cancel,true,
+        [path,source,cacheableCover]{return *cacheableCover && fingerprint(physicalBookPath(path))==source;});
 }
 ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int index,
                                 const std::shared_ptr<ThumbnailDiskCache> &cache,

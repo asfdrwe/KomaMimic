@@ -107,8 +107,14 @@ private slots:
         QCOMPARE(cache->stats().entries,2);
         // A marker in each cached image proves a hit: regeneration from the
         // unchanged archive would produce red, not blue.
-        for (const auto &name:QDir(cachePath).entryList({"*.png"},QDir::Files))
-            QVERIFY(TestData::write(QDir(cachePath).filePath(name),TestData::png(TestData::solid(Qt::blue))));
+        for (const auto &name:QDir(cachePath).entryList({"*.png"},QDir::Files)) {
+            const auto file=QDir(cachePath).filePath(name);
+            const auto old=QImage(file);
+            auto blue=TestData::solid(Qt::blue);
+            const auto stamp=old.text(QStringLiteral("komamimic-cover-stamp"));
+            if(!stamp.isEmpty())blue.setText(QStringLiteral("komamimic-cover-stamp"),stamp);
+            QVERIFY(TestData::write(file,TestData::png(blue)));
+        }
         const auto original=QCoreApplication::applicationFilePath();
         const auto copyDir=directory.filePath("another-build"); QVERIFY(QDir().mkpath(copyDir));
         const auto relocated=copyDir+'/'+QFileInfo(original).fileName();
@@ -120,6 +126,51 @@ private slots:
             QVERIFY2(process.exitCode()==0,process.readAllStandardError().constData());
         }
         QCOMPARE(cache->stats().entries,2);
+    }
+    void v2CoverCacheDisplaysBeforeSourceValidation() {
+        QVERIFY(ThumbnailDiskCache::defaultDirectory().endsWith("thumbnails-v2"));
+        QTemporaryDir d;QVERIFY(d.isValid());
+        const auto source=d.filePath("book.zip");
+        QVERIFY(TestData::write(source,TestData::zip({{"01.png",TestData::png(TestData::solid(Qt::red))}})));
+        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("thumbnails-v2"));
+        QCOMPARE(cachedCover(source,{},cache).image.pixelColor(0,0),QColor(Qt::red));
+        const auto initial=cachedCover(source,{},cache,{},false,0,true);
+        QCOMPARE(initial.image.pixelColor(0,0),QColor(Qt::red));
+        QVERIFY(!initial.image.text(QStringLiteral("komamimic-cover-stamp")).isEmpty());
+        // Cache-only lookup must not require the source even to exist.
+        QVERIFY(QFile::remove(source));
+        QCOMPARE(cachedCover(source,{},cache,{},false,0,true).image.pixelColor(0,0),QColor(Qt::red));
+        QVERIFY(TestData::write(source,TestData::zip({{"01.png",TestData::png(TestData::solid(Qt::blue,{37,59}))}})));
+        // Stale-while-revalidate: the old image remains available until full validation.
+        QCOMPARE(cachedCover(source,{},cache,{},false,0,true).image.pixelColor(0,0),QColor(Qt::red));
+        const auto updated=cachedCover(source,{},cache);
+        QCOMPARE(updated.image.pixelColor(0,0),QColor(Qt::blue));
+        QVERIFY(updated.image.text(QStringLiteral("komamimic-cover-stamp"))!=initial.image.text(QStringLiteral("komamimic-cover-stamp")));
+        QCOMPARE(cachedCover(source,{},cache,{},false,0,true).image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(cachedCover(source,{},std::make_shared<ThumbnailDiskCache>(d.filePath("thumbnails-v2")),{},false,0,true).image.pixelColor(0,0),QColor(Qt::blue));
+    }
+    void v2CoverCacheDoesNotWaitForValidation() {
+        QTemporaryDir d;QVERIFY(d.isValid());
+        const auto source=d.filePath("book.zip");
+        QVERIFY(TestData::write(source,TestData::zip({{"01.png",TestData::png(TestData::solid(Qt::red))}})));
+        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("thumbnails-v2"));
+        QVERIFY(!cachedCover(source,{},cache).image.isNull());
+        std::latch release(1);std::atomic<bool> started=false;bool released=false;DisplayJobs jobs;
+        const auto cleanup=qScopeGuard([&]{if(!released)release.count_down();});
+        bool shown=false,validationFinished=false,validationCancelled=false;
+        jobs.submit<ImageResult>(DisplayJobs::Lane::Background,"covers","validate",
+            [&](const DisplayJobs::Cancel &cancel){started=true;release.wait();return cachedCover(source,{},cache,cancel);},
+            [&](ImageResult,bool cancelled){validationFinished=true;validationCancelled=cancelled;});
+        QTRY_VERIFY(started.load());
+        jobs.submit<ImageResult>(DisplayJobs::Lane::Cache,"covers","paint",
+            [&](const DisplayJobs::Cancel &cancel){return cachedCover(source,{},cache,cancel,false,0,true);},
+            [&](ImageResult result,bool cancelled){shown=!cancelled && result.image.pixelColor(0,0)==QColor(Qt::red);});
+        QTRY_VERIFY_WITH_TIMEOUT(shown,2000);
+        QVERIFY(!validationFinished);
+        release.count_down();released=true;
+        QTRY_VERIFY(validationFinished);
+        QVERIFY(validationCancelled); // Visible cache requests may cancel idle validation.
+
     }
     void diskPersistenceAndRefresh() {
         QTemporaryDir d;int calls=0;
@@ -468,7 +519,9 @@ private slots:
         QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::red));
         QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::red));QCOMPARE(cache->stats().entries,1);
         QVERIFY(TestData::write(path,TestData::png(TestData::solid(Qt::blue,{35,55}))));
-        QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::blue));QCOMPARE(cache->stats().entries,2);
+        // v2 keys do not include source metadata: a changed cover replaces the same PNG.
+        QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(cache->stats().entries,1);
         const auto zip=d.filePath("pages.zip");
         QVERIFY(TestData::write(zip,TestData::zip({{"01.png",TestData::png(TestData::solid(Qt::red))},{"02.png",TestData::png(TestData::solid(Qt::green))}})));
         const auto book=Book::open(zip).book;QVERIFY(book);

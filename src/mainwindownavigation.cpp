@@ -454,21 +454,46 @@ void MainWindow::requestThumbnails(ThumbnailGrid *grid) {
     const quint64 generation=pages?m_pageGeneration:m_libraryGeneration;
     QSet<QString> needed;
     const auto rows=grid->isVisible() && !m_loading && !m_backgroundCancel->load() ? grid->visibleRows() : QVector<int>{};
-    for(int row:rows) {const auto id=scope+QString("/%1/%2").arg(generation).arg(row);needed.insert(id);needed.insert(id+"/generate");}
+    for(int row:rows) {const auto id=scope+QString("/%1/%2").arg(generation).arg(row);needed.insert(id);needed.insert(id+"/generate");if(!pages)needed.insert(id+"/validate");}
     m_displayJobs->retain(scope,needed);
     if(m_backgroundCancel->load() || (pages && !m_book))return;
     for(int row:rows) {
         auto *item=grid->item(row);
         const auto id=scope+QString("/%1/%2").arg(generation).arg(row);
-        if(item->data(ThumbnailRoleReady).toBool() || m_displayJobs->contains(id) || m_displayJobs->contains(id+"/generate"))continue;
         const auto token=pages?m_pageThumbnailToken:m_thumbnailToken;
         const QString path=item->data(PathRole).toString();const int page=item->data(PageRole).toInt();
         const auto book=m_book;const auto policy=namePolicyFor(path);const auto cache=m_thumbnailDiskCache;
         const bool refresh=item->data(ThumbnailRefreshRole).toBool();
+        const bool directory=item->data(DirectoryRole).toBool();
+        if(item->data(ThumbnailRoleReady).toBool()) {
+            // A cache hit has already been painted. Validate on the idle lane,
+            // independently of the cache worker and without blocking display.
+            if(!pages && !item->data(DirectoryRole).toBool() &&
+               !item->data(ThumbnailCoverValidatedRole).toBool() &&
+               !m_displayJobs->contains(id+"/validate")) {
+                const auto oldStamp=item->data(ThumbnailCoverStampRole).toString();
+                m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Background,scope,id+"/validate",
+                    [path,policy,cache,token,generation](const DisplayJobs::Cancel &stop) {
+                        const auto cancel=[stop,token,generation]{return stop() || token->load()!=generation;};
+                        return cachedCover(path,policy,cache,cancel);
+                    },[this,grid,generation,row,path,oldStamp](ImageResult checked,bool cancelled) {
+                        if(cancelled || generation!=m_libraryGeneration || row>=grid->count())return;
+                        auto *current=grid->item(row);
+                        if(current->data(PathRole).toString()!=path)return;
+                        if(checked.image.isNull())return; // Transient source error: retain stale cover.
+                        const auto newStamp=checked.image.text(QStringLiteral("komamimic-cover-stamp"));
+                        if(newStamp!=oldStamp)grid->setThumbnail(row,checked.image,{});
+                        current->setData(ThumbnailCoverStampRole,newStamp);
+                        current->setData(ThumbnailCoverValidatedRole,true);
+                    });
+            }
+            continue;
+        }
+        if(m_displayJobs->contains(id) || m_displayJobs->contains(id+"/generate"))continue;
         item->setData(PendingRole,true);
-        auto work=[pages,path,page,book,policy,cache,refresh,token,generation](bool cachedOnly,const DisplayJobs::Cancel &stop) {
+        auto work=[pages,path,page,book,policy,cache,refresh,token,generation,directory](bool cachedOnly,const DisplayJobs::Cancel &stop) {
             const auto cancel=[stop,token,generation]{return stop() || token->load()!=generation;};
-            if(cancel())return ImageResult{};
+            if(cancel() || (cachedOnly && !pages && directory))return ImageResult{};
             return pages ? cachedPageThumbnail(book,page,cache,cancel,refresh,cachedOnly)
                 : cachedCover(path,policy,cache,cancel,refresh,0,cachedOnly);
         };
@@ -481,10 +506,28 @@ void MainWindow::requestThumbnails(ThumbnailGrid *grid) {
             [work](const DisplayJobs::Cancel &cancel){return work(true,cancel);},
             [this,grid,pages,generation,row,id,scope,work,apply](ImageResult result,bool cancelled) {
                 if(cancelled || generation!=(pages?m_pageGeneration:m_libraryGeneration)){apply({},true);return;}
-                if(!result.image.isNull() || !result.error.isEmpty()){apply(std::move(result),false);return;}
+                if(!result.image.isNull() || !result.error.isEmpty()) {
+                    const auto stamp=result.image.text(QStringLiteral("komamimic-cover-stamp"));
+                    const bool isCover=!pages && !grid->item(row)->data(DirectoryRole).toBool();
+                    apply(std::move(result),false);
+                    if(isCover) {
+                        grid->item(row)->setData(ThumbnailCoverStampRole,stamp);
+                        grid->item(row)->setData(ThumbnailCoverValidatedRole,false);
+                        // Let the current paint pass finish before scheduling source I/O.
+                        QTimer::singleShot(0,this,[this,generation] {
+                            if(generation==m_libraryGeneration)requestThumbnails(m_library);
+                        });
+                    }
+                    return;
+                }
                 if(!grid->isVisible() || !grid->visibleRows().contains(row)){apply({},true);return;}
                 m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Display,scope,id+"/generate",
-                    [work](const DisplayJobs::Cancel &cancel){return work(false,cancel);},apply);
+                    [work](const DisplayJobs::Cancel &cancel){return work(false,cancel);},
+                    [apply,grid,row,pages,generation,this](ImageResult fresh,bool wasCancelled) {
+                        apply(std::move(fresh),wasCancelled);
+                        if(!wasCancelled && !pages && generation==m_libraryGeneration && row<grid->count())
+                            grid->item(row)->setData(ThumbnailCoverValidatedRole,true);
+                    });
             });
     }
 }

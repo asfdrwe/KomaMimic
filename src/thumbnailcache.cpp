@@ -42,7 +42,8 @@ QByteArray revision(const QString &directory) {
 }
 QString ThumbnailDiskCache::defaultDirectory() {
     const auto root=QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
-    return root.isEmpty() ? QString{} : QDir(root).filePath("thumbnails-v1");
+    // v2 deliberately does not read/migrate the v1 fingerprint-keyed thumbnails.
+    return root.isEmpty() ? QString{} : QDir(root).filePath("thumbnails-v2");
 }
 ThumbnailDiskCache::ThumbnailDiskCache(QString directory):m_directory(std::move(directory)) {}
 void ThumbnailDiskCache::configure(bool enabled,int megabytes) {
@@ -103,6 +104,9 @@ bool ThumbnailDiskCache::store(const Pending &pending,const std::function<bool()
     if(!pending.image.isNull()) {
         QImage pixels(pending.image.size(),QImage::Format_RGBA8888);pixels.fill(Qt::transparent);
         pixels.setColorSpace(pending.image.colorSpace());
+        // Only the application-generated fingerprint is retained; source EXIF/text is stripped.
+        const auto stamp=pending.image.text(QStringLiteral("komamimic-cover-stamp"));
+        if(!stamp.isEmpty())pixels.setText(QStringLiteral("komamimic-cover-stamp"),stamp);
         {QPainter painter(&pixels);painter.drawImage(pixels.rect(),pending.image);}
         QBuffer buffer(&bytes);buffer.open(QIODevice::WriteOnly);
         if(!pixels.save(&buffer,"PNG") || bytes.size()>MaxCacheFile)return true;
@@ -315,9 +319,11 @@ ImageResult ThumbnailDiskCache::image(const QByteArray &key,const std::function<
        !result.error.isEmpty() || result.image.isNull() || (sourceUnchanged && !sourceUnchanged())) return result;
     const auto &original=result.image;
     if(original.width()>1024 || original.height()>1024) return result;
-    // Retain pixels only, rather than source EXIF/text/location metadata.
+    // Strip source EXIF/text/location while retaining only our private freshness stamp.
     QImage pixels(original.size(),QImage::Format_RGBA8888);pixels.fill(Qt::transparent);
     pixels.setColorSpace(original.colorSpace());
+    const auto stamp=original.text(QStringLiteral("komamimic-cover-stamp"));
+    if(!stamp.isEmpty())pixels.setText(QStringLiteral("komamimic-cover-stamp"),stamp);
     {QPainter painter(&pixels);painter.drawImage(pixels.rect(),original);}
     QByteArray bytes;QBuffer buffer(&bytes);buffer.open(QIODevice::WriteOnly);
     if(!pixels.save(&buffer,"PNG") || bytes.size()>MaxCacheFile) return result;
