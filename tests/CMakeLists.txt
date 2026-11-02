@@ -33,6 +33,10 @@ endforeach()
 set_tests_properties(ui_tests PROPERTIES TIMEOUT 180)
 # The disk-cache count regression populates more than 20,000 real files.
 set_tests_properties(cache_tests PROPERTIES TIMEOUT 180)
+# Parallel WebEngine and filesystem-heavy tests need more time on Windows.
+if(WIN32)
+    set_tests_properties(ui_tests document_tests cache_tests PROPERTIES TIMEOUT 300)
+endif()
 add_dependencies(ui_tests komamimic)
 target_compile_definitions(ui_tests PRIVATE KOMAMIMIC_EXECUTABLE="$<TARGET_FILE:komamimic>")
 add_dependencies(cli_tests komamimic)

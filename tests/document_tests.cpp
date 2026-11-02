@@ -641,7 +641,11 @@ private slots:
       auto *font = dialog->findChild<QFontComboBox *>("document_font");
       QVERIFY(font);
       QVERIFY(font->currentText().isEmpty());
-      QVERIFY(font->count() > 0);
+      if (font->count() == 0) {
+        // Failing inside a modal-dialog callback must not leave it open.
+        dialog->reject();
+        QFAIL("No fonts available in the test environment");
+      }
       font->setCurrentIndex(0);
       selectedFamily = font->currentText();
       QVERIFY(!selectedFamily.isEmpty());

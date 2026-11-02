@@ -30,6 +30,17 @@ template<class Suite> int isolatedTestMain(int argc, char **argv) {
     if (!sandbox.isValid()) return 2;
     qputenv("XDG_CONFIG_HOME", (sandbox.path() + "/config").toUtf8());
     qputenv("XDG_CACHE_HOME", (sandbox.path() + "/cache").toUtf8());
+#ifdef Q_OS_WIN
+    // The offscreen platform does not always discover installed Windows fonts.
+    if (qEnvironmentVariableIsEmpty("QT_QPA_FONTDIR")) {
+        const QByteArray windowsDir = qgetenv("WINDIR");
+        if (!windowsDir.isEmpty())
+            qputenv("QT_QPA_FONTDIR", windowsDir + "/Fonts");
+    }
+    // Avoid GPU-context instability in headless Qt WebEngine tests.
+    if (qEnvironmentVariableIsEmpty("QTWEBENGINE_CHROMIUM_FLAGS"))
+        qputenv("QTWEBENGINE_CHROMIUM_FLAGS", "--disable-gpu");
+#endif
     qputenv("QT_QPA_PLATFORM", "offscreen");
     QApplication app(argc, argv);
     QCoreApplication::setOrganizationName("KomaMimicTests");
