@@ -350,7 +350,8 @@ private slots:
         QVERIFY(!QFileInfo::exists(directory.filePath(".revision")));
         QCOMPARE(cache.stats().entries,128);
         QVERIFY(cache.maintain().isEmpty());
-        QVERIFY(QFileInfo::exists(directory.filePath(".revision")));
+        // A successful no-op maintenance does not publish a new revision.
+        QVERIFY(!QFileInfo::exists(directory.filePath(".revision")));
         QCOMPARE(cache.stats().entries,128);
     }
     void clearDuringGeneration() {
