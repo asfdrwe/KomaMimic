@@ -6,6 +6,8 @@
 #include "scriptreader.h"
 #include "documentview.h"
 #include <QApplication>
+#include <QGuiApplication>
+#include <QByteArray>
 #include <QCommandLineParser>
 #include <QCryptographicHash>
 #include <QDir>
@@ -290,6 +292,23 @@ int main(int argc, char **argv) {
                                "で別起動できます。\n") << socket.errorString() << '\n';
         return 1;
       }
+#ifdef Q_OS_WIN
+      // Grant the primary process foreground permission when Windows allows it.
+      qint64 primaryPid = 0;
+      if (instanceLock &&
+          instanceLock->getLockInfo(&primaryPid, nullptr, nullptr) &&
+          primaryPid > 0 && primaryPid <= static_cast<qint64>(MAXDWORD))
+        ::AllowSetForegroundWindow(static_cast<DWORD>(primaryPid));
+#endif
+#ifdef Q_OS_LINUX
+      // Wayland activation: forward the new launch token to the primary.
+      if (QGuiApplication::platformName().startsWith(QLatin1String("wayland"))) {
+        const QByteArray token = qgetenv("XDG_ACTIVATION_TOKEN");
+        if (!token.isEmpty() && token.size() <= 4096)
+          request["activationToken"] = QString::fromUtf8(token);
+        qunsetenv("XDG_ACTIVATION_TOKEN");
+      }
+#endif
       const auto message =
           QJsonDocument(request).toJson(QJsonDocument::Compact) + '\n';
       socket.write(message);
@@ -340,10 +359,24 @@ int main(int argc, char **argv) {
                            socket->disconnectFromServer();
                            return;
                          }
+#ifdef Q_OS_LINUX
+                         // Wayland activation: give the forwarded token to Qt for requestActivate().
+                         const QByteArray activationToken =
+                             document.object().value("activationToken").toString().toUtf8();
+                         const bool forwardWaylandToken =
+                             QGuiApplication::platformName().startsWith(QLatin1String("wayland")) &&
+                             !activationToken.isEmpty() && activationToken.size() <= 4096;
+                         if (forwardWaylandToken)
+                           qputenv("XDG_ACTIVATION_TOKEN", activationToken);
+#endif
+                         window.restoreAndActivate();
+#ifdef Q_OS_LINUX
+                         if (forwardWaylandToken)
+                           qunsetenv("XDG_ACTIVATION_TOKEN");
+#endif
                          socket->write("ok\n");
                          socket->flush();
                          socket->disconnectFromServer();
-                         window.restoreAndActivate();
                          window.runRequest(document.object());
                        });
       QTimer::singleShot(5000, socket, &QLocalSocket::disconnectFromServer);
