@@ -4,7 +4,9 @@
 #include "archivenames.h"
 #include "thumbnailcache.h"
 #include "thumbnailsource.h"
+#include "scriptreader.h"
 #include "appearance.h"
+#include <QJsonDocument>
 #include "pageview.h"
 #include <archive.h>
 #include <QAction>
@@ -135,6 +137,59 @@ private slots:
         const auto restored=cache.image("hidpi",generate).image;
         QCOMPARE(restored.size(),hidpi.size());QCOMPARE(restored.pixelColor(31,47),QColor(Qt::green));
         QCOMPARE(restored.colorSpace(),hidpi.colorSpace());
+    }
+    void countDoesNotLimitDiskCache() {
+        QTemporaryDir d;
+        const auto pixels=TestData::png(TestData::solid(Qt::blue,{1,1}));
+        // The old 20,000-file limit would delete otherwise valid thumbnails.
+        for(int i=0;i<20001;++i) {
+            const auto key=QByteArray::number(i);
+            const auto name=QString::fromLatin1(QCryptographicHash::hash(key,QCryptographicHash::Sha256).toHex())+".png";
+            QVERIFY(TestData::write(d.filePath(name),pixels));
+        }
+        ThumbnailDiskCache cache(d.path());cache.configure(true,16);
+        QVERIFY(cache.stats().bytes<16LL*1024*1024);
+        QVERIFY(cache.maintain().isEmpty());
+        QCOMPARE(cache.stats().entries,20001);
+        int calls=0;
+        const auto warm=cache.image("0",[&]{++calls;return ImageResult{TestData::solid(Qt::red),{}};});
+        QCOMPARE(warm.image.pixelColor(0,0),QColor(Qt::blue));QCOMPARE(calls,0);
+        cache.image("new",[]{return ImageResult{TestData::solid(Qt::green,{1,1}),{}};});
+        QCOMPARE(cache.stats().entries,20002);
+        cache.image("0",[]{return ImageResult{TestData::solid(Qt::green,{1,1}),{}};},{},true);
+        QCOMPARE(cache.stats().entries,20002);
+    }
+    void deferredFailedReplacementKeepsPreviousPng() {
+        QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.setDeferredWrites(true);
+        cache.image("key",[]{return ImageResult{TestData::solid(Qt::blue),{}};});
+        QVERIFY(cache.flushPending());
+        cache.image("key",[]{return ImageResult{TestData::solid(Qt::green),{}};},{},true,
+                    [checks=0]() mutable {return ++checks<3;});
+        // The source validity callback is checked again immediately before
+        // commit; the previous PNG must survive if the source changed.
+        QVERIFY(cache.flushPending());
+        QCOMPARE(cache.stats().entries,1);
+        QCOMPARE(QImage(d.filePath(QString::fromLatin1(QCryptographicHash::hash("key",QCryptographicHash::Sha256).toHex())+".png")).pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(cache.lookup("key").image.pixelColor(0,0),QColor(Qt::blue));
+    }
+    void versionIndependentKeyMigratesExistingPng() {
+        QTemporaryDir d;const auto path=d.filePath("source.png"),root=d.filePath("cache");
+        QVERIFY(TestData::write(path,TestData::png(TestData::solid(Qt::red))));
+        QVERIFY(QDir().mkpath(root));
+        const QFileInfo info(path);
+        const auto source=QJsonDocument(QJsonObject{{"path",info.absoluteFilePath()},{"resolved",info.canonicalFilePath()},
+            {"bytes",QString::number(info.size())},{"modified",QString::number(info.lastModified().toMSecsSinceEpoch())}}).toJson(QJsonDocument::Compact);
+        const NamePolicy policy;
+        const QJsonObject oldKey{{"revision",2},{"version",KOMAMIMIC_VERSION},{"qt",qVersion()},
+            {"source",QString::fromUtf8(source)},{"encoding",policy.legacyEncoding},{"force",policy.force},
+            {"scripts",QString::fromLatin1(scriptReaderFingerprint().toHex())},{"width",320},{"height",480},{"kind","cover"}};
+        const auto name=QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(oldKey).toJson(QJsonDocument::Compact),QCryptographicHash::Sha256).toHex())+".png";
+        QVERIFY(TestData::write(root+"/"+name,TestData::png(TestData::solid(Qt::blue))));
+        auto cache=std::make_shared<ThumbnailDiskCache>(root);
+        QCOMPARE(cachedCover(path,policy,cache).image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(cache->stats().entries,2); // Legacy hit was copied, not regenerated.
+        QVERIFY(QFile::remove(root+"/"+name));
+        QCOMPARE(cachedCover(path,policy,cache).image.pixelColor(0,0),QColor(Qt::blue));
     }
     void disabledAndClear() {
         QTemporaryDir d;const auto root=d.filePath("cache");ThumbnailDiskCache cache(root);int calls=0;

@@ -123,19 +123,23 @@ bool ThumbnailDiskCache::store(const Pending &pending,const std::function<bool()
         return true;
     }
     if(!inventory(cancel))return false;
-    const auto old=m_entries.value(name).bytes;
-    trim(m_limit.load()-bytes.size()+old,19999,cancel);
-    if(stale())return true;
-    if(cancel && cancel()) {changed();return false;}
+    // Never evict an existing entry until the replacement PNG is committed.
+    // The per-file maximum is smaller than the minimum configurable cache limit.
+    if(bytes.size()>m_limit.load() || stale())return true;
+    if(cancel && cancel())return false;
+    if(pending.sourceUnchanged && !pending.sourceUnchanged())return true;
     const auto existing=m_entries.value(name).bytes;
-    if(m_bytes-existing+bytes.size()>m_limit.load()) {changed();return true;}
-    if(pending.sourceUnchanged && !pending.sourceUnchanged()) {changed();return true;}
     QSaveFile file(destination);
-    if(file.open(QIODevice::WriteOnly) && file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner) && file.write(bytes)==bytes.size() && !stale() && !(cancel && cancel()) && file.commit()) {
+    if(file.open(QIODevice::WriteOnly) && file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner) && file.write(bytes)==bytes.size() &&
+       !stale() && !(cancel && cancel()) && (!pending.sourceUnchanged || pending.sourceUnchanged()) && file.commit()) {
         const auto now=QDateTime::currentMSecsSinceEpoch();m_bytes+=bytes.size()-existing;m_entries[name]={bytes.size(),now,now};
+        // Delete only after the replacement is durable.  Do not cancel cleanup
+        // after commit: an interrupted flush must not leave the cache oversized.
+        trim(m_limit.load(),{},name);
+        changed();
         qCDebug(thumbnailCacheLog)<<"stored"<<name<<"deferred";
     }
-    changed();return true;
+    return true;
 }
 bool ThumbnailDiskCache::flushPending(const std::function<bool()> &cancel) {
     Pending pending;
@@ -143,6 +147,14 @@ bool ThumbnailDiskCache::flushPending(const std::function<bool()> &cancel) {
         pending=m_pending.takeFirst();m_pendingBytes-=pending.image.sizeInBytes();}
     const bool complete=store(pending,cancel);
     if(!complete)enqueue(std::move(pending));
+    else if(!pending.image.isNull()) {
+        QMutexLocker guard(&m_pendingMutex);
+        // Do not keep serving a rejected replacement from the recent-image
+        // cache. A newer pending write of the same key may already exist.
+        bool newer=false;
+        for(const auto &item:m_pending)if(item.key==pending.key){newer=true;break;}
+        if(!newer)m_recentImages.remove(pending.key);
+    }
     return complete;
 }
 bool ThumbnailDiskCache::prepare(bool create,QString &error) {
@@ -190,8 +202,8 @@ bool ThumbnailDiskCache::remove(const QString &name) {
     if(found!=m_entries.end()) {m_bytes-=found->bytes;m_entries.erase(found);}
     return true;
 }
-void ThumbnailDiskCache::trim(qint64 limit,int count,const std::function<bool()> &cancel) {
-    if(m_bytes<=limit && m_entries.size()<=count) return;
+void ThumbnailDiskCache::trim(qint64 limit,const std::function<bool()> &cancel,const QString &protectedName) {
+    if(m_bytes<=limit) return;
     auto order=m_entries.keys();
     std::sort(order.begin(),order.end(),[this](const QString &a,const QString &b) {
         const auto x=m_entries.value(a).used,y=m_entries.value(b).used;
@@ -199,9 +211,11 @@ void ThumbnailDiskCache::trim(qint64 limit,int count,const std::function<bool()>
     });
     for(const auto &name:order) {
         if(cancel && cancel()) break;
-        if(m_bytes<=limit && m_entries.size()<=count) break;
+        if(m_bytes<=limit) break;
+        if(name==protectedName)continue;
         if(remove(name)) qCDebug(thumbnailCacheLog) << "evict" << name;
     }
+    if(m_bytes>limit) qCWarning(thumbnailCacheLog) << "eviction-incomplete" << m_bytes << "limit" << limit;
 }
 ImageResult ThumbnailDiskCache::image(const QByteArray &key,const std::function<ImageResult()> &generate,
                                      const std::function<bool()> &cancel,bool refresh,
@@ -304,20 +318,22 @@ ImageResult ThumbnailDiskCache::image(const QByteArray &key,const std::function<
     if(cancelled() || generation!=m_generation.load() || !m_enabled.load() || !prepare(true,error)) return result;
     QLockFile lock(m_directory+"/.lock");if(!lock.tryLock(100)) return result;
     if(!inventory(cancelled)) return result;
-    const auto old=m_entries.value(name).bytes;
-    trim(m_limit.load()-bytes.size()+old,19999,cancelled);
-    const auto existing=m_entries.value(name).bytes;
-    if(m_bytes-existing+bytes.size()>m_limit.load()) {changed();return result;}
+    if(bytes.size()>m_limit.load()) return result;
     const auto destination=QDir(m_directory).filePath(name);
     if(QFileInfo(destination).isSymLink()) return result;
+    const auto existing=m_entries.value(name).bytes;
     QSaveFile file(destination);
     if(file.open(QIODevice::WriteOnly) && file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner) && file.write(bytes)==bytes.size() &&
-       !cancelled() && generation==m_generation.load() && file.commit()) {
+       !cancelled() && generation==m_generation.load() && (!sourceUnchanged || sourceUnchanged()) && file.commit()) {
         const auto now=QDateTime::currentMSecsSinceEpoch();
         m_bytes+=bytes.size()-existing;m_entries[name]={bytes.size(),now,now};
+        // QSaveFile keeps the old PNG intact on failure.  Never remove cache
+        // entries to make room until the new image has been committed.
+        trim(m_limit.load(),{},name);
+        changed();
         qCDebug(thumbnailCacheLog) << "stored" << name;
     }
-    changed();return result;
+    return result;
 }
 ThumbnailDiskCache::Stats ThumbnailDiskCache::stats(const std::function<bool()> &cancel) {
     QMutexLocker guard(&m_mutex);Stats result;
@@ -325,7 +341,12 @@ ThumbnailDiskCache::Stats ThumbnailDiskCache::stats(const std::function<bool()> 
     QLockFile lock(m_directory+"/.lock");
     if(!lock.tryLock(100)) {result.error=QCoreApplication::translate("KomaMimic", "サムネイルキャッシュを別の処理が使用中です。");return result;}
     // Explicit usage requests also account for externally removed files.
-    m_initialized=false;inventory(cancel);result.bytes=m_bytes;result.entries=m_entries.size();return result;
+    m_initialized=false;
+    if(!inventory(cancel)) {
+        result.error=QCoreApplication::translate("KomaMimic", "サムネイルキャッシュの集計を取り消しました。");
+        return result;
+    }
+    result.bytes=m_bytes;result.entries=m_entries.size();return result;
 }
 QString ThumbnailDiskCache::clear() {
     discardPending();
@@ -344,5 +365,7 @@ QString ThumbnailDiskCache::maintain(const std::function<bool()> &cancel) {
     QLockFile lock(m_directory+"/.lock");
     if(!lock.tryLock(1000)) return QCoreApplication::translate("KomaMimic", "サムネイルキャッシュを別の処理が使用中です。");
     if(!inventory(cancel)) return {};
-    trim(m_limit.load(),20000,cancel);changed();return {};
+    trim(m_limit.load(),cancel);
+    if(cancel && cancel()) return {};
+    changed();return {};
 }

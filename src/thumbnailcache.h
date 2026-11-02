@@ -50,7 +50,8 @@ private:
     bool inventory(const std::function<bool()> &cancel = {});
     void changed();
     bool remove(const QString &name);
-    void trim(qint64 limit, int count=20000, const std::function<bool()> &cancel = {});
+    // Disk retention is determined by bytes, not the number of thumbnails.
+    void trim(qint64 limit, const std::function<bool()> &cancel = {}, const QString &protectedName = {});
     QString m_directory;
     QMutex m_mutex;
     QMap<QString,Entry> m_entries;

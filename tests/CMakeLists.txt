@@ -31,6 +31,8 @@ foreach(suite IN LISTS suites)
 endforeach()
 # UI persistence cases include disk syncs and fresh-process startup on slow disks.
 set_tests_properties(ui_tests PROPERTIES TIMEOUT 180)
+# The disk-cache count regression populates more than 20,000 real files.
+set_tests_properties(cache_tests PROPERTIES TIMEOUT 180)
 add_dependencies(ui_tests komamimic)
 target_compile_definitions(ui_tests PRIVATE KOMAMIMIC_EXECUTABLE="$<TARGET_FILE:komamimic>")
 add_dependencies(cli_tests komamimic)
