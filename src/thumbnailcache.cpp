@@ -56,10 +56,12 @@ void ThumbnailDiskCache::discardPending() {
     m_generation.fetch_add(1);
     QMutexLocker guard(&m_pendingMutex);m_pending.clear();m_pendingBytes=0;m_recentImages.clear();
 }
-void ThumbnailDiskCache::enqueue(Pending pending) {
+void ThumbnailDiskCache::enqueue(Pending pending,bool retry) {
     QMutexLocker guard(&m_pendingMutex);
     if(pending.epoch!=m_generation.load() || !m_enabled.load())return;
     for(auto i=m_pending.begin();i!=m_pending.end();++i)if(i->key==pending.key) {
+        // A retry must never displace a newer request for the same key.
+        if(retry)return;
         // A timestamp update must not replace an image waiting for persistence.
         if(pending.image.isNull())return;
         m_pendingBytes-=i->image.sizeInBytes();m_pending.erase(i);break;
@@ -146,7 +148,7 @@ bool ThumbnailDiskCache::flushPending(const std::function<bool()> &cancel) {
     {QMutexLocker guard(&m_pendingMutex);if(m_pending.isEmpty())return false;
         pending=m_pending.takeFirst();m_pendingBytes-=pending.image.sizeInBytes();}
     const bool complete=store(pending,cancel);
-    if(!complete)enqueue(std::move(pending));
+    if(!complete)enqueue(std::move(pending),true);
     else if(!pending.image.isNull()) {
         QMutexLocker guard(&m_pendingMutex);
         // Do not keep serving a rejected replacement from the recent-image
@@ -202,8 +204,9 @@ bool ThumbnailDiskCache::remove(const QString &name) {
     if(found!=m_entries.end()) {m_bytes-=found->bytes;m_entries.erase(found);}
     return true;
 }
-void ThumbnailDiskCache::trim(qint64 limit,const std::function<bool()> &cancel,const QString &protectedName) {
-    if(m_bytes<=limit) return;
+bool ThumbnailDiskCache::trim(qint64 limit,const std::function<bool()> &cancel,const QString &protectedName) {
+    if(m_bytes<=limit) return false;
+    bool removed=false;
     auto order=m_entries.keys();
     std::sort(order.begin(),order.end(),[this](const QString &a,const QString &b) {
         const auto x=m_entries.value(a).used,y=m_entries.value(b).used;
@@ -213,9 +216,13 @@ void ThumbnailDiskCache::trim(qint64 limit,const std::function<bool()> &cancel,c
         if(cancel && cancel()) break;
         if(m_bytes<=limit) break;
         if(name==protectedName)continue;
-        if(remove(name)) qCDebug(thumbnailCacheLog) << "evict" << name;
+        if(remove(name)) {
+            removed=true;
+            qCDebug(thumbnailCacheLog) << "evict" << name;
+        }
     }
     if(m_bytes>limit) qCWarning(thumbnailCacheLog) << "eviction-incomplete" << m_bytes << "limit" << limit;
+    return removed;
 }
 ImageResult ThumbnailDiskCache::image(const QByteArray &key,const std::function<ImageResult()> &generate,
                                      const std::function<bool()> &cancel,bool refresh,
@@ -365,7 +372,9 @@ QString ThumbnailDiskCache::maintain(const std::function<bool()> &cancel) {
     QLockFile lock(m_directory+"/.lock");
     if(!lock.tryLock(1000)) return QCoreApplication::translate("KomaMimic", "サムネイルキャッシュを別の処理が使用中です。");
     if(!inventory(cancel)) return {};
-    trim(m_limit.load(),cancel);
-    if(cancel && cancel()) return {};
-    changed();return {};
+    // Even if cancelled partway through eviction, publish any deletions to
+    // other cache instances before leaving the maintenance lock.
+    const bool removed=trim(m_limit.load(),cancel);
+    if(removed)changed();
+    return {};
 }

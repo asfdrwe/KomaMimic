@@ -74,10 +74,12 @@ Page-thumbnail mode does not render the hidden reading image or prefetch reading
 Pending writes may be omitted because of their memory limit, writer contention, or shutdown; those images may need regeneration next time.
 This does not invalidate other committed PNGs.
 
-The cache retains at most 20,000 thumbnails as well as respecting the configured byte limit, trimming older entries first.
-Changes to the application, Qt, image readers, source path/size/modification time or filename encoding can require regeneration.
+The configured disk capacity is the only retention limit; there is no file-count limit. Oldest-used thumbnails are removed when capacity is exceeded.
+Changes to the source path, size or modification time, or name-encoding options, regenerate affected entries. Full content hashes are not calculated.
+Changing KomaMimic, Qt, scripts or script settings alone does not invalidate thumbnails. If such a change affects the rendered image, explicitly refresh thumbnails or clear the cache.
 Changing display thumbnail dimensions or spacing alone does not clear all cached images.
-Usage totals can include PNGs from earlier versions, so a file remaining on disk does not prove it matches the current cache key.
+The cache-key format has changed, so PNGs created by older releases are not reused. After updating, we recommend clearing the thumbnail cache once from Preferences → Cache.
+Clearing thumbnails does not remove source images, archives, the library or reading history.
 
 Incomplete temporary files left by an abnormal exit are not read as committed PNGs. Qt checks lock ownership and other stale-lock conditions before reclaiming a leftover lock.
 v1.1.0 fixes unnecessary regeneration caused by lock contention; it does not establish every cause of the previously reported full-regeneration symptom.

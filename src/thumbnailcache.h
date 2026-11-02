@@ -38,7 +38,7 @@ private:
         QByteArray key; QImage image; quint64 epoch=0;
         std::function<bool()> sourceUnchanged;
     };
-    void enqueue(Pending pending);
+    void enqueue(Pending pending,bool retry=false);
     bool store(const Pending &,const std::function<bool()> &cancel);
     mutable QMutex m_pendingMutex;
     QList<Pending> m_pending;
@@ -51,7 +51,7 @@ private:
     void changed();
     bool remove(const QString &name);
     // Disk retention is determined by bytes, not the number of thumbnails.
-    void trim(qint64 limit, const std::function<bool()> &cancel = {}, const QString &protectedName = {});
+    bool trim(qint64 limit, const std::function<bool()> &cancel = {}, const QString &protectedName = {});
     QString m_directory;
     QMutex m_mutex;
     QMap<QString,Entry> m_entries;

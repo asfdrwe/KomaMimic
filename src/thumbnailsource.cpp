@@ -2,7 +2,6 @@
 #include "thumbnailsource.h"
 #include "archivepath.h"
 #include <QCoreApplication>
-#include "scriptreader.h"
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
@@ -24,14 +23,7 @@ QJsonObject baseKey(const QByteArray &source,const NamePolicy &policy) {
     // Rendering inputs, rather than build/toolkit versions, determine identity.
     return {{"revision",2},
         {"source",QString::fromUtf8(source)},{"encoding",policy.legacyEncoding},{"force",policy.force},
-        {"scripts",QString::fromLatin1(scriptReaderFingerprint().toHex())},{"width",ThumbnailSize.width()},{"height",ThumbnailSize.height()}};
-}
-QByteArray legacyKey(QJsonObject key) {
-    // Read-only compatibility with existing caches from this build.  New PNGs
-    // are stored only under the version-independent key.
-    key["version"]=KOMAMIMIC_VERSION;
-    key["qt"]=qVersion();
-    return QJsonDocument(key).toJson(QJsonDocument::Compact);
+        {"width",ThumbnailSize.width()},{"height",ThumbnailSize.height()}};
 }
 QByteArray digest(const QByteArray &data) {return QCryptographicHash::hash(data,QCryptographicHash::Sha256).toHex();}
 }
@@ -70,7 +62,7 @@ ImageResult cachedCover(const QString &path,const NamePolicy &policy,
     }
     const auto source=fingerprint(physicalBookPath(path));
     auto key=baseKey(source,policy);key["kind"]="cover";
-    qCDebug(thumbnailCacheLog) << "cover-key" << digest(source) << "scripts" << key["scripts"].toString()
+    qCDebug(thumbnailCacheLog) << "cover-key" << digest(source)
                              << "encoding" << policy.legacyEncoding << "force" << policy.force;
     if (parseArchiveEntryPath(path).valid()) key["entry"] = bookIdentityPath(path);
     auto cacheableCover = std::make_shared<bool>(true);
@@ -91,19 +83,8 @@ ImageResult cachedCover(const QString &path,const NamePolicy &policy,
     // First-page text previews depend on external images and installed fonts.
     const auto bytes=source.isEmpty() || (isTextDocumentPath(path) && info.suffix().compare("epub",Qt::CaseInsensitive)!=0)
         ? QByteArray{} : QJsonDocument(key).toJson(QJsonDocument::Compact);
-    const auto oldBytes=bytes.isEmpty()?QByteArray{}:legacyKey(key);
-    if(cachedOnly) {
-        if(refresh)return {};
-        auto hit=cache->lookup(bytes,cancel);
-        return hit.image.isNull()?cache->lookup(oldBytes,cancel):hit;
-    }
-    return cache->image(bytes,[&]() -> ImageResult {
-        if(!refresh) {
-            const auto previous=cache->lookup(oldBytes,cancel);
-            if(!previous.image.isNull())return previous;
-        }
-        return generate();
-    },cancel,refresh,[path,source,cacheableCover]{return *cacheableCover && fingerprint(physicalBookPath(path))==source;});
+    if(cachedOnly)return refresh ? ImageResult{} : cache->lookup(bytes,cancel);
+    return cache->image(bytes,generate,cancel,refresh,[path,source,cacheableCover]{return *cacheableCover && fingerprint(physicalBookPath(path))==source;});
 }
 ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int index,
                                 const std::shared_ptr<ThumbnailDiskCache> &cache,
@@ -116,28 +97,16 @@ ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int inde
     const auto path=page.archivedText ? book->path : book->filesystem || page.document ? page.filePath : book->path;
     const auto source=fingerprint(physicalBookPath(path));
     auto key=baseKey(source,book->namePolicy);key["kind"]="page";
-    qCDebug(thumbnailCacheLog) << "page-key" << digest(source) << "scripts" << key["scripts"].toString();
+    qCDebug(thumbnailCacheLog) << "page-key" << digest(source);
     key["identity"]=page.identity;key["name"]=page.name;key["ordinal"]=QString::number(page.archiveIndex);
     key["page"]=page.documentPage;key["pdfResource"]=page.pdfResource;
     key["portion"]=QJsonArray{page.portion.x(),page.portion.y(),page.portion.width(),page.portion.height()};
     key["inline"]=QString::fromLatin1(digest(page.inlineData));
-    key["settings"]=QJsonObject::fromVariantMap(book->openOptions.scriptSettings);
     key["password"]=QString::fromLatin1(digest(book->openOptions.password.toUtf8()));
     const auto bytes=page.archivedText || (source.isEmpty() && page.inlineData.isEmpty()) || isTextDocumentPath(page.filePath)
         ? QByteArray{} : QJsonDocument(key).toJson(QJsonDocument::Compact);
-    const auto oldBytes=bytes.isEmpty()?QByteArray{}:legacyKey(key);
-    if(cachedOnly) {
-        if(refresh)return {};
-        auto hit=cache->lookup(bytes,cancel);
-        return hit.image.isNull()?cache->lookup(oldBytes,cancel):hit;
-    }
-    return cache->image(bytes,[book,index,cancel,cache,oldBytes,refresh]{
-        if(!refresh) {
-            auto previous=cache->lookup(oldBytes,cancel);
-            if(!previous.image.isNull())return previous;
-        }
-        return book->image(index,ThumbnailSize,cancel);
-    },cancel,refresh,
+    if(cachedOnly)return refresh ? ImageResult{} : cache->lookup(bytes,cancel);
+    return cache->image(bytes,[book,index,cancel]{return book->image(index,ThumbnailSize,cancel);},cancel,refresh,
         [book,index,path,source]{return book->sourceUnchanged(index) && fingerprint(physicalBookPath(path))==source;});
 }
 QImage cachedCollectionCover(const QString &path,const NamePolicy &policy,const QJsonObject &metadata,bool spine,
@@ -155,14 +124,8 @@ QImage cachedCollectionCover(const QString &path,const NamePolicy &policy,const 
     const auto source=fingerprint(physicalBookPath(path));auto key=baseKey(source,policy);
     key["kind"]="registered-page";key["page"]=page;
     const auto bytes=source.isEmpty()?QByteArray{}:QJsonDocument(key).toJson(QJsonDocument::Compact);
-    const auto oldBytes=bytes.isEmpty()?QByteArray{}:legacyKey(key);
-    if(cachedOnly) {
-        auto hit=cache->lookup(bytes,cancel);
-        return hit.image.isNull()?cache->lookup(oldBytes,cancel).image:hit.image;
-    }
+    if(cachedOnly)return cache->lookup(bytes,cancel).image;
     return cache->image(bytes,[&]() -> ImageResult {
-        auto previous=cache->lookup(oldBytes,cancel);
-        if(!previous.image.isNull())return previous;
         OpenOptions options;options.cancel=cancel;
         const auto result=Book::open(path,policy,options);
         if(!result.book) return {{},result.error};

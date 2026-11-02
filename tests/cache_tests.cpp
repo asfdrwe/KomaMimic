@@ -4,9 +4,7 @@
 #include "archivenames.h"
 #include "thumbnailcache.h"
 #include "thumbnailsource.h"
-#include "scriptreader.h"
 #include "appearance.h"
-#include <QJsonDocument>
 #include "pageview.h"
 #include <archive.h>
 #include <QAction>
@@ -164,7 +162,7 @@ private slots:
         cache.image("key",[]{return ImageResult{TestData::solid(Qt::blue),{}};});
         QVERIFY(cache.flushPending());
         cache.image("key",[]{return ImageResult{TestData::solid(Qt::green),{}};},{},true,
-                    [checks=0]() mutable {return ++checks<3;});
+                    [checks=0]() mutable {return ++checks<4;});
         // The source validity callback is checked again immediately before
         // commit; the previous PNG must survive if the source changed.
         QVERIFY(cache.flushPending());
@@ -172,24 +170,59 @@ private slots:
         QCOMPARE(QImage(d.filePath(QString::fromLatin1(QCryptographicHash::hash("key",QCryptographicHash::Sha256).toHex())+".png")).pixelColor(0,0),QColor(Qt::blue));
         QCOMPARE(cache.lookup("key").image.pixelColor(0,0),QColor(Qt::blue));
     }
-    void versionIndependentKeyMigratesExistingPng() {
-        QTemporaryDir d;const auto path=d.filePath("source.png"),root=d.filePath("cache");
-        QVERIFY(TestData::write(path,TestData::png(TestData::solid(Qt::red))));
-        QVERIFY(QDir().mkpath(root));
-        const QFileInfo info(path);
-        const auto source=QJsonDocument(QJsonObject{{"path",info.absoluteFilePath()},{"resolved",info.canonicalFilePath()},
-            {"bytes",QString::number(info.size())},{"modified",QString::number(info.lastModified().toMSecsSinceEpoch())}}).toJson(QJsonDocument::Compact);
-        const NamePolicy policy;
-        const QJsonObject oldKey{{"revision",2},{"version",KOMAMIMIC_VERSION},{"qt",qVersion()},
-            {"source",QString::fromUtf8(source)},{"encoding",policy.legacyEncoding},{"force",policy.force},
-            {"scripts",QString::fromLatin1(scriptReaderFingerprint().toHex())},{"width",320},{"height",480},{"kind","cover"}};
-        const auto name=QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(oldKey).toJson(QJsonDocument::Compact),QCryptographicHash::Sha256).toHex())+".png";
-        QVERIFY(TestData::write(root+"/"+name,TestData::png(TestData::solid(Qt::blue))));
-        auto cache=std::make_shared<ThumbnailDiskCache>(root);
-        QCOMPARE(cachedCover(path,policy,cache).image.pixelColor(0,0),QColor(Qt::blue));
-        QCOMPARE(cache->stats().entries,2); // Legacy hit was copied, not regenerated.
-        QVERIFY(QFile::remove(root+"/"+name));
-        QCOMPARE(cachedCover(path,policy,cache).image.pixelColor(0,0),QColor(Qt::blue));
+    void pageCacheIgnoresUnrelatedScriptSettings() {
+        QTemporaryDir d;
+        const auto source=d.filePath("book.zip");
+        QVERIFY(TestData::write(source,TestData::zip({{"01.png",TestData::png(TestData::solid(Qt::red))}})));
+        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));
+        const auto first=Book::open(source).book;
+        QVERIFY(first);
+        QCOMPARE(cachedPageThumbnail(first,0,cache).image.pixelColor(0,0),QColor(Qt::red));
+        const auto pngs=QDir(cache->directory()).entryList({"*.png"},QDir::Files);
+        QCOMPARE(pngs.size(),1);
+        // A blue committed PNG proves a cache hit: the unchanged source is red.
+        QVERIFY(TestData::write(QDir(cache->directory()).filePath(pngs.first()),
+                                TestData::png(TestData::solid(Qt::blue))));
+        OpenOptions options;
+        options.scriptSettings.insert("unrelated-reader-option",42);
+        const auto reopened=Book::open(source,{},options).book;
+        QVERIFY(reopened);
+        QCOMPARE(cachedPageThumbnail(reopened,0,cache).image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(cache->stats().entries,1);
+    }
+    void maintenanceCancellationPublishesPartialEviction() {
+        QTemporaryDir d;
+        const auto first=d.filePath(QString(64,'a')+".png");
+        const auto second=d.filePath(QString(64,'b')+".png");
+        const QByteArray large(9*1024*1024,'x');
+        QVERIFY(TestData::write(first,large));
+        QVERIFY(TestData::write(second,large));
+        ThumbnailDiskCache cache(d.path());cache.configure(true,16);
+        // Cancellation becomes true only after the first file is removed.
+        const auto cancel=[&]{return QFileInfo::exists(first)!=QFileInfo::exists(second);};
+        QVERIFY(cache.maintain(cancel).isEmpty());
+        QVERIFY(cancel());
+        QVERIFY(QFileInfo::exists(d.filePath(".revision")));
+        QCOMPARE(cache.stats().entries,1);
+    }
+    void deferredRetryNeverReplacesNewerRequest() {
+        QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.setDeferredWrites(true);
+        cache.image("key",[]{return ImageResult{TestData::solid(Qt::red),{}};});
+        bool injected=false;
+        const bool completed=cache.flushPending([&] {
+            if(!injected) {
+                injected=true;
+                cache.image("key",[]{return ImageResult{TestData::solid(Qt::green),{}};},{},true);
+            }
+            return true; // Force the old in-flight request to retry.
+        });
+        QVERIFY(injected);
+        QVERIFY(!completed);
+        QVERIFY(cache.hasPendingWrites());
+        QCOMPARE(cache.lookup("key").image.pixelColor(0,0),QColor(Qt::green));
+        QVERIFY(cache.flushPending());
+        QCOMPARE(cache.lookup("key").image.pixelColor(0,0),QColor(Qt::green));
+        QCOMPARE(cache.stats().entries,1);
     }
     void disabledAndClear() {
         QTemporaryDir d;const auto root=d.filePath("cache");ThumbnailDiskCache cache(root);int calls=0;
