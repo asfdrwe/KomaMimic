@@ -271,6 +271,7 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 - asfdrwe <asfdrwe@gmail.com>
 
 ## Changelog
+- **v1.4.0**: Show saved cover thumbnails immediately without waiting for ZIP metadata checks, then validate sources at low priority and replace changed covers. Use a fresh `thumbnails-v2` cache without migrating v1 images; refresh thumbnails with F6 or clear the cache if results are incorrect. Document Qt logical-pixel thumbnail sizes and stabilize macOS directory-refresh UI testing.
 - **v1.3.0**: Remove the 20,000-file limit on disk thumbnail caches so retention follows the configured capacity; preserve existing PNGs when replacement writes fail. Reduce unnecessary cache invalidation across application, Qt, and script updates. Fix MangaMeeya settings import on Windows and extend regression tests for caching, settings, and single-instance startup. The new cache key does not reuse old cache files; clear the thumbnail cache from Preferences if you want to reclaim their disk space.
 - **v1.2.1**: Restore a minimized existing window before requesting activation on a second launch in single-instance mode, preserving maximized/fullscreen state and reading position.
 - **v1.2.0**: Prioritize visible thumbnails and separate cached-image lookup from image generation. Display generated images before saving the cache, cancel obsolete work, and avoid hidden reader rendering in thumbnail mode. Load folder lists asynchronously while preserving selection and scroll position.

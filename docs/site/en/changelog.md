@@ -2,6 +2,12 @@
 
 [日本語](../changelog.md) | English
 
+## v1.4.0
+- Display saved cover thumbnails before checking source ZIP metadata; validate in low-priority background work and regenerate/replace covers only when a source change is detected.
+- Start a separate `thumbnails-v2` disk cache; no migration from `thumbnails-v1`. To reclaim the old cache space, clear it in the previous version before upgrading.
+- Document F6 thumbnail refresh and cache clearing as recovery steps for incorrect covers. Explain that thumbnail dimensions use Qt logical pixels, not DPI.
+- Add cache fast-display, validation and forced-regeneration regression tests, and stabilize the macOS directory-refresh scroll-position UI test.
+
 ## v1.3.0
 
 - Remove the 20,000-entry disk thumbnail cache limit and use only the configured capacity to decide retention. Preserve existing committed PNGs if a replacement write fails.
