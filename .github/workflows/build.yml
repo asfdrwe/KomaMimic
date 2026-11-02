@@ -242,7 +242,7 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           python tests/fixtures/generate_validation_samples.py --output fixtures-ci
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
-      - name: Release build and platform tests (including single-instance IPC)
+      - name: Release build and platform tests (including settings import and IPC)
         run: |
           python tools/run_validation.py run --build-dir build-windows-fast --fixtures fixtures-ci --output results/windows-ci --jobs 4 --test-scope platform --windows-mode prebuilt --cmake-arg=-DVCPKG_INSTALL_OPTIONS=--x-buildtrees-root=D:/kfb
           if ($LASTEXITCODE) { exit $LASTEXITCODE }

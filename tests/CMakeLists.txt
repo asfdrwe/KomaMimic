@@ -8,7 +8,8 @@ set_property(CACHE KOMAMIMIC_TEST_SCOPE PROPERTY STRINGS full platform)
 if(KOMAMIMIC_TEST_SCOPE STREQUAL "full")
     set(suites compatibility reader ui feature format pdf cli script pic document power evolution cache i18n archive_text legacy_settings)
 elseif(KOMAMIMIC_TEST_SCOPE STREQUAL "platform")
-    set(suites compatibility cli ui pdf script document power cache i18n)
+    # Windows CI must exercise the settings.ini replacement regression too.
+    set(suites compatibility cli ui pdf script document power cache i18n legacy_settings)
     set(cache_functions zipCancellationDuringForwardSkip diskCacheSurvivesKilledWriter archiveMetadataScanCanYield cacheLookupHasReservedWorker obsoleteWaitingJobsAreRemoved backgroundDoesNotOccupyDisplayWorker deferredDisplayDoesNotWaitForInventory deferredStoresRespectClearAndMemoryBound)
     set(ui_functions explicitRefreshBypassesSavedCover visibleCachedCoverBypassesSlowGeneration pageModeDoesNotRenderHiddenReader folderTreeListsFilesystemRoots closeCancelsCollectionCover fullscreenDefaultDoesNotOverlapAccept slideshowScrollDefault mangaDefaultsAndSavedSettings mangaMouseDefaultsAndScroll scriptPreferencesSaveCancelAndRestart loadNavigateAndViews toolbarDefaultsAndPersistence restoreAndActivateBringsWindowForward restoreAndActivateKeepsWindowAndReadingState fullscreenPersistenceAndNormalWindow fullscreenPreferencesApplyAndCancel fullscreenSurvivesProcessRestart fullscreenStartupRequestsKeepCurrentState fullscreenChromeAtSeparateEdges fullscreenMarginsWithoutUpperBar shortcutScopesAndPersistence thumbnailShortcutScopesFollowFocus nativeApplicationMenuRoles directoryChangesRefreshCovers directoryRefreshPreservesEditingAndStopsAfterSettingsWrites)
     set(script_functions registryPreviewAndApiOneValidation scriptContractAndIsolation foldersAndArchives)
@@ -32,7 +33,7 @@ endforeach()
 # UI persistence cases include disk syncs and fresh-process startup on slow disks.
 set_tests_properties(ui_tests PROPERTIES TIMEOUT 180)
 # The disk-cache count regression populates more than 20,000 real files.
-set_tests_properties(cache_tests PROPERTIES TIMEOUT 180)
+set_tests_properties(cache_tests PROPERTIES TIMEOUT 300)
 # Parallel WebEngine and filesystem-heavy tests need more time on Windows.
 if(WIN32)
     set_tests_properties(ui_tests document_tests cache_tests PROPERTIES TIMEOUT 300)
