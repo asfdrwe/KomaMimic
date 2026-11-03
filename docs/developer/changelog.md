@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4.0
+- Cover thumbnails: use a path/settings-based lookup key that does not require source ZIP metadata; store the source stamp with the cached image, show cached covers first, and validate in low-priority work before regenerating changed sources.
+- Use the separate `thumbnails-v2` disk cache without migrating v1 PNGs. Preserve atomic image writes and existing page-thumbnail behavior.
+- Test cached-cover responsiveness while source validation is blocked, changed-source replacement, and explicit refresh recovery from incorrect cache pixels.
+- Make the macOS directory-change scroll-position test establish its Qt item layout before setting the test scroll position; retain the actual scroll-position assertion.
+- Document F6 and cache-clear recovery, upgrade caveats, and Qt logical-pixel thumbnail sizing in both languages.
+
 ## v1.3.0
 
 - ThumbnailDiskCache: remove the 20,000-entry eviction rule; enforce the configured byte capacity only. Save before trimming and retain committed pixels on replacement failure.

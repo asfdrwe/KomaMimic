@@ -4,6 +4,11 @@
 
 Screenshots on this page show the Japanese UI.
 
+
+### Upgrading to `thumbnails-v2`
+
+The earlier `thumbnails-v1` cache is not migrated. To reclaim its disk space, clear the old cache from Preferences → Cache in the **old version before upgrading**. Clearing the cache in the new version does not delete the old cache directory. See [Settings and caches](settings.md) for details.
+
 ## Windows (ZIP)
 
 The Windows ZIP is for x86_64 (64-bit Intel/AMD). Bundled Qt 6.11 supports Windows

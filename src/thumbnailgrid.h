@@ -8,7 +8,8 @@ struct CustomThumbnailSettings {
     bool rightOrigin = false, frames = false;
     bool operator==(const CustomThumbnailSettings &) const = default;
 };
-enum ThumbnailRole { PathRole = Qt::UserRole, DirectoryRole, ThumbnailRoleReady, PendingRole, PageRole, ThumbnailRefreshRole, ThumbnailPageNameRole, ThumbnailSourceStampRole };
+enum ThumbnailRole { PathRole = Qt::UserRole, DirectoryRole, ThumbnailRoleReady, PendingRole, PageRole, ThumbnailRefreshRole, ThumbnailPageNameRole, ThumbnailSourceStampRole,
+                     ThumbnailCoverStampRole, ThumbnailCoverValidatedRole };
 class ThumbnailGrid : public QListWidget {
     Q_OBJECT
 public:

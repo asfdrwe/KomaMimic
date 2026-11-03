@@ -227,6 +227,8 @@ void ThumbnailGrid::invalidateThumbnails() {
     m_cached.clear(); m_sourceImages.clear();
     for (int row = 0; row < count(); ++row) {
         item(row)->setData(ThumbnailRoleReady, false); item(row)->setData(PendingRole, false);
+        item(row)->setData(ThumbnailCoverValidatedRole,false);
+        item(row)->setData(ThumbnailCoverStampRole,QString{});
         item(row)->setData(ThumbnailRefreshRole,true);
         item(row)->setIcon(displayIcon({}, item(row)->data(DirectoryRole).toBool()));
     }

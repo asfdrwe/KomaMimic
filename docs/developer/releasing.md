@@ -5,20 +5,27 @@ the existing Build and Rocky/Ubuntu AppImage workflows, assembles their verified
 outputs, uploads them to a draft, checks the uploaded assets, and publishes the
 complete Release. It never creates or moves Git tags.
 
-## Preparing v1.3.0 before tagging
+## Preparing v1.4.0 before tagging
 
-After merging the feature branch, set version `1.3.0` in `CMakeLists.txt`, both
-vcpkg manifests, and README; update the Japanese, English, and developer changelogs.
-The release validator requires these values to match `v1.3.0`. A tag pushed before
-the version-bump commit reaches `main` will fail validation.
+After merging the tested `cachev2` changes, set version `1.4.0` in `CMakeLists.txt`,
+both vcpkg manifests, and README; update the Japanese, English, and developer
+changelogs. The release validator requires these values to match `v1.4.0`.
+Do not push the tag until the version-bump commit reaches `main`.
 
+The cover cache uses `thumbnails-v2` and does not migrate `thumbnails-v1`. The
+Japanese and English upgrade instructions explain how to clear the old cache
+**using the old app before upgrading**. F6 refresh and cache clearing remain the
+published workaround for incorrect thumbnails.
+
+Verify full CTest on Linux, macOS, and Windows for the final versioned commit.
+The manual tests previously run against the cachev2 implementation are useful
+regression evidence but are not a substitute for the release packaging checks.
 Push the version-bump commit, verify the Build and Pages checks, then manually run
 **Release → Run workflow** on `main`. The manual run assembles/verifies release
 artifacts but never publishes a GitHub Release. Inspect the result, dependency
 notices, corresponding source, and checksums. Only after these checks succeed
-create an annotated `v1.3.0` tag on the exact release commit and push it. Do not
+create an annotated `v1.4.0` tag on the exact release commit and push it. Do not
 move an existing release tag as a retry mechanism.
-
 ## Version and tag checks
 
 Use `vMAJOR.MINOR.PATCH`, for example `v1.0.0`, `v1.1.0`, or `v2.0.0`. The numeric
