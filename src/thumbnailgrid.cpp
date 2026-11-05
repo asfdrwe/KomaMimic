@@ -6,6 +6,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScrollBar>
+#include <QSet>
 #include <QStyledItemDelegate>
 #include <QTextLayout>
 #include <QTimer>
@@ -244,9 +245,16 @@ void ThumbnailGrid::setThumbnail(int row, const QImage &image, const QString &er
     entry->setIcon(displayIcon(image,entry->data(DirectoryRole).toBool()));
     m_cached.removeAll(row); m_cached.enqueue(row);
     // Icon pixels are bounded independently of the number of list entries.
-    const int keep = std::max(160, int(visibleRows().size()) + 20);
-    while (m_cached.size() > keep) {
+    const auto visible = visibleRows();
+    const int keep = std::max(160, int(visible.size()) + 20);
+    if (m_cached.size() <= keep) return;
+    const QSet<int> protectedRows(visible.begin(), visible.end());
+    int candidates = m_cached.size();
+    while (m_cached.size() > keep && candidates-- > 0) {
         const int old = m_cached.dequeue();
+        // A ready visible row has no pending reload. Evicting it here would
+        // leave a placeholder after another row's asynchronous completion.
+        if (protectedRows.contains(old)) { m_cached.enqueue(old); continue; }
         if (old >= count()) continue;
         m_sourceImages.remove(old);
         item(old)->setIcon(displayIcon({}, item(old)->data(DirectoryRole).toBool()));
