@@ -6,11 +6,11 @@ target_include_directories(test_support PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 set(KOMAMIMIC_TEST_SCOPE full CACHE STRING "full or platform integration checks")
 set_property(CACHE KOMAMIMIC_TEST_SCOPE PROPERTY STRINGS full platform)
 if(KOMAMIMIC_TEST_SCOPE STREQUAL "full")
-    set(suites compatibility reader ui feature format pdf cli script pic document power evolution cache i18n archive_text legacy_settings)
+    set(suites compatibility reader ui feature format pdf cli script pic document power evolution cache i18n archive_text legacy_settings thumbnail)
 elseif(KOMAMIMIC_TEST_SCOPE STREQUAL "platform")
     # Windows CI must exercise the settings.ini replacement regression too.
-    set(suites compatibility cli ui pdf script document power cache i18n legacy_settings)
-    set(cache_functions thumbnailEvictionPreservesVisibleImages cachedThumbnailsSurviveScrollReturn zipCancellationDuringForwardSkip diskCacheSurvivesKilledWriter archiveMetadataScanCanYield cacheLookupHasReservedWorker obsoleteWaitingJobsAreRemoved backgroundDoesNotOccupyDisplayWorker deferredDisplayDoesNotWaitForInventory deferredStoresRespectClearAndMemoryBound)
+    set(suites compatibility cli ui pdf script document power cache i18n legacy_settings thumbnail)
+    set(cache_functions zipCancellationDuringForwardSkip diskCacheSurvivesKilledWriter archiveMetadataScanCanYield cacheLookupHasReservedWorker obsoleteWaitingJobsAreRemoved backgroundDoesNotOccupyDisplayWorker deferredDisplayDoesNotWaitForInventory deferredStoresRespectClearAndMemoryBound)
     set(ui_functions explicitRefreshBypassesSavedCover visibleCachedCoverBypassesSlowGeneration pageModeDoesNotRenderHiddenReader folderTreeListsFilesystemRoots closeCancelsCollectionCover fullscreenDefaultDoesNotOverlapAccept slideshowScrollDefault mangaDefaultsAndSavedSettings mangaMouseDefaultsAndScroll scriptPreferencesSaveCancelAndRestart scriptRegistrationRestartNotice loadNavigateAndViews toolbarDefaultsAndPersistence restoreAndActivateBringsWindowForward restoreAndActivateKeepsWindowAndReadingState fullscreenPersistenceAndNormalWindow fullscreenPreferencesApplyAndCancel fullscreenSurvivesProcessRestart fullscreenStartupRequestsKeepCurrentState fullscreenChromeAtSeparateEdges fullscreenMarginsWithoutUpperBar shortcutScopesAndPersistence thumbnailShortcutScopesFollowFocus nativeApplicationMenuRoles directoryChangesRefreshCovers directoryRefreshPreservesEditingAndStopsAfterSettingsWrites)
     set(script_functions registryPreviewAndApiOneValidation scriptContractAndIsolation foldersAndArchives)
     set(document_functions documentProbeSeparateReport epubUnicodeFilesystemPath defaultStandardDocuments fixedViewportRendering extendedWideImagesAndSharedSpace documentReflowAndResume)
@@ -34,6 +34,8 @@ endforeach()
 set_tests_properties(ui_tests PROPERTIES TIMEOUT 180)
 # The disk-cache count regression populates more than 20,000 real files.
 set_tests_properties(cache_tests PROPERTIES TIMEOUT 300)
+# Give the separate 220-folder/ZIP scroll fixtures their own bounded budget.
+set_tests_properties(thumbnail_tests PROPERTIES TIMEOUT 180)
 # Parallel WebEngine and filesystem-heavy tests need more time on Windows.
 if(WIN32)
     set_tests_properties(ui_tests document_tests cache_tests PROPERTIES TIMEOUT 300)

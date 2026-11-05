@@ -107,8 +107,12 @@ private slots:
         features->settingsFile(false,exported);verifyExport();
         window.command("settingsSave4")->trigger();
         window.command("sortNatural")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());window.command("settingsLoad4")->trigger();
+        QTRY_VERIFY(!window.isLoading() && window.renderReady());
         QVERIFY(window.command("sortUnicode")->isChecked());QCOMPARE(pages->item(0)->text(),QString("2.png"));
         window.command("sortNatural")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());features->settingsFile(true,exported);
+        // Import can start an asynchronous book reload while its result dialog
+        // is closing. Wait for the restored book, not just the action checkmark.
+        QTRY_VERIFY(!window.isLoading() && window.renderReady());
         QVERIFY(window.command("sortUnicode")->isChecked());QCOMPARE(window.currentPageName(),current);
         window.showCovers();QTRY_VERIFY(window.requestReady());window.command("sortRandom")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());
         auto *covers=window.findChild<ThumbnailGrid *>("zipLibrary");QStringList before;

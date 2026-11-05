@@ -57,6 +57,14 @@ private slots:
         QCOMPARE(evaluateExpression("1/0", {}).error, QString("ゼロ除算です。"));
         QCOMPARE(DocumentView::readerMessages().value("back").toString(), QString("リンク元へ戻る"));
     }
+    void explicitLanguageInitialization() {
+        for(int repeat=0;repeat<3;++repeat) {
+            QCOMPARE(I18n::initialize("ja-JP"),QString("ja"));
+            QCOMPARE(evaluateExpression("1/0",{}).error,QString("ゼロ除算です。"));
+            QCOMPARE(I18n::initialize("EN-us"),QString("en"));
+            QCOMPARE(evaluateExpression("1/0",{}).error,QString("Division by zero."));
+        }
+    }
     void textSyntaxAndUserContentAreNotTranslated() {
         QTemporaryDir d;
         const auto path = d.filePath("日本語の本.txt");

@@ -377,8 +377,9 @@ private slots:
         QFETCH(bool,registered);QFETCH(QString,operation);QFETCH(bool,save);
         QFETCH(int,expectedNotices);QFETCH(QString,language);
         const auto previousLanguage=I18n::currentLanguage();
-        const auto restoreLanguage=qScopeGuard([&]{I18n::initialize(previousLanguage);});
-        I18n::initialize(language);
+        const bool changeLanguage=previousLanguage!=language;
+        const auto restoreLanguage=qScopeGuard([&]{if(changeLanguage)I18n::initialize(previousLanguage);});
+        if(changeLanguage)I18n::initialize(language);
         QTemporaryDir d;QVERIFY(d.isValid());
         const auto package=d.filePath("script"),config=d.filePath("settings.ini");
         QVERIFY(QDir().mkpath(package));

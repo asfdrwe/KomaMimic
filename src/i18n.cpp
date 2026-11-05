@@ -20,6 +20,17 @@ static void initializeCatalogResources() {
 namespace {
 QString language = "ja";
 QPointer<QTranslator> applicationTranslator, fallbackTranslator, qtTranslator;
+QString matchLanguage(QString code, const QVector<I18n::Language> &supported) {
+    code.replace('-', '_');
+    for (const auto &entry : supported)
+        if (QString(entry.code).replace('-', '_').compare(code, Qt::CaseInsensitive) == 0) return entry.code;
+    const auto base = code.section('_', 0, 0);
+    for (const auto &entry : supported)
+        if (entry.code.compare(base, Qt::CaseInsensitive) == 0) return entry.code;
+    for (const auto &entry : supported)
+        if (QString(entry.code).replace('-', '_').section('_', 0, 0).compare(base, Qt::CaseInsensitive) == 0) return entry.code;
+    return {};
+}
 }
 QVector<I18n::Language> I18n::languages() {
     initializeCatalogResources();
@@ -38,30 +49,24 @@ QVector<I18n::Language> I18n::languages() {
 }
 QString I18n::resolve(const QString &selection, const QStringList &preferences) {
     const auto supported = languages();
-    const auto match = [&](QString code) -> QString {
-        code.replace('-', '_');
-        for (const auto &entry : supported)
-            if (QString(entry.code).replace('-', '_').compare(code, Qt::CaseInsensitive) == 0) return entry.code;
-        const auto base = code.section('_', 0, 0);
-        for (const auto &entry : supported)
-            if (entry.code.compare(base, Qt::CaseInsensitive) == 0) return entry.code;
-        for (const auto &entry : supported)
-            if (QString(entry.code).replace('-', '_').section('_', 0, 0).compare(base, Qt::CaseInsensitive) == 0) return entry.code;
-        return {};
-    };
     if (selection != "system") {
-        const auto explicitLanguage = match(selection);
+        const auto explicitLanguage = matchLanguage(selection, supported);
         if (!explicitLanguage.isEmpty()) return explicitLanguage;
     }
     for (const auto &preference : preferences) {
-        const auto code = match(preference);
+        const auto code = matchLanguage(preference, supported);
         if (!code.isEmpty()) return code;
     }
     return "en";
 }
 QString I18n::initialize(const QString &selection) {
+    // Explicit supported languages do not depend on OS UI preferences. Avoid
+    // querying QSystemLocale (including Windows/WinRT) on every test/worker init.
+    const auto explicitLanguage = selection == "system" ? QString{} : matchLanguage(selection, languages());
+    const auto resolved = explicitLanguage.isEmpty()
+        ? resolve(selection, QLocale::system().uiLanguages()) : explicitLanguage;
     delete applicationTranslator; delete fallbackTranslator; delete qtTranslator;
-    language = resolve(selection, QLocale::system().uiLanguages());
+    language = resolved;
     if (language != "en") {
         qtTranslator = new QTranslator(QCoreApplication::instance());
         if (qtTranslator->load(QLocale(language), "qtbase", "_", QLibraryInfo::path(QLibraryInfo::TranslationsPath)))

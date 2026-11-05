@@ -33,16 +33,24 @@ suites individually to distinguish contention from a genuine hang.
 
 ## Test scopes
 
-`full` registers 19 CTest entries: 16 Qt suites (compatibility, reader, UI,
+`full` registers 20 CTest entries: 17 Qt suites (compatibility, reader, UI,
 feature, format, PDF, CLI, script, PIC, document, power, evolution, cache, i18n,
-archive_text and legacy_settings), the C-locale format check, and the Python
+archive_text, legacy_settings and thumbnail), the C-locale format check, and the Python
 single-instance IPC and distribution checks.
-`platform` registers 12 CTest entries: compatibility, CLI, UI, PDF, script,
-document, power, cache, i18n, legacy_settings, single-instance IPC, and
+`platform` registers 13 CTest entries: compatibility, CLI, UI, PDF, script,
+document, power, cache, i18n, legacy_settings, thumbnail, single-instance IPC, and
 distribution. Some Qt suites run only selected platform integration functions.
 This is the Windows-fast CI default. Its cache suite selects cancellation,
 disk-persistence and worker-scheduling regressions; it is not the full cache suite.
 Do not report passing `platform` checks as the full test scope.
+
+`thumbnail_tests` runs visible-image eviction and the 220-folder/220-page ZIP
+scroll regressions in both scopes. It has its own 180-second timeout, separate
+from the cache suite's 300-second budget. Scroll cases log elapsed time at fixture,
+book-load, outward-scroll, disk-cache preparation and return-check milestones.
+This preserves the assertions while making slow filesystem stages visible in CI.
+Its application name also isolates the native Windows/macOS cache directory
+from `cache_tests`, which includes explicit cache-clearing tests.
 
 ```sh
 ctest --test-dir build-test -R '^(ui|script)_tests$' --output-on-failure
