@@ -5,27 +5,25 @@ the existing Build and Rocky/Ubuntu AppImage workflows, assembles their verified
 outputs, uploads them to a draft, checks the uploaded assets, and publishes the
 complete Release. It never creates or moves Git tags.
 
-## Preparing v1.4.0 before tagging
+## v1.4.1のタグ作成前
 
-After merging the tested `cachev2` changes, set version `1.4.0` in `CMakeLists.txt`,
-both vcpkg manifests, and README; update the Japanese, English, and developer
-changelogs. The release validator requires these values to match `v1.4.0`.
-Do not push the tag until the version-bump commit reaches `main`.
+v1.4.1は、スクリプト登録後の再起動案内、スクロール後のサムネイル欠落修正、
+各OSの自動テストの安定化を含むパッチ版です。版番号`1.4.1`を`CMakeLists.txt`、
+両vcpkg manifest、READMEに揃え、日英サイトと開発者向けの更新履歴を更新します。
+Release validatorはこれらとタグ`v1.4.1`の一致を検証します。
+版番号更新のcommitが`main`へ反映されるまでタグをpushしません。
 
-The cover cache uses `thumbnails-v2` and does not migrate `thumbnails-v1`. The
-Japanese and English upgrade instructions explain how to clear the old cache
-**using the old app before upgrading**. F6 refresh and cache clearing remain the
-published workaround for incorrect thumbnails.
+キャッシュ形式は引き続き`thumbnails-v2`です。`thumbnails-v1`の移行は行いません。
+旧版で更新前に旧キャッシュを削除する日英の手順と、F6・キャッシュ削除による回復手順は継続します。
 
-Verify full CTest on Linux, macOS, and Windows for the final versioned commit.
-The manual tests previously run against the cachev2 implementation are useful
-regression evidence but are not a substitute for the release packaging checks.
-Push the version-bump commit, verify the Build and Pages checks, then manually run
-**Release → Run workflow** on `main`. The manual run assembles/verifies release
-artifacts but never publishes a GitHub Release. Inspect the result, dependency
-notices, corresponding source, and checksums. Only after these checks succeed
-create an annotated `v1.4.0` tag on the exact release commit and push it. Do not
-move an existing release tag as a retry mechanism.
+最終の版番号を含むcommitでLinux/macOS/Windowsのfull CTestを確認します。
+既に実施したローカル試験は回帰確認の証拠ですが、配布物の検査の代用にはしません。
+版番号更新commitをpushし、BuildとPagesを確認してから、`main`で
+**Release → Run workflow**を手動実行します。この実行は成果物を組み立てて検証し、
+GitHub Releaseは公開しません。成果物・依存ライセンス表示・対応ソース・checksumを確認し、
+成功後に管理者が対象commitへ注釈付き`v1.4.1`タグを作成してpushします。
+既存の公開タグを再試行のために移動しません。
+
 ## Version and tag checks
 
 Use `vMAJOR.MINOR.PATCH`, for example `v1.0.0`, `v1.1.0`, or `v2.0.0`. The numeric

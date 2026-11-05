@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.4.1
+
+- スクリプト登録先一覧の保存前後を比較し、追加・削除を保存した場合だけ再起動案内を表示。言語変更の案内と統合し、取消・変更なし・パラメータのみの変更では表示しない。
+- ThumbnailGridの表示用キャッシュ整理で可視行を保護し、画面外の古い画像から解放。保持上限を維持し、フォルダ表紙・ZIPページの高速スクロール後の欠落を修正。
+- 対応する明示言語の初期化で不要なOS UI言語照会を省き、設定復元の互換試験では非同期読込・描画完了を待つ。
+- サムネイル回帰を独立CTestへ分離し、Windows/macOSのキャッシュ先と時間枠を分離。保存fixtureの競合待機と段階ごとの所要時間ログを追加。fullは20群、platformは13群。
+- WindowsのCLI子プロセス終了待機を60秒、CLI群を180秒、UI群を600秒へ調整。起動失敗の診断と、Timeout時の引数・経過時間・標準出力・標準エラーを記録。
+
 ## v1.4.0
 - Cover thumbnails: use a path/settings-based lookup key that does not require source ZIP metadata; store the source stamp with the cached image, show cached covers first, and validate in low-priority work before regenerating changed sources.
 - Use the separate `thumbnails-v2` disk cache without migrating v1 PNGs. Preserve atomic image writes and existing page-thumbnail behavior.

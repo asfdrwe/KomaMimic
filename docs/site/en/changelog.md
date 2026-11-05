@@ -2,6 +2,12 @@
 
 [日本語](../changelog.md) | English
 
+## v1.4.1
+
+- Show a restart notice after saving additions or removals of script registrations in Preferences. Combine it with the language restart notice when both change.
+- Fix visible thumbnails disappearing during display-cache eviction after fast scrolling through many folders or ZIP pages.
+- Improve automated-test waits and time budgets across platforms, including Windows and macOS, and record diagnostics when Windows CLI test subprocesses time out.
+
 ## v1.4.0
 - Display saved cover thumbnails before checking source ZIP metadata; validate in low-priority background work and regenerate/replace covers only when a source change is detected.
 - Start a separate `thumbnails-v2` disk cache; no migration from `thumbnails-v1`. To reclaim the old cache space, clear it in the previous version before upgrading.
