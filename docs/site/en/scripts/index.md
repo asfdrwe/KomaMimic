@@ -15,6 +15,11 @@ compatible execution of Susie/AviSynth plugins.
 3. Use the inspect-and-add action to validate the contents, then choose settings and a filter.
 4. Save with OK. Restart after adding/removing folders. Reopen the book after changing values.
 
+Saving added or removed registration folders with OK shows a restart notice.
+After dismissing it, exit and restart KomaMimic yourself; the app does not restart automatically.
+Cancelling or leaving the registration folders unchanged does not show this notice.
+If you only change settings for an existing script, reopen the book to apply them.
+
 ![Script preferences](../../assets/screenshots/script-preferences-ja.png)
 
 Registration checks do not execute JavaScript. Cancel leaves registrations,

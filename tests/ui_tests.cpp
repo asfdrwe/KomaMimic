@@ -8,6 +8,7 @@
 #include "scriptreader.h"
 #include "defaultpreferences.h"
 #include "thumbnailsource.h"
+#include "i18n.h"
 #include <QAction>
 #include <QCheckBox>
 #include <QComboBox>
@@ -32,6 +33,7 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QMouseEvent>
 #include <QScrollBar>
 #include <QSettings>
@@ -281,6 +283,15 @@ private slots:
         QVERIFY(TestData::write(root+"/filter/filter.js","function filter(image,c){if(c.apiVersion!==1)throw 'API';return [{op:'invert'}];}"));
         const auto config=d.filePath("settings.ini");const auto fingerprint=scriptReaderFingerprint();
         MainWindow w(config);w.show();
+        int restartNotices=0;
+        QTimer dismissNotice;
+        connect(&dismissNotice,&QTimer::timeout,&w,[&] {
+            if(auto *notice=qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+                if(notice->objectName()=="scriptRestartNotice")++restartNotices;
+                notice->accept();
+            }
+        });
+        dismissNotice.start(10);
         const auto edit=[&](bool save) {
             QTimer::singleShot(0,&w,[&,save] {
                 auto *dialog=w.findChild<QDialog *>("preferencesDialog");QVERIFY(dialog);QTimer::singleShot(2000,dialog,&QDialog::reject);
@@ -303,9 +314,11 @@ private slots:
             w.command("preferences")->trigger();
         };
         edit(false);
+        QCOMPARE(restartNotices,0);
         {QSettings settings(config,QSettings::IniFormat);QVERIFY(!settings.contains("scripts/directories"));QVERIFY(!settings.contains("scripts/ui-reader/red"));}
         QCOMPARE(scriptReaderFingerprint(),fingerprint);
         edit(true);
+        QCOMPARE(restartNotices,1);
         {QSettings settings(config,QSettings::IniFormat);QCOMPARE(settings.value("scripts/directories").toStringList(),QStringList{root});
             QCOMPARE(settings.value("scripts/ui-reader/red").toInt(),70);QCOMPARE(settings.value("scripts/filter").toString(),QString("ui-filter"));}
         QCOMPARE(scriptReaderFingerprint(),fingerprint);w.close();
@@ -334,12 +347,95 @@ private slots:
             remove.command("preferences")->trigger();
         };
         removeRegistration(false);
+        QCOMPARE(restartNotices,1);
         {QSettings settings(config,QSettings::IniFormat);QCOMPARE(settings.value("scripts/directories").toStringList(),QStringList{root});}
         removeRegistration(true);remove.close();
+        QCOMPARE(restartNotices,2);
         {QSettings settings(config,QSettings::IniFormat);QVERIFY(settings.value("scripts/directories").toStringList().isEmpty());}
         process.start(QString::fromUtf8(KOMAMIMIC_EXECUTABLE),{"--config",config,"--formats"});
         QVERIFY(process.waitForStarted(5000));QVERIFY(process.waitForFinished(10000));QCOMPARE(process.exitCode(),0);
         QVERIFY(!process.readAllStandardOutput().contains("uiimg"));
+    }
+    void scriptRegistrationRestartNotice_data() {
+        QTest::addColumn<bool>("registered");
+        QTest::addColumn<QString>("operation");
+        QTest::addColumn<bool>("save");
+        QTest::addColumn<int>("expectedNotices");
+        QTest::addColumn<QString>("language");
+        QTest::newRow("add") << false << QString("add") << true << 1 << QString("ja");
+        QTest::newRow("remove") << true << QString("remove") << true << 1 << QString("ja");
+        QTest::newRow("cancel-add") << false << QString("add") << false << 0 << QString("ja");
+        QTest::newRow("cancel-remove") << true << QString("remove") << false << 0 << QString("ja");
+        QTest::newRow("unchanged") << true << QString{} << true << 0 << QString("ja");
+        QTest::newRow("parameters-only") << true << QString("parameters") << true << 0 << QString("ja");
+        QTest::newRow("add-then-remove") << false << QString("add-remove") << true << 0 << QString("ja");
+        QTest::newRow("remove-then-add") << true << QString("remove-add") << true << 0 << QString("ja");
+        QTest::newRow("registration-and-language") << false << QString("add-language") << true << 1 << QString("ja");
+        QTest::newRow("english") << false << QString("add") << true << 1 << QString("en");
+    }
+    void scriptRegistrationRestartNotice() {
+        QFETCH(bool,registered);QFETCH(QString,operation);QFETCH(bool,save);
+        QFETCH(int,expectedNotices);QFETCH(QString,language);
+        const auto previousLanguage=I18n::currentLanguage();
+        const auto restoreLanguage=qScopeGuard([&]{I18n::initialize(previousLanguage);});
+        I18n::initialize(language);
+        QTemporaryDir d;QVERIFY(d.isValid());
+        const auto package=d.filePath("script"),config=d.filePath("settings.ini");
+        QVERIFY(QDir().mkpath(package));
+        QVERIFY(TestData::write(package+"/manifest.json",R"({"id":"notice-filter","kind":"filter","apiVersion":1,"script":"filter.js","settings":{"amount":{"type":"integer","minimum":0,"maximum":10,"default":1}}})"));
+        QVERIFY(TestData::write(package+"/filter.js","function filter(image,c){return [];}"));
+        {QSettings settings(config,QSettings::IniFormat);
+            settings.setValue("ui/language",language);
+            if(registered)settings.setValue("scripts/directories",QStringList{package});}
+        MainWindow w(config);w.show();
+        QStringList names,texts;bool savedBeforeNotice=true;
+        QTimer dismissNotice;
+        connect(&dismissNotice,&QTimer::timeout,&w,[&] {
+            if(auto *notice=qobject_cast<QMessageBox *>(QApplication::activeModalWidget())) {
+                names.append(notice->objectName());texts.append(notice->text());
+                const auto saved=QSettings(config,QSettings::IniFormat).value("scripts/directories").toStringList();
+                savedBeforeNotice &= saved==(operation=="remove"?QStringList{}:QStringList{package});
+                notice->accept();
+            }
+        });
+        dismissNotice.start(10);
+        QTimer::singleShot(0,&w,[&] {
+            auto *dialog=w.findChild<QDialog *>("preferencesDialog");QVERIFY(dialog);
+            QTimer::singleShot(2000,dialog,&QDialog::reject);
+            auto *directories=dialog->findChild<QListWidget *>("scriptDirectories");QVERIFY(directories);
+            const auto add=[&] {
+                dialog->findChild<QLineEdit *>("scriptPackagePath")->setText(package);
+                dialog->findChild<QPushButton *>("addScriptDirectory")->click();
+            };
+            const auto remove=[&] {
+                directories->setCurrentRow(0);
+                dialog->findChild<QPushButton *>("removeScriptDirectory")->click();
+            };
+            if(operation.startsWith("add"))add();
+            if(operation.startsWith("remove"))remove();
+            if(operation=="add-remove")remove();
+            if(operation=="remove-add")add();
+            if(operation=="parameters") {
+                auto *packages=dialog->findChild<QListWidget *>("scriptPackages");QVERIFY(packages);
+                for(int i=0;i<packages->count();++i)
+                    if(packages->item(i)->data(Qt::UserRole).toMap().value("id")=="notice-filter")packages->setCurrentRow(i);
+                auto *amount=dialog->findChild<QDoubleSpinBox *>("scripts/notice-filter/amount");QVERIFY(amount);amount->setValue(2);
+            }
+            if(operation=="add-language") {
+                auto *choice=dialog->findChild<QComboBox *>("ui/language");QVERIFY(choice);
+                choice->setCurrentIndex(choice->findData("en"));
+            }
+            if(save)dialog->findChild<QDialogButtonBox *>()->button(QDialogButtonBox::Ok)->click();else dialog->reject();
+        });
+        w.command("preferences")->trigger();
+        QCOMPARE(names.size(),expectedNotices);
+        if(expectedNotices) {
+            QCOMPARE(names,QStringList{"scriptRestartNotice"});QVERIFY(savedBeforeNotice);
+            QVERIFY(texts.first().contains(language=="en"?"restart KomaMimic":"起動し直してください"));
+            if(operation=="add-language")QVERIFY(texts.first().contains("表示言語"));
+        }
+        if(operation=="parameters")QCOMPARE(QSettings(config,QSettings::IniFormat).value("scripts/notice-filter/amount").toInt(),2);
+        w.close();
     }
     void adjacentArchivesKeepPageThumbnailMode() {
         for (bool playlist : {false,true}) {

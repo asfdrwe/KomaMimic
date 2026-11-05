@@ -655,7 +655,8 @@ void ReaderFeatures::preferences(const QString &pageName) {
   auto *scriptHelp=new QLabel(QCoreApplication::translate("KomaMimic", "画像読込・複数ページ・画像フィルターはAPI 1を使います。\n登録フォルダの追加・削除は保存して再起動すると反映します。"),&dialog);
   scriptHelp->setWordWrap(true);scripts->addRow(scriptHelp);
   auto *directories=new QListWidget(&dialog);directories->setObjectName("scriptDirectories");directories->setMaximumHeight(96);
-  directories->addItems(w->m_settings->value("scripts/directories").toStringList());
+  const auto previousScriptDirectories=w->m_settings->value("scripts/directories").toStringList();
+  directories->addItems(previousScriptDirectories);
   scripts->addRow(QCoreApplication::translate("KomaMimic", "追加スクリプトのフォルダ"),directories);
   auto *packagePath=new QLineEdit(&dialog);packagePath->setObjectName("scriptPackagePath");
   scripts->addRow(QCoreApplication::translate("KomaMimic", "登録するフォルダ"),packagePath);
@@ -870,12 +871,19 @@ void ReaderFeatures::preferences(const QString &pageName) {
       w->m_settings->value("cache/megabytes", 128).toInt() * 1024);
   message(
       QCoreApplication::translate("KomaMimic", "環境設定を保存しました。読み込み設定は次に本を開くときに適用します。"));
-  if (language->currentData().toString() != previousLanguage) {
+  const bool scriptsChanged=directoryPaths()!=previousScriptDirectories;
+  const bool languageChanged=language->currentData().toString()!=previousLanguage;
+  if ((scriptsChanged || languageChanged) && w->m_settings->status()==QSettings::NoError) {
+    const auto restartMessage=scriptsChanged
+        ? (languageChanged
+            ? QCoreApplication::translate("KomaMimic", "スクリプトの登録内容と表示言語の変更は次回起動時に反映されます。\nKomaMimicを終了し、起動し直してください。")
+            : QCoreApplication::translate("KomaMimic", "スクリプトの登録内容を保存しました。\n変更を反映するには、KomaMimicを終了し、起動し直してください。"))
+        : QCoreApplication::translate("KomaMimic", "表示言語の変更は次回起動時に反映されます。\nKomaMimicを終了し、起動し直してください。");
     QMessageBox notice(QMessageBox::Information,
         QCoreApplication::translate("KomaMimic", "再起動が必要です"),
-        QCoreApplication::translate("KomaMimic", "表示言語の変更は次回起動時に反映されます。\nKomaMimicを終了し、起動し直してください。"),
+        restartMessage,
         QMessageBox::Ok, w);
-    notice.setObjectName("languageRestartNotice");
+    notice.setObjectName(scriptsChanged ? "scriptRestartNotice" : "languageRestartNotice");
     notice.exec();
   }
 }

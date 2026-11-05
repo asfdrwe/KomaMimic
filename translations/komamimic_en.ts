@@ -4945,6 +4945,18 @@ KomaMimicを終了し、起動し直してください。</source>
 Please exit and restart KomaMimic.</translation>
         </message>
         <message>
+            <source>スクリプトの登録内容を保存しました。
+変更を反映するには、KomaMimicを終了し、起動し直してください。</source>
+            <translation>Script registrations saved.
+Please exit and restart KomaMimic to apply the changes.</translation>
+        </message>
+        <message>
+            <source>スクリプトの登録内容と表示言語の変更は次回起動時に反映されます。
+KomaMimicを終了し、起動し直してください。</source>
+            <translation>Script registrations and the UI language will change after restarting KomaMimic.
+Please exit and restart KomaMimic.</translation>
+        </message>
+        <message>
             <location filename="../src/readerfeatures.cpp" line="135" />
             <source>自動再生は端で停止しました。</source>
             <translation>Automatic playback stopped at the end.</translation>
