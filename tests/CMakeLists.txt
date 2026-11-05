@@ -38,7 +38,11 @@ set_tests_properties(cache_tests PROPERTIES TIMEOUT 300)
 set_tests_properties(thumbnail_tests PROPERTIES TIMEOUT 180)
 # Parallel WebEngine and filesystem-heavy tests need more time on Windows.
 if(WIN32)
-    set_tests_properties(ui_tests document_tests cache_tests PROPERTIES TIMEOUT 300)
+    # A full UI run took 274 seconds even without another suite running.
+    set_tests_properties(ui_tests PROPERTIES TIMEOUT 600)
+    # CLI subprocesses include native GUI startup and settings/history writes.
+    set_tests_properties(cli_tests PROPERTIES TIMEOUT 180)
+    set_tests_properties(document_tests cache_tests PROPERTIES TIMEOUT 300)
 endif()
 add_dependencies(ui_tests komamimic)
 target_compile_definitions(ui_tests PRIVATE KOMAMIMIC_EXECUTABLE="$<TARGET_FILE:komamimic>")

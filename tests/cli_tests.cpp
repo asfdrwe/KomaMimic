@@ -25,9 +25,26 @@ class CliTests : public QObject {
     Result run(const QStringList &args) {
         QProcess p; auto env=QProcessEnvironment::systemEnvironment(); env.insert("QT_QPA_PLATFORM","offscreen");
         env.remove("DISPLAY"); env.remove("WAYLAND_DISPLAY"); p.setProcessEnvironment(env);
+        QElapsedTimer elapsed;elapsed.start();
         p.start(QString::fromUtf8(KOMAMIMIC_EXECUTABLE),args);
-        if(!p.waitForStarted(5000)) return {-999,{},p.errorString().toUtf8()};
-        if(!waitForExit(p,15000)) { p.kill(); p.waitForFinished(); return {-998,p.readAllStandardOutput(),p.readAllStandardError()}; }
+        if(!p.waitForStarted(5000)) {
+            qWarning().noquote()<<"CLI child failed to start:"<<args<<p.errorString();
+            return {-999,{},p.errorString().toUtf8()};
+        }
+#ifdef Q_OS_WIN
+        // GUI startup and settings/history sync can exceed 15 seconds on a
+        // busy Windows runner. Keep a bounded wait and report its output.
+        constexpr int finishTimeout=60000;
+#else
+        constexpr int finishTimeout=15000;
+#endif
+        if(!waitForExit(p,finishTimeout)) {
+            p.kill(); p.waitForFinished();
+            const auto out=p.readAllStandardOutput(),error=p.readAllStandardError();
+            qWarning().noquote()<<"CLI child timed out after"<<elapsed.elapsed()<<"ms; finish limit"<<finishTimeout
+                <<"ms; arguments:"<<args<<"\nstdout:"<<QString::fromUtf8(out)<<"\nstderr:"<<QString::fromUtf8(error);
+            return {-998,out,error};
+        }
         return {p.exitStatus()==QProcess::NormalExit?p.exitCode():-997,p.readAllStandardOutput(),p.readAllStandardError()};
     }
 private slots:

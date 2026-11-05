@@ -26,10 +26,15 @@ instructions.
 The Windows offscreen Qt Test entry point sets `QT_QPA_FONTDIR` from
 `%WINDIR%\Fonts` if it is unset, and defaults `QTWEBENGINE_CHROMIUM_FLAGS`
 to `--disable-gpu` if it is unset. These settings affect tests, not the
-installed application. On Windows, `ui_tests` and `document_tests` have
-300-second CTest timeouts for parallel runs; the cache suite uses 300
-seconds on every OS for its 20,001-file regression. Rerun timed-out
-suites individually to distinguish contention from a genuine hang.
+installed application. On Windows, `ui_tests` has a 600-second CTest timeout
+(a full local run took 274 seconds without parallel suites), `cli_tests` has
+180 seconds, and `document_tests` has 300 seconds. CLI subprocess helpers wait
+up to 60 seconds for completion on Windows, including GUI startup and settings
+writes; other OSes use 15 seconds. A subprocess timeout logs its arguments,
+elapsed time, stdout and stderr before failing the test. The cache suite uses
+300 seconds on every OS for its 20,001-file regression. For local full runs on
+Windows, use `--parallel 1` to reduce contention with filesystem-heavy suites.
+Rerun timed-out suites individually to distinguish contention from a genuine hang.
 
 ## Test scopes
 
