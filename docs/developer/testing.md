@@ -50,7 +50,11 @@ disk-persistence and worker-scheduling regressions; it is not the full cache sui
 Do not report passing `platform` checks as the full test scope.
 
 `thumbnail_tests` runs visible-image eviction and the 220-folder/220-page ZIP
-scroll regressions in both scopes. It has its own 180-second timeout, separate
+scroll regressions in both scopes. It also checks folder and ZIP reuse in fresh
+processes with marked cached pixels, nested source changes, leaf-cache eviction,
+explicit refresh, invalidation during recursive lookup, and cached folder display
+while the generation worker is busy. The platform cache selection includes the
+regression where 300 cache hits used to discard an unsaved image. It has its own 180-second timeout, separate
 from the cache suite's 300-second budget. Scroll cases log elapsed time at fixture,
 book-load, outward-scroll, disk-cache preparation and return-check milestones.
 This preserves the assertions while making slow filesystem stages visible in CI.
@@ -93,9 +97,11 @@ inventory counts and evictions. `cover-key`/`page-key` log the source
 fingerprint and relevant source/name-encoding details; application, Qt,
 script-version and script-settings fingerprints no longer enter these keys.
 Cache-directory paths appear in these local
-logs; review diagnostics before sharing them. A folder-cover lookup still scans
-candidate files before a PNG hit, and opening an archive still indexes its pages;
-that source I/O alone does not prove thumbnail regeneration.
+logs; review diagnostics before sharing them. Folder cache-only lookup does not
+scan the source. Background validation still scans candidates, and opening an
+archive still indexes its pages; that source I/O alone does not prove thumbnail
+regeneration. `cover-regenerate` identifies actual entry into source decoding,
+whereas a folder PNG can be saved from existing cached pixels.
 
 `document_probe --parse-only path...` checks document parsing without Chromium.
 Without `--parse-only`, it waits for actual WebEngine layout and fails on a

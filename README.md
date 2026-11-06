@@ -271,6 +271,8 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 - asfdrwe <asfdrwe@gmail.com>
 
 ## Changelog
+
+- **Unreleased**: Reuse saved folder covers before scanning their contents after restart, and protect pending thumbnail writes from streams of cache usage-time updates.
 - **v1.4.3**: Stabilize macOS archive-list navigation tests by waiting for the expected filesystem entries and registering the document URL scheme before Qt application startup. Version 1.4.2 is skipped.
 - **v1.4.1**: Show a restart notice after saving script registration additions or removals. Keep visible cover and page thumbnails from disappearing during cache eviction after fast scrolling. Stabilize cross-platform regression tests and improve Windows test timeout diagnostics.
 - **v1.4.0**: Show saved cover thumbnails immediately without waiting for ZIP metadata checks, then validate sources at low priority and replace changed covers. Use a fresh `thumbnails-v2` cache without migrating v1 images; refresh thumbnails with F6 or clear the cache if results are incorrect. Document Qt logical-pixel thumbnail sizes and stabilize macOS directory-refresh UI testing.

@@ -71,6 +71,11 @@ void ThumbnailDiskCache::enqueue(Pending pending,bool retry) {
     constexpr qint64 limit=32LL*1024*1024;
     if(cost>limit)return;
     while(!m_pending.isEmpty() && (m_pendingBytes+cost>limit || m_pending.size()>=256)) {
+        // LRU touches are best-effort; a run of cache hits must never evict
+        // generated pixels that have not reached disk yet. Drop touches first.
+        auto touch=std::find_if(m_pending.begin(),m_pending.end(),[](const Pending &item){return item.image.isNull();});
+        if(touch!=m_pending.end()) {m_pending.erase(touch);continue;}
+        if(pending.image.isNull())return;
         m_pendingBytes-=m_pending.first().image.sizeInBytes();m_pending.removeFirst();
         qCDebug(thumbnailCacheLog)<<"deferred-store-dropped";
     }
@@ -150,7 +155,10 @@ bool ThumbnailDiskCache::store(const Pending &pending,const std::function<bool()
 bool ThumbnailDiskCache::flushPending(const std::function<bool()> &cancel) {
     Pending pending;
     {QMutexLocker guard(&m_pendingMutex);if(m_pending.isEmpty())return false;
-        pending=m_pending.takeFirst();m_pendingBytes-=pending.image.sizeInBytes();}
+        // Persist new pixels before spending the idle window on LRU touches.
+        auto next=std::find_if(m_pending.begin(),m_pending.end(),[](const Pending &item){return !item.image.isNull();});
+        if(next==m_pending.end())next=m_pending.begin();
+        pending=std::move(*next);m_pending.erase(next);m_pendingBytes-=pending.image.sizeInBytes();}
     const bool complete=store(pending,cancel);
     if(!complete)enqueue(std::move(pending),true);
     else if(!pending.image.isNull()) {

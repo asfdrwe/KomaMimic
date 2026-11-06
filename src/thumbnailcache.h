@@ -27,6 +27,9 @@ public:
     bool hasPendingWrites() const;
     bool flushPending(const std::function<bool()> &cancel={});
     void discardPending();
+    // Composite source requests share one invalidation boundary, including
+    // folder searches that make multiple child-cache calls.
+    quint64 generation() const { return m_generation.load(); }
     ImageResult image(const QByteArray &key, const std::function<ImageResult()> &generate,
                       const std::function<bool()> &cancel = {}, bool refresh = false,
                       const std::function<bool()> &sourceUnchanged = {});

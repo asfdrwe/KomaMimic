@@ -13,9 +13,9 @@
 
 namespace {
 const QSize ThumbnailSize{320,480};
-QByteArray fingerprint(const QString &path) {
+QByteArray fingerprint(const QString &path,bool directory=false) {
     const QFileInfo file(path);
-    if(!file.isFile()) return {};
+    if(directory ? !file.isDir() : !file.isFile()) return {};
     return QJsonDocument(QJsonObject{{"path",file.absoluteFilePath()},{"resolved",file.canonicalFilePath()},
         {"bytes",QString::number(file.size())},{"modified",QString::number(file.lastModified().toMSecsSinceEpoch())}}).toJson(QJsonDocument::Compact);
 }
@@ -35,19 +35,23 @@ QByteArray coverKey(const QString &path,const NamePolicy &policy) {
     if(parseArchiveEntryPath(path).valid())key["entry"]=bookIdentityPath(path);
     return QJsonDocument(key).toJson(QJsonDocument::Compact);
 }
-}
-ImageResult cachedCover(const QString &path,const NamePolicy &policy,
+ImageResult cover(const QString &path,const NamePolicy &policy,
                         const std::shared_ptr<ThumbnailDiskCache> &cache,
-                        const std::function<bool()> &cancel,bool refresh,int depth,bool cachedOnly) {
+                        const std::function<bool()> &cancel,bool refresh,int depth,bool cachedOnly,
+                        std::function<bool()> *sourceUnchanged=nullptr,const QImage &fallback={}) {
     if(cancel && cancel()) return {};
     const auto bytes=coverKey(path,policy);
     // The fast lane must not even query QFileInfo::isDir/size/mtime/canonicalFilePath.
     if(cachedOnly)return refresh ? ImageResult{} : cache->lookup(bytes,cancel);
     const QFileInfo info(physicalBookPath(path));
     if(info.isDir()) {
-        // Cache actual source files, so changing an image within a directory
-        // cannot leave its old synthetic folder cover on disk indefinitely.
+        // Save a path-keyed folder cover as well as the actual source image.
+        // Cache-only display never enumerates the directory. Validation still
+        // repeats the bounded candidate search: a directory's mtime alone
+        // cannot detect edits inside existing files or nested directories.
         if(depth>2) return {};
+        const auto directorySource=fingerprint(path,true);
+        const auto old=refresh?QImage{}:cache->lookup(bytes,cancel).image;
         const auto before=[](const QFileInfo &a,const QFileInfo &b) {
             if(a.isDir()!=b.isDir()) return !a.isDir();
             return naturalLess(a.fileName(),b.fileName());
@@ -66,8 +70,20 @@ ImageResult cachedCover(const QString &path,const NamePolicy &policy,
         }
         for(const auto &file:files) {
             if(cancel && cancel()) return {};
-            auto result=cachedCover(file.absoluteFilePath(),policy,cache,cancel,refresh,depth+1);
-            if(!result.image.isNull()) return result;
+            std::function<bool()> childUnchanged;
+            auto result=cover(file.absoluteFilePath(),policy,cache,cancel,refresh,depth+1,false,&childUnchanged,
+                              old.isNull()?fallback:old);
+            if(result.image.isNull())continue;
+            const auto unchanged=[path,directorySource,childUnchanged] {
+                return childUnchanged && childUnchanged() && fingerprint(path,true)==directorySource;
+            };
+            if(sourceUnchanged)*sourceUnchanged=unchanged;
+            const auto stamp=result.image.text(QStringLiteral("komamimic-cover-stamp"));
+            // Text previews and rejected/changed sources must not become
+            // persistent simply because their parent folder has a stable key.
+            if(stamp.isEmpty() || !unchanged())return result;
+            if(!old.isNull() && old.text(QStringLiteral("komamimic-cover-stamp"))==stamp)return {old,{}};
+            return cache->image(bytes,[result]{return result;},cancel,true,unchanged);
         }
         return {};
     }
@@ -77,6 +93,7 @@ ImageResult cachedCover(const QString &path,const NamePolicy &policy,
     auto cacheableCover = std::make_shared<bool>(true);
     const auto generate=[&]() -> ImageResult {
         if(cancel && cancel()) return {};
+        qCDebug(thumbnailCacheLog)<<"cover-regenerate"<<digest(bytes);
         if(isImagePath(path) && !parseArchiveEntryPath(path).valid()) {
             QFile file(path);
             if(info.size()>MaxEncodedBytes || !file.open(QIODevice::ReadOnly)) return {{},QCoreApplication::translate("KomaMimic", "表紙画像を読めません。")};
@@ -92,11 +109,18 @@ ImageResult cachedCover(const QString &path,const NamePolicy &policy,
     // First-page text previews depend on external images and installed fonts.
     const auto cacheBytes=source.isEmpty() || (isTextDocumentPath(path) && info.suffix().compare("epub",Qt::CaseInsensitive)!=0)
         ? QByteArray{} : bytes;
+    const auto unchanged=[path,source,cacheableCover,cacheBytes] {
+        return !cacheBytes.isEmpty() && *cacheableCover && fingerprint(physicalBookPath(path))==source;
+    };
+    if(sourceUnchanged)*sourceUnchanged=unchanged;
     const auto stamp=QString::fromLatin1(digest(source));
     if(!refresh && !cacheBytes.isEmpty()) {
         const auto old=cache->lookup(cacheBytes,cancel);
         if(!old.image.isNull() && old.image.text(QStringLiteral("komamimic-cover-stamp"))==stamp)
             return old; // Validation finished. No archive decompression is necessary.
+        // The folder PNG itself is sufficient when its chosen source is still
+        // current, even if the separate leaf PNG was evicted by the byte limit.
+        if(!fallback.isNull() && fallback.text(QStringLiteral("komamimic-cover-stamp"))==stamp)return {fallback,{}};
     }
     const auto stamped=[&]() -> ImageResult {
         auto result=generate();
@@ -105,8 +129,17 @@ ImageResult cachedCover(const QString &path,const NamePolicy &policy,
         return result;
     };
     // cacheBytes is stable. A stale PNG must not short-circuit re-generation.
-    return cache->image(cacheBytes,stamped,cancel,true,
-        [path,source,cacheableCover]{return *cacheableCover && fingerprint(physicalBookPath(path))==source;});
+    return cache->image(cacheBytes,stamped,cancel,true,unchanged);
+}
+}
+ImageResult cachedCover(const QString &path,const NamePolicy &policy,
+                        const std::shared_ptr<ThumbnailDiskCache> &cache,
+                        const std::function<bool()> &cancel,bool refresh,int depth,bool cachedOnly) {
+    const auto generation=cache->generation();
+    const auto cancelled=[cache,generation,cancel] {
+        return (cancel && cancel()) || cache->generation()!=generation;
+    };
+    return cover(path,policy,cache,cancelled,refresh,depth,cachedOnly);
 }
 ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int index,
                                 const std::shared_ptr<ThumbnailDiskCache> &cache,

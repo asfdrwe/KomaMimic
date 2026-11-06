@@ -2,6 +2,11 @@
 
 [日本語](../changelog.md) | English
 
+## Unreleased
+
+- Persist folder covers by folder path and display them before scanning their contents after restart. Reuse valid folder pixels even when the separate inner-image cache has been evicted.
+- Prevent usage-time updates from discarding pending images during a stream of cache hits, and prioritize image persistence.
+
 ## v1.4.3
 
 - Fix the automated test for returning from an archive listing to filesystem entries on macOS to wait for the expected list contents. Report expected and actual paths on failure.

@@ -464,11 +464,10 @@ void MainWindow::requestThumbnails(ThumbnailGrid *grid) {
         const QString path=item->data(PathRole).toString();const int page=item->data(PageRole).toInt();
         const auto book=m_book;const auto policy=namePolicyFor(path);const auto cache=m_thumbnailDiskCache;
         const bool refresh=item->data(ThumbnailRefreshRole).toBool();
-        const bool directory=item->data(DirectoryRole).toBool();
         if(item->data(ThumbnailRoleReady).toBool()) {
             // A cache hit has already been painted. Validate on the idle lane,
             // independently of the cache worker and without blocking display.
-            if(!pages && !item->data(DirectoryRole).toBool() &&
+            if(!pages &&
                !item->data(ThumbnailCoverValidatedRole).toBool() &&
                !m_displayJobs->contains(id+"/validate")) {
                 const auto oldStamp=item->data(ThumbnailCoverStampRole).toString();
@@ -480,9 +479,11 @@ void MainWindow::requestThumbnails(ThumbnailGrid *grid) {
                         if(cancelled || generation!=m_libraryGeneration || row>=grid->count())return;
                         auto *current=grid->item(row);
                         if(current->data(PathRole).toString()!=path)return;
-                        if(checked.image.isNull())return; // Transient source error: retain stale cover.
+                        // A folder may no longer contain any usable cover.
+                        // File read errors retain their previous preview.
+                        if(checked.image.isNull() && !current->data(DirectoryRole).toBool())return;
                         const auto newStamp=checked.image.text(QStringLiteral("komamimic-cover-stamp"));
-                        if(newStamp!=oldStamp)grid->setThumbnail(row,checked.image,{});
+                        if(newStamp!=oldStamp || checked.image.isNull())grid->setThumbnail(row,checked.image,{});
                         current->setData(ThumbnailCoverStampRole,newStamp);
                         current->setData(ThumbnailCoverValidatedRole,true);
                     });
@@ -491,9 +492,9 @@ void MainWindow::requestThumbnails(ThumbnailGrid *grid) {
         }
         if(m_displayJobs->contains(id) || m_displayJobs->contains(id+"/generate"))continue;
         item->setData(PendingRole,true);
-        auto work=[pages,path,page,book,policy,cache,refresh,token,generation,directory](bool cachedOnly,const DisplayJobs::Cancel &stop) {
+        auto work=[pages,path,page,book,policy,cache,refresh,token,generation](bool cachedOnly,const DisplayJobs::Cancel &stop) {
             const auto cancel=[stop,token,generation]{return stop() || token->load()!=generation;};
-            if(cancel() || (cachedOnly && !pages && directory))return ImageResult{};
+            if(cancel())return ImageResult{};
             return pages ? cachedPageThumbnail(book,page,cache,cancel,refresh,cachedOnly)
                 : cachedCover(path,policy,cache,cancel,refresh,0,cachedOnly);
         };
@@ -508,7 +509,7 @@ void MainWindow::requestThumbnails(ThumbnailGrid *grid) {
                 if(cancelled || generation!=(pages?m_pageGeneration:m_libraryGeneration)){apply({},true);return;}
                 if(!result.image.isNull() || !result.error.isEmpty()) {
                     const auto stamp=result.image.text(QStringLiteral("komamimic-cover-stamp"));
-                    const bool isCover=!pages && !grid->item(row)->data(DirectoryRole).toBool();
+                    const bool isCover=!pages;
                     apply(std::move(result),false);
                     if(isCover) {
                         grid->item(row)->setData(ThumbnailCoverStampRole,stamp);

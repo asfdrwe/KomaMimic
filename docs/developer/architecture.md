@@ -58,10 +58,21 @@ The live thumbnail cache enables deferred persistence. Display lookup reads vali
 committed PNGs without inventory or file-lock waits. Generated thumbnails enter a
 bounded RAM/write queue and can appear before PNG encoding, inventory, trimming,
 or atomic commit. Queue and recent-image RAM each have a 32 MiB accounting limit;
-identical images can share QImage storage. Configuration changes and explicit clear
+identical images can share QImage storage. LRU timestamp-only requests cannot evict
+queued images: they are discarded first, and the idle writer selects images before
+timestamp updates. Configuration changes and explicit clear
 invalidate queued stores. Synchronous cache APIs remain available for non-display
 callers and cache contract tests. On shutdown, pending writes are discarded rather
 than drained; running work stops at a safe cancellation/commit boundary.
+
+Folder covers use the same path-keyed PNG lookup as file covers. Background
+validation repeats the natural-order candidate search (16 candidates per directory,
+existing recursion limit), then compares the chosen source fingerprint. It reuses
+the folder pixels even if the separate source PNG was evicted. Parent folder
+stores retain the selected child's freshness predicate, so text previews remain
+uncached and changed sources are rejected before deferred commit. One invalidation
+generation spans the complete recursive request; clearing the cache cannot cause
+an old child result to populate a new parent entry.
 
 Optional diagnostics use `QT_LOGGING_RULES` with `komamimic.display.debug=true` and
 `komamimic.cache.debug=true`. The display category separates queue and execution

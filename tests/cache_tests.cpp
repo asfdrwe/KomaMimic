@@ -96,6 +96,31 @@ private slots:
         QVERIFY(cache.clear().isEmpty());QVERIFY(!cache.hasPendingWrites());QVERIFY(cache.lookup("old").image.isNull());
         cache.image("changed",pixels,{},false,[]{return false;});QVERIFY(!cache.hasPendingWrites());
     }
+    void cacheHitsDoNotDiscardPendingImages() {
+        QTemporaryDir d;const auto root=d.filePath("cache");QVERIFY(QDir().mkpath(root));
+        const auto png=TestData::png(TestData::solid(Qt::blue));
+        // Populate committed entries directly: no generation or inventory is
+        // involved in the subsequent stream of LRU timestamp updates.
+        for(int i=0;i<300;++i) {
+            const auto key=QByteArray::number(i);
+            const auto name=QCryptographicHash::hash(key,QCryptographicHash::Sha256).toHex()+".png";
+            QVERIFY(TestData::write(root+'/'+QString::fromLatin1(name),png));
+        }
+        ThumbnailDiskCache cache(root);cache.setDeferredWrites(true);
+        cache.image("unwritten",[]{return ImageResult{TestData::solid(Qt::red),{}};});
+        for(int i=0;i<300;++i)QVERIFY(!cache.lookup(QByteArray::number(i)).image.isNull());
+        int writes=0;while(cache.hasPendingWrites()){QVERIFY(cache.flushPending());QVERIFY(++writes<=256);}
+        ThumbnailDiskCache restarted(root);
+        const auto saved=restarted.lookup("unwritten");QVERIFY(!saved.image.isNull());
+        QCOMPARE(saved.image.pixelColor(0,0),QColor(Qt::red));
+        // New images also take priority when the queue was already full of
+        // touches, so a short idle window can make useful persistence progress.
+        for(int i=0;i<300;++i)QVERIFY(!cache.lookup(QByteArray::number(i)).image.isNull());
+        cache.image("next",[]{return ImageResult{TestData::solid(Qt::green),{}};});
+        QVERIFY(cache.flushPending());
+        const auto next=restarted.lookup("next");QVERIFY(!next.image.isNull());
+        QCOMPARE(next.image.pixelColor(0,0),QColor(Qt::green));
+    }
     void thumbnailPersistenceAcrossExecutableLocations() {
         QTemporaryDir directory; QVERIFY(directory.isValid());
         const auto source=directory.filePath("book.zip"), cachePath=directory.filePath("thumbnails");
@@ -541,11 +566,11 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         const auto path=folder+"/01.png";QVERIFY(TestData::write(path,TestData::png(TestData::solid(Qt::red))));
         auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));
         QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::red));
-        QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::red));QCOMPARE(cache->stats().entries,1);
+        QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::red));QCOMPARE(cache->stats().entries,2);
         QVERIFY(TestData::write(path,TestData::png(TestData::solid(Qt::blue,{35,55}))));
         // v2 keys do not include source metadata: a changed cover replaces the same PNG.
         QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::blue));
-        QCOMPARE(cache->stats().entries,1);
+        QCOMPARE(cache->stats().entries,2);
         const auto zip=d.filePath("pages.zip");
         QVERIFY(TestData::write(zip,TestData::zip({{"01.png",TestData::png(TestData::solid(Qt::red))},{"02.png",TestData::png(TestData::solid(Qt::green))}})));
         const auto book=Book::open(zip).book;QVERIFY(book);

@@ -240,7 +240,11 @@ void ThumbnailGrid::setThumbnail(int row, const QImage &image, const QString &er
     auto *entry = item(row); entry->setData(PendingRole, false); entry->setData(ThumbnailRoleReady, true);
     entry->setData(ThumbnailRefreshRole,false);
     if (!error.isEmpty()) entry->setToolTip(entry->toolTip() + '\n' + error);
-    if (image.isNull()) return;
+    if (image.isNull()) {
+        m_sourceImages.remove(row);m_cached.removeAll(row);
+        entry->setIcon(displayIcon({},entry->data(DirectoryRole).toBool()));
+        return;
+    }
     m_sourceImages.insert(row,new QImage(image),int(std::max<qint64>(1,(image.sizeInBytes()+1023)/1024)));
     entry->setIcon(displayIcon(image,entry->data(DirectoryRole).toBool()));
     m_cached.removeAll(row); m_cached.enqueue(row);
