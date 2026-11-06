@@ -273,15 +273,38 @@ private slots:
         QVERIFY(TestData::write(path,TestData::zip({{"1.txt","Text"},{"2.txt","More"}})));
         QVERIFY(TestData::write(file,TestData::png(TestData::solid())));
         MainWindow w(d.filePath("settings.ini"));w.show();w.openBook(path);QTRY_VERIFY(!w.isLoading());
-        auto *grid=w.findChild<ThumbnailGrid *>("zipLibrary");QCOMPARE(grid->count(),2);
+        auto *grid=w.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(grid);QCOMPARE(grid->count(),2);
         grid->setCurrentRow(1);
         QVERIFY(TestData::write(path,TestData::zip({{"1.txt","Text"},{"2.txt","More"},{"3.md","# Third"}})));
         w.command("thumbRefresh")->trigger();QTRY_VERIFY(!w.isLoading());QCOMPARE(grid->count(),3);QCOMPARE(grid->currentRow(),1);
-        w.openBook(file);QTRY_VERIFY(w.renderReady());w.showCovers();QTRY_VERIFY(w.requestReady());
-        QTRY_VERIFY(w.directoryReady());QVERIFY(grid->count()>=2);for(int i=0;i<grid->count();++i)QVERIFY(!parseArchiveEntryPath(grid->item(i)->data(PathRole).toString()).valid());
+        w.openBook(file);QTRY_VERIFY(!w.isLoading() && w.renderReady());QCOMPARE(w.bookPath(),file);
+        w.showCovers();QCOMPARE(w.viewMode(),MainWindow::ViewMode::Covers);
+        const QSet<QString> expectedPaths{path,file};
+        const auto physicalListingReady=[&] {
+            if(!w.requestReady() || !w.directoryReady())return false;
+            QSet<QString> actualPaths;
+            for(int i=0;i<grid->count();++i)actualPaths.insert(grid->item(i)->data(PathRole).toString());
+            return actualPaths==expectedPaths;
+        };
+        const auto listingDiagnostic=[&] {
+            QStringList paths;
+            for(int i=0;i<grid->count();++i)paths.append(grid->item(i)->data(PathRole).toString());
+            return QString("requestReady=%1 directoryReady=%2; expected %3 and %4; actual:\n%5")
+                .arg(w.requestReady()).arg(w.directoryReady()).arg(path,file,paths.join('\n'));
+        };
+        // Cancelling a hidden directory job can briefly clear its loading flag
+        // before the queued retry replaces the old archive entries. Wait for
+        // the requested filesystem listing itself, not just that flag.
+        QTRY_VERIFY2(physicalListingReady(),qPrintable(listingDiagnostic()));
+        QCOMPARE(grid->count(),2);
+        for(int i=0;i<grid->count();++i)QVERIFY(!parseArchiveEntryPath(grid->item(i)->data(PathRole).toString()).valid());
         w.close();
     }
 
 };
-ISOLATED_TEST_MAIN(ArchiveTextTests)
+int main(int argc,char **argv) {
+    Q_INIT_RESOURCE(documents);
+    DocumentView::registerScheme();
+    return isolatedTestMain<ArchiveTextTests>(argc,argv);
+}
 #include "archive_text_tests.moc"
