@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
 #include <QImage>
+#include <QJsonObject>
 #include <QVector>
 #include <QStringList>
 #include <QVariantMap>
@@ -11,6 +12,10 @@ struct ImageResult {
     ImageResult(QImage first = {}, QString diagnostic = {}) : image(std::move(first)), error(std::move(diagnostic)) {}
     QImage image;
     QString error;
+    // Runtime observations only; never serialized into thumbnail PNGs.
+    QJsonObject thumbnailEntries;
+    qint64 cacheCreatedMs=0;
+    bool thumbnailCutoff=false;
     QVector<QImage> frames;
     QVector<int> delays;
     // Qt: -1 = forever, 0 = one playback, N = N extra repeats.

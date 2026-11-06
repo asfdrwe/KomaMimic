@@ -66,6 +66,22 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(hit,2000);QVERIFY(!generated);
         release.count_down();released=true;QTRY_VERIFY(generated);
     }
+    void obsoleteNativeWorkDoesNotOccupyCurrentWorker_data() {
+        QTest::addColumn<int>("lane");
+        QTest::newRow("cache")<<int(DisplayJobs::Lane::Cache);
+        QTest::newRow("generation")<<int(DisplayJobs::Lane::Display);
+        QTest::newRow("navigation")<<int(DisplayJobs::Lane::Navigation);
+        QTest::newRow("reader")<<int(DisplayJobs::Lane::Render);
+    }
+    void obsoleteNativeWorkDoesNotOccupyCurrentWorker() {
+        QFETCH(int,lane);DisplayJobs jobs;std::latch release(1);std::atomic<bool> entered=false;
+        auto cleanup=qScopeGuard([&]{release.count_down();});bool oldDone=false,currentDone=false;
+        jobs.submit<int>(DisplayJobs::Lane(lane),"view","old",[&](const auto &){entered=true;release.wait();return 0;},[&](int,bool stopped){oldDone=stopped;});
+        QTRY_VERIFY(entered.load());jobs.visible("view");
+        jobs.submit<int>(DisplayJobs::Lane(lane),"view","current",[](const auto &){return 1;},[&](int,bool stopped){currentDone=!stopped;});
+        QTRY_VERIFY_WITH_TIMEOUT(currentDone,1000);QVERIFY(!oldDone);
+        release.count_down();cleanup.dismiss();QTRY_VERIFY(oldDone);
+    }
     void obsoleteWaitingJobsAreRemoved() {
         std::latch entered(1),release(1);bool released=false;DisplayJobs jobs;
         const auto cleanup=qScopeGuard([&]{if(!released)release.count_down();});
@@ -131,10 +147,10 @@ private slots:
     }
     void lateStoreCancellationIsRetried() {
         QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.setDeferredWrites(true);
-        int checks=0;bool cancelled=false;
-        cache.image("key",[]{return ImageResult{TestData::solid(Qt::blue),{}};},{},true,[&]{if(++checks==3)cancelled=true;return true;});
-        QVERIFY(!cache.flushPending([&]{return cancelled;}));QVERIFY(cache.hasPendingWrites());
-        cancelled=false;QVERIFY(cache.flushPending());
+        int checks=0;
+        cache.image("key",[]{return ImageResult{TestData::solid(Qt::blue),{}};},{},true,[]{return true;});
+        QVERIFY(!cache.flushPending([&]{return ++checks>=4;}));QVERIFY(cache.hasPendingWrites());
+        QVERIFY(checks>=4);QVERIFY(cache.flushPending());
         QCOMPARE(ThumbnailDiskCache(d.path()).lookup("key").image.pixelColor(0,0),QColor(Qt::blue));
     }
     void journalSurvivesRestartAndConfiguration() {
@@ -167,24 +183,15 @@ private slots:
         release.count_down();cleanup.dismiss();
         QTRY_VERIFY_WITH_TIMEOUT(updated && stored && background,3000);
     }
-    void invisibleRequestsCompleteWithoutResubmission() {
-        DisplayJobs jobs;std::latch release(1);std::atomic<bool> entered=false;
+    void invisibleRequestsAreDiscarded() {
+        DisplayJobs jobs;std::latch release(1);std::atomic<bool> entered=false;bool called=false,cancelled=false;
         auto cleanup=qScopeGuard([&]{release.count_down();});
-        jobs.submit<int>(DisplayJobs::Lane::Display,"slow","slow",[&](const auto &){entered=true;release.wait();return 1;},[](int,bool){});
-        QTRY_VERIFY(entered.load());bool finished=false;
-        jobs.submit<int>(DisplayJobs::Lane::Display,"covers","offscreen",[](const auto &){return 1;},[&](int,bool cancelled){finished=!cancelled;});
-        jobs.visible("covers");
-        QTest::qWait(1100);QVERIFY(!finished);
-        release.count_down();cleanup.dismiss();QTRY_VERIFY_WITH_TIMEOUT(finished,3000);
-    }
-    void offscreenGenerationNeverOccupiesDisplayWorker() {
-        DisplayJobs jobs;std::latch release(1);std::atomic<bool> backgroundStarted=false,generated=false;
-        auto cleanup=qScopeGuard([&]{release.count_down();});bool foreground=false,finished=false;
-        jobs.submit<int>(DisplayJobs::Lane::Background,"blocking","blocking",[&](const auto &){backgroundStarted=true;release.wait();return 1;},[](int,bool){});
-        QTRY_VERIFY(backgroundStarted.load());
-        jobs.submit<int>(DisplayJobs::Lane::Display,"covers","offscreen",[&](const auto &){generated=true;return 1;},[&](int,bool cancelled){finished=!cancelled;},false,true);
-        jobs.submit<int>(DisplayJobs::Lane::Display,"display","foreground",[](const auto &){return 1;},[&](int,bool cancelled){foreground=!cancelled;});
-        QTRY_VERIFY(foreground);QVERIFY(!generated.load());release.count_down();cleanup.dismiss();QTRY_VERIFY(finished);
+        jobs.submit<int>(DisplayJobs::Lane::Display,"held","held",[&](const auto &){entered=true;release.wait();return 0;},[](int,bool){});
+        QTRY_VERIFY(entered.load());
+        jobs.submit<int>(DisplayJobs::Lane::Display,"covers","old",[&](const auto &){called=true;return 0;},[&](int,bool stopped){cancelled=stopped;});
+        jobs.visible("covers");QVERIFY(cancelled);QVERIFY(!jobs.contains("old"));
+        release.count_down();cleanup.dismiss();QTest::qWait(200);QVERIFY(!called);
+        QVERIFY(!jobs.submit<int>(DisplayJobs::Lane::Display,"covers","already-gone",[](const auto &){return 0;},[](int,bool){},false,true));
     }
     void visibleValidationSurvivesNewCacheRequests() {
         DisplayJobs jobs;std::latch release(1);std::atomic<bool> entered=false;bool completed=false,cancelled=false,hit=false;
@@ -195,16 +202,49 @@ private slots:
         QTRY_VERIFY(hit);QVERIFY(!completed);release.count_down();cleanup.dismiss();
         QTRY_VERIFY(completed);QVERIFY(!cancelled);
     }
-    void demotedRunningRequestResumesAndRetriesErrors() {
-        DisplayJobs jobs;std::atomic<int> calls=0;bool finished=false;int failures=0;
-        jobs.submit<ImageResult>(DisplayJobs::Lane::Display,"covers","moving",[&](const DisplayJobs::Cancel &cancel) {
-            const int attempt=++calls;
-            if(attempt==1){while(!cancel())QThread::msleep(2);return ImageResult{};}
-            if(attempt==2)return ImageResult{{},"temporary read error"};
-            return ImageResult{TestData::solid(Qt::blue),{}};
-        },[&](ImageResult result,bool cancelled){if(!cancelled){if(!result.error.isEmpty())++failures;else finished=!result.image.isNull();}},true);
-        QTRY_COMPARE(calls.load(),1);jobs.visible("covers");QVERIFY(jobs.contains("moving"));
-        QTRY_VERIFY_WITH_TIMEOUT(finished,4000);QCOMPARE(calls.load(),3);QCOMPARE(failures,1);QVERIFY(!jobs.contains("moving"));
+    void cancelledRunningRequestNeverRestarts() {
+        DisplayJobs jobs;std::atomic<int> calls=0;bool cancelled=false;
+        jobs.submit<ImageResult>(DisplayJobs::Lane::Display,"covers","old",[&](const auto &cancel){++calls;while(!cancel())QThread::msleep(2);return ImageResult{};},[&](ImageResult,bool stopped){cancelled=stopped;},true);
+        QTRY_COMPARE(calls.load(),1);jobs.visible("covers");QTRY_VERIFY(cancelled);QTest::qWait(1200);QCOMPARE(calls.load(),1);
+    }
+    void lateOldGenerationCannotReplaceNewPixels() {
+        QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.setDeferredWrites(true);
+        std::latch entered(1),release(1);
+        std::thread old([&]{cache.image("key",[&]{entered.count_down();release.wait();return ImageResult{TestData::solid(Qt::red),{}};},{},true);});
+        entered.wait();cache.image("key",[]{return ImageResult{TestData::solid(Qt::blue),{}};},{},true);
+        release.count_down();old.join();
+        QCOMPARE(cache.lookup("key").image.pixelColor(0,0),QColor(Qt::blue));
+        while(cache.hasPendingWrites())QVERIFY(cache.flushPending());
+        QCOMPARE(ThumbnailDiskCache(d.path()).lookup("key").image.pixelColor(0,0),QColor(Qt::blue));
+    }
+    void freshGenerationReplacesRecoveredJournal() {
+        QTemporaryDir d;
+        {ThumbnailDiskCache old(d.path());old.setDeferredWrites(true);old.image("key",[]{return ImageResult{TestData::solid(Qt::red),{}};});QVERIFY(old.checkpoint());}
+        ThumbnailDiskCache current(d.path());current.setDeferredWrites(true);
+        current.image("key",[]{return ImageResult{TestData::solid(Qt::blue),{}};},{},true);
+        while(current.hasPendingWrites())QVERIFY(current.flushPending());
+        QCOMPARE(current.lookup("key").image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(ThumbnailDiskCache(d.path()).lookup("key").image.pixelColor(0,0),QColor(Qt::blue));
+    }
+    void failedReplacementPreservesCompletedPendingPixels() {
+        QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.setDeferredWrites(true);
+        cache.image("key",[]{return ImageResult{TestData::solid(Qt::red),{}};},{},true);
+        QVERIFY(cache.hasPendingWrites());
+        cache.image("key",[]{return ImageResult{{},"decode failed"};},{},true);
+        QVERIFY(cache.flushPending());
+        QCOMPARE(ThumbnailDiskCache(d.path()).lookup("key").image.pixelColor(0,0),QColor(Qt::red));
+        // Recovery of an old journal during a new decode must not defeat it.
+        {ThumbnailDiskCache old(d.path());old.setDeferredWrites(true);old.image("other",[]{return ImageResult{TestData::solid(Qt::red),{}};});QVERIFY(old.checkpoint());}
+        ThumbnailDiskCache current(d.path());current.setDeferredWrites(true);
+        current.image("other",[&]{current.recoverPending();return ImageResult{TestData::solid(Qt::blue),{}};},{},true);
+        while(current.hasPendingWrites())QVERIFY(current.flushPending());
+        QCOMPARE(ThumbnailDiskCache(d.path()).lookup("other").image.pixelColor(0,0),QColor(Qt::blue));
+    }
+    void persistenceDoesNotRecheckSource() {
+        QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.setDeferredWrites(true);int checks=0;
+        cache.image("saved",[]{return ImageResult{TestData::solid(Qt::blue),{}};},{},true,[&]{++checks;return true;});
+        const int before=checks;QVERIFY(cache.flushPending());QCOMPARE(checks,before);
+        QCOMPARE(ThumbnailDiskCache(d.path()).lookup("saved").image.pixelColor(0,0),QColor(Qt::blue));
     }
     void cacheHitsDoNotDiscardPendingImages() {
         QTemporaryDir d;const auto root=d.filePath("cache");QVERIFY(QDir().mkpath(root));
@@ -278,7 +318,7 @@ private slots:
         QVERIFY(TestData::write(source,TestData::zip({{"01.png",TestData::png(TestData::solid(Qt::blue,{37,59}))}})));
         // Stale-while-revalidate: the old image remains available until full validation.
         QCOMPARE(cachedCover(source,{},cache,{},false,0,true).image.pixelColor(0,0),QColor(Qt::red));
-        const auto updated=cachedCover(source,{},cache);
+        const auto updated=cachedCover(source,{},cache,{},false,0,false,true);
         QCOMPARE(updated.image.pixelColor(0,0),QColor(Qt::blue));
         QVERIFY(updated.image.text(QStringLiteral("komamimic-cover-stamp"))!=initial.image.text(QStringLiteral("komamimic-cover-stamp")));
         QCOMPARE(cachedCover(source,{},cache,{},false,0,true).image.pixelColor(0,0),QColor(Qt::blue));
@@ -371,14 +411,15 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.setDeferredWrites(true);
         cache.image("key",[]{return ImageResult{TestData::solid(Qt::blue),{}};});
         QVERIFY(cache.flushPending());
-        cache.image("key",[]{return ImageResult{TestData::solid(Qt::green),{}};},{},true,
-                    [checks=0]() mutable {return ++checks<4;});
-        // The source validity callback is checked again immediately before
-        // commit; the previous PNG must survive if the source changed.
-        QVERIFY(cache.flushPending());
+        cache.image("key",[]{return ImageResult{TestData::solid(Qt::green),{}};},{},true);
+        int checks=0;
+        // A late cancellation must retain both the old committed PNG and
+        // the completed new image; persistence never rechecks the source.
+        QVERIFY(!cache.flushPending([&]{return ++checks>=4;}));
         QCOMPARE(cache.stats().entries,1);
         QCOMPARE(QImage(d.filePath(QString::fromLatin1(QCryptographicHash::hash("key",QCryptographicHash::Sha256).toHex())+".png")).pixelColor(0,0),QColor(Qt::blue));
-        QCOMPARE(cache.lookup("key").image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(cache.lookup("key").image.pixelColor(0,0),QColor(Qt::green));
+        QVERIFY(cache.flushPending());
     }
     void pageCacheIgnoresUnrelatedScriptSettings() {
         QTemporaryDir d;
@@ -540,15 +581,16 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         const auto green=TestData::zip({{"1.png",TestData::png(TestData::solid(Qt::green))}});
         QVERIFY(TestData::write(folder+"/10.zip",green));
         QVERIFY(TestData::write(folder+"/2.zip",red));
-        QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::red));
+        QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,1).image.pixelColor(0,0),QColor(Qt::red));
         QVERIFY(QFile::remove(folder+"/2.zip"));
-        QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::green));
+        QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,1).image.pixelColor(0,0),QColor(Qt::green));
         QVERIFY(QFile::remove(folder+"/10.zip"));
-        QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,1).image.pixelColor(0,0),QColor(Qt::blue));
         for (int i=1;i<=16;++i)
             QVERIFY(TestData::write(folder+QString("/%1.zip").arg(i,2,10,QChar('0')),"invalid"));
         QVERIFY(TestData::write(folder+"/17.zip",red));
-        QVERIFY(cachedCover(folder,{},cache).image.isNull());
+        // Hitting the bounded candidate limit must retain the previous valid image.
+        QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,1).image.pixelColor(0,0),QColor(Qt::blue));
     }
     void cancelCacheMaintenanceInventory() {
         QTemporaryDir directory; QVERIFY(directory.isValid());
@@ -598,6 +640,10 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
             const auto result=first.image(QByteArray::number(j),[]{return ImageResult{TestData::solid(Qt::green),{}};});
             QCOMPARE(result.image.pixelColor(0,0),QColor(Qt::green));
         }
+        // Cache hits are read-only. Completed writes resume through the saver,
+        // rather than regenerating or writing just because a key was looked up.
+        while(first.hasPendingWrites())QVERIFY(first.flushPending());
+        while(second.hasPendingWrites())QVERIFY(second.flushPending());
         QCOMPARE(first.stats().entries,32);QCOMPARE(second.stats().entries,32);
     }
     void contendedReadUsesCommittedPixels() {
@@ -622,7 +668,7 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         release.count_down();reader.join();maintenance.join();
         QVERIFY(status==std::future_status::ready);QCOMPARE(ready.get().image.pixelColor(0,0),QColor(Qt::blue));QCOMPARE(calls,0);
     }
-    void warmReadsSkipInventoryAndPreserveLru() {
+    void warmReadsPreserveCreationTime() {
         QTemporaryDir d;const QByteArray key="warm";
         const auto name=QString::fromLatin1(QCryptographicHash::hash(key,QCryptographicHash::Sha256).toHex())+".png";
         // Simulate a populated inventory without generating source images.
@@ -636,7 +682,7 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         QVERIFY(file.setFileTime(QDateTime::currentDateTime().addSecs(-120),QFileDevice::FileModificationTime));file.close();
         ThumbnailDiskCache cache(d.path());int calls=0;
         QCOMPARE(cache.image(key,[&]{++calls;return ImageResult{TestData::solid(Qt::red),{}};}).image.pixelColor(0,0),QColor(Qt::blue));
-        QCOMPARE(calls,0);QVERIFY(QFileInfo(d.filePath(name)).lastModified().secsTo(QDateTime::currentDateTime())<60);
+        QCOMPARE(calls,0);QVERIFY(QFileInfo(d.filePath(name)).lastModified().secsTo(QDateTime::currentDateTime())>=120);
         const auto inventory=cache.stats();QVERIFY(inventory.error.isEmpty());QCOMPARE(inventory.entries,2049);
         QCOMPARE(inventory.bytes,qint64(2049)*pixels.size());
         // Cancellation and explicit refresh must still bypass a warm hit.
@@ -650,9 +696,10 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         QVERIFY(result.error.isEmpty());QCOMPARE(result.image.pixelColor(0,0),QColor(Qt::green));
         lock.unlock();QCOMPARE(cache.stats().entries,0);
         const auto saved=cache.image("busy",[]{return ImageResult{TestData::solid(Qt::green),{}};});
-        QCOMPARE(saved.image.pixelColor(0,0),QColor(Qt::green));QCOMPARE(cache.stats().entries,1);
+        QCOMPARE(saved.image.pixelColor(0,0),QColor(Qt::green));QVERIFY(cache.hasPendingWrites());
+        QVERIFY(cache.flushPending());QCOMPARE(cache.stats().entries,1);
     }
-    void capacityAndRecentUse() {
+    void capacityUsesCreationOrder() {
         QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.configure(true,16);
         QImage noise(768,768,QImage::Format_RGB32);quint32 state=104729;
         for(int y=0;y<noise.height();++y) {
@@ -664,9 +711,8 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         cache.image("0",generate);
         for(int i=8;i<12;++i) cache.image(QByteArray::number(i),generate);
         const auto usage=cache.stats();QVERIFY(usage.bytes<=16*1024*1024);QVERIFY(usage.entries<12);QVERIFY(usage.entries>1);
-        bool regenerated=false;
-        cache.image("0",[&]{regenerated=true;return generate();});QVERIFY(!regenerated);
-        cache.image("1",[&]{regenerated=true;return generate();});QVERIFY(regenerated);
+        // Reading the oldest entry above must not make it newer.
+        QVERIFY(cache.lookup("0").image.isNull());QVERIFY(cache.lookup("1").image.isNull());
         cache.configure(true,32);
         for(int i=12;i<18;++i) cache.image(QByteArray::number(i),generate);
         QVERIFY(cache.stats().bytes>16*1024*1024);
@@ -680,7 +726,7 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::red));QCOMPARE(cache->stats().entries,2);
         QVERIFY(TestData::write(path,TestData::png(TestData::solid(Qt::blue,{35,55}))));
         // v2 keys do not include source metadata: a changed cover replaces the same PNG.
-        QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true).image.pixelColor(0,0),QColor(Qt::blue));
         QCOMPARE(cache->stats().entries,2);
         const auto zip=d.filePath("pages.zip");
         QVERIFY(TestData::write(zip,TestData::zip({{"01.png",TestData::png(TestData::solid(Qt::red))},{"02.png",TestData::png(TestData::solid(Qt::green))}})));
@@ -694,7 +740,7 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         QCOMPARE(cache->stats().entries,before);
         QVERIFY(TestData::write(zip,TestData::zip({{"01.png",TestData::png(TestData::solid(Qt::blue,{37,59}))},{"02.png",TestData::png(TestData::solid(Qt::yellow,{37,59}))}})));
         const auto updated=Book::open(zip).book;QVERIFY(updated);
-        QCOMPARE(cachedPageThumbnail(updated,0,cache).image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(cachedPageThumbnail(updated,0,cache,{},false,false,true).image.pixelColor(0,0),QColor(Qt::blue));
         QCOMPARE(cachedPageThumbnail(book,0,cache).image.pixelColor(0,0),QColor(Qt::blue));
     }
     void preferencesAndAppearance() {

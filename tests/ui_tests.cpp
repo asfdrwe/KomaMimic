@@ -906,17 +906,21 @@ private slots:
         w.openBook(directory+"/1.png"); QTRY_VERIFY(w.requestReady());
         w.nextPage(); QTRY_VERIFY(w.renderReady());
         const auto book=w.bookPath(); const int page=w.pageIndex();
-        QVERIFY(TestData::write(directory+"/reader.zip",archive)); QTRY_COMPARE(grid->count(),7);
+        QVERIFY(TestData::write(directory+"/reader.zip",archive));QTest::qWait(400);
+        QCOMPARE(grid->count(),6); // Hidden covers do no work in reader mode.
         QCOMPARE(w.viewMode(),MainWindow::ViewMode::Reader);
         QCOMPARE(w.bookPath(),book); QCOMPARE(w.pageIndex(),page);
         auto *view=w.findChild<PageView *>(); QVERIFY(view); QVERIFY(view->hasFocus());
         w.showPageThumbnails(); QCOMPARE(w.viewMode(),MainWindow::ViewMode::Pages);
         auto *pages=w.findChild<ThumbnailGrid *>("pageThumbnails"); QVERIFY(pages);
         const int count=pages->count(), row=pages->currentRow();
-        QVERIFY(TestData::write(directory+"/pages.zip",archive)); QTRY_COMPARE(grid->count(),8);
+        QVERIFY(TestData::write(directory+"/pages.zip",archive));QTest::qWait(400);
+        QCOMPARE(grid->count(),6); // Refresh the cover listing only when opened.
         QCOMPARE(w.viewMode(),MainWindow::ViewMode::Pages);
         QCOMPARE(pages->count(),count); QCOMPARE(pages->currentRow(),row); QVERIFY(pages->hasFocus());
         QCOMPARE(w.bookPath(),book); QCOMPARE(w.pageIndex(),page);
+        w.showCovers();QTRY_COMPARE(grid->count(),8);
+        QVERIFY(paths().contains(directory+"/reader.zip") && paths().contains(directory+"/pages.zip"));
         // Discard pending notifications from the old folder when navigating.
         QVERIFY(TestData::write(directory+"/old.zip",archive));
         w.openDirectory(other);QTRY_VERIFY(w.directoryReady()); QCOMPARE(grid->count(),2);

@@ -5,6 +5,7 @@
 #include "defaultpreferences.h"
 #include "archivepath.h"
 #include <QCoreApplication>
+#include <QDirIterator>
 #include "readertoolbar.h"
 #include "thumbnailcache.h"
 #include "appearance.h"
@@ -91,6 +92,7 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
       m_pageThumbnailToken(std::make_shared<std::atomic<quint64>>(0)), m_imageCache(128 * 1024) {
     initializeMangaPreferences(*m_settings);
     m_thumbnailNamePolicies=std::make_shared<ThumbnailNamePolicies>(*m_settings);
+    m_thumbnailChanges=std::make_shared<ThumbnailChanges>();
     m_restoreFullscreen = m_settings->value("window/fullscreen", false).toBool();
     m_imageCache.setMaxCost(std::clamp(m_settings->value("cache/megabytes",128).toInt(),16,2048)*1024);
     setApplicationAppearance(m_settings->value("display/appearance",0).toInt());
@@ -102,7 +104,7 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
     connect(cacheTimer,&QTimer::timeout,this,[this] {
         if(m_backgroundCancel->load())return;
         requestThumbnails(m_library);requestThumbnails(m_pages);
-        if(m_directoryDirty && !m_directoryLoading && !m_archiveDirectory && !m_directory.isEmpty())
+        if(m_mode==ViewMode::Covers && m_directoryDirty && !m_directoryLoading && !m_archiveDirectory && !m_directory.isEmpty())
             populateDirectory(m_directory,false,false,false,true);
         if(m_features)m_features->requestBackgroundWork();
         const auto cache=m_thumbnailDiskCache;
@@ -118,7 +120,7 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
                     return stored;
                 },[](bool,bool){});
         }
-        if(m_cacheMaintenancePending && !cache->hasPendingWrites()) {
+        if(m_mode!=ViewMode::Reader && m_cacheMaintenancePending && !cache->hasPendingWrites()) {
             m_displayJobs->submit<QString>(DisplayJobs::Lane::Background,"cache-maintain","cache-maintain",
                 [cache](const DisplayJobs::Cancel &cancel){return cache->maintain(cancel);},
                 [this](const QString &,bool cancelled){if(!cancelled)m_cacheMaintenancePending=false;});
@@ -539,8 +541,7 @@ void MainWindow::stepPage(int direction, bool onePage) {
     case BoundaryMode::Stop: break;
     case BoundaryMode::RepeatSource: jump(direction > 0 ? 0 : pageCount() - 1); break;
     case BoundaryMode::AdvanceSource:
-        if (const auto path = adjacentArchive(direction); !path.isEmpty())
-            loadBook(path, ViewMode::Reader, direction < 0);
+        requestAdjacentBook(direction,ViewMode::Reader,direction<0);
         break;
     }
 }
@@ -556,20 +557,40 @@ QString MainWindow::adjacentArchive(int direction) const {
         return current >= 0 && target >= 0 && target < paths.size() ? paths[target] : QString{};
     }
     const QFileInfo source(physicalBookPath(m_currentPath));
-    auto files = QDir(source.absolutePath()).entryInfoList(QDir::Files, QDir::NoSort);
-    files.erase(std::remove_if(files.begin(), files.end(), [](const QFileInfo &file) {
-        return !isArchivePath(file.fileName())&&!isDocumentPath(file.fileName());
-    }), files.end());
-    std::sort(files.begin(), files.end(), [this](const QFileInfo &a, const QFileInfo &b) {
-        return browserLess(a,b,m_settings->value("covers/sort",0).toInt(),m_settings->value("covers/reverse",false).toBool());
-    });
-    for (int i = 0; i < files.size(); ++i) {
-        if (files[i].absoluteFilePath() != source.absoluteFilePath()) continue;
-        const int target = i + direction;
-        return target >= 0 && target < files.size() ? files[target].absoluteFilePath() : QString{};
-    }
-    return {};
+    const auto paths=m_neighborDirectory==source.absolutePath()?m_neighborPaths:
+        (m_directory==source.absolutePath() && !m_directoryDirty && !m_directoryLoading?zipPaths():QStringList{});
+    const int current=paths.indexOf(source.absoluteFilePath()),target=current+direction;
+    return current>=0 && target>=0 && target<paths.size()?paths[target]:QString{};
 }
+bool MainWindow::archiveNeighborsKnown() const {
+    if(m_features && m_features->usesPlaylist())return true;
+    if(parseArchiveEntryPath(m_currentPath).valid() && m_archiveDirectory)return true;
+    const auto directory=QFileInfo(physicalBookPath(m_currentPath)).absolutePath();
+    return m_neighborDirectory==directory || (m_directory==directory && !m_directoryDirty && !m_directoryLoading);
+}
+void MainWindow::requestAdjacentBook(int direction,ViewMode mode,bool startAtLastPage) {
+    if(archiveNeighborsKnown()) {
+        const auto path=adjacentArchive(direction);if(!path.isEmpty())loadBook(path,mode,startAtLastPage);return;
+    }
+    if(!m_book || m_book->filesystem)return;
+    const auto book=m_book;const auto current=m_currentPath;
+    const auto directory=QFileInfo(physicalBookPath(current)).absolutePath();
+    const int sort=m_settings->value("covers/sort",0).toInt();const bool reverse=m_settings->value("covers/reverse",false).toBool();
+    m_displayJobs->retain("navigation");
+    m_displayJobs->submit<QStringList>(DisplayJobs::Lane::Navigation,"navigation","book-neighbor",
+        [directory,sort,reverse](const auto &cancel) {
+            QFileInfoList files;QDirIterator entries(directory,QDir::Files|QDir::Readable|QDir::NoDotAndDotDot);
+            while(entries.hasNext()){if(cancel())return QStringList{};entries.next();if(isArchivePath(entries.fileName()) || isDocumentPath(entries.fileName()))files.append(entries.fileInfo());}
+            std::stable_sort(files.begin(),files.end(),[sort,reverse](const auto &a,const auto &b){return browserLess(a,b,sort,reverse);});
+            QStringList result;for(const auto &file:files)result.append(file.absoluteFilePath());return result;
+        },[this,book,current,directory,direction,mode,startAtLastPage](QStringList paths,bool cancelled) {
+            if(cancelled || book!=m_book || current!=m_currentPath || m_mode!=mode)return;
+            m_neighborDirectory=directory;m_neighborPaths=std::move(paths);
+            const auto path=adjacentArchive(direction);
+            if(!path.isEmpty())loadBook(path,mode,startAtLastPage);else refreshState();
+        });
+}
+
 QStringList MainWindow::zipPaths() const {
     QStringList paths;
     for (int i = 0; i < m_library->count(); ++i) {
@@ -581,6 +602,7 @@ QStringList MainWindow::zipPaths() const {
 void MainWindow::moveBook(int delta) {
     const auto mode = m_mode == ViewMode::Pages ? ViewMode::Pages : ViewMode::Reader;
     if(m_features&&m_features->usesPlaylist()){const auto neighbor=m_features->collectionNeighbor(delta);if(!neighbor.isEmpty())loadBook(neighbor, mode);return;}
+    if(m_book && !m_book->filesystem && m_mode!=ViewMode::Covers){requestAdjacentBook(delta,mode);return;}
     const auto paths = zipPaths();
     const int current = paths.indexOf(m_currentPath);
     const int target = current < 0 ? (delta > 0 ? 0 : paths.size() - 1) : current + delta;
@@ -602,8 +624,8 @@ void MainWindow::refreshState() {
     const bool canPrevious = auxiliary || (loaded && m_anchor > 0);
     const bool repeat = loaded && m_options.boundaryMode == BoundaryMode::RepeatSource;
     const bool advance = loaded && m_options.boundaryMode == BoundaryMode::AdvanceSource;
-    const bool crossNext = repeat || (advance && !canNext && !adjacentArchive(1).isEmpty());
-    const bool crossPrevious = repeat || (advance && !canPrevious && !adjacentArchive(-1).isEmpty());
+    const bool crossNext = repeat || (advance && !canNext && ((!archiveNeighborsKnown() && loaded && !m_book->filesystem) || !adjacentArchive(1).isEmpty()));
+    const bool crossPrevious = repeat || (advance && !canPrevious && ((!archiveNeighborsKnown() && loaded && !m_book->filesystem) || !adjacentArchive(-1).isEmpty()));
     m_actions["next"]->setEnabled(canNext || crossNext);
     m_actions["previous"]->setEnabled(canPrevious || crossPrevious);
     m_actions["nextOne"]->setEnabled((loaded && m_anchor + 1 < count) || crossNext);
@@ -612,8 +634,9 @@ void MainWindow::refreshState() {
     m_actions["last"]->setEnabled(loaded && m_anchor + 1 < count);
     const auto paths = zipPaths();
     const int current = paths.indexOf(m_currentPath);
-    m_actions["nextBook"]->setEnabled(m_features&&m_features->usesPlaylist()?!m_features->collectionNeighbor(1).isEmpty():(!paths.isEmpty() && (current < 0 || current + 1 < paths.size())));
-    m_actions["previousBook"]->setEnabled(m_features&&m_features->usesPlaylist()?!m_features->collectionNeighbor(-1).isEmpty():(!paths.isEmpty() && (current < 0 || current > 0)));
+    const bool lazyNeighbors=loaded && !m_book->filesystem && m_mode!=ViewMode::Covers;
+    m_actions["nextBook"]->setEnabled(m_features&&m_features->usesPlaylist()?!m_features->collectionNeighbor(1).isEmpty():(lazyNeighbors?(!archiveNeighborsKnown() || !adjacentArchive(1).isEmpty()):(!paths.isEmpty() && (current < 0 || current + 1 < paths.size()))));
+    m_actions["previousBook"]->setEnabled(m_features&&m_features->usesPlaylist()?!m_features->collectionNeighbor(-1).isEmpty():(lazyNeighbors?(!archiveNeighborsKnown() || !adjacentArchive(-1).isEmpty()):(!paths.isEmpty() && (current < 0 || current > 0))));
     m_actions["exitFullscreen"]->setEnabled(isFullScreen());
     m_actions["archiveNames"]->setEnabled(!m_loading && ((m_mode == ViewMode::Covers && m_archiveDirectory && m_archiveDirectory->canReinterpret) || (loaded && m_book->canReinterpret)));
     m_actions["parentFolder"]->setEnabled(!m_directory.isEmpty() && (m_mode != ViewMode::Covers || !QDir(m_directory).isRoot()));

@@ -155,4 +155,5 @@ private:
   QHash<QString, QIcon> m_collectionIcons;
   QStringList m_collectionIconOrder;
   QHash<QString,qint64> m_collectionChecked;
+  QHash<QString,QJsonObject> m_collectionDependencies;
 };

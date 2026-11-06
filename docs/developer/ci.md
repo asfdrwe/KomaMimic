@@ -37,9 +37,9 @@ with read-only contents permission.
 | Job | Work | Saved output |
 |---|---|---|
 | source-checks | Tracked files versus public selection, translations, links, action pins, actionlint, source archive reproducibility | Source distribution candidate |
-| linux | Fedora 44 container, Release build, CLI, 20 full CTest entries | Configuration/test logs, JUnit XML |
-| macos | macOS 15 arm64, Homebrew dependencies, Release build, CLI, 20 full CTest entries, signing/deployment/DMG checks | .app ZIP, unnotarized DMG candidate, source, checksums, configuration/test/deployment logs, JUnit XML |
-| windows | Windows 2022/MSVC, official Qt SDK, Release-only vcpkg, 13 platform CTest entries (including settings import and IPC), runtime deployment and distribution ZIP checks | Distribution ZIP candidate, source, checksums, separate artifact of application PDBs, configuration/test/deployment logs, JUnit XML, result JSON |
+| linux | Fedora 44 container, Release build, CLI, 21 full CTest entries | Configuration/test logs, JUnit XML |
+| macos | macOS 15 arm64, Homebrew dependencies, Release build, CLI, 21 full CTest entries, signing/deployment/DMG checks | .app ZIP, unnotarized DMG candidate, source, checksums, configuration/test/deployment logs, JUnit XML |
+| windows | Windows 2022/MSVC, official Qt SDK, Release-only vcpkg, 14 platform CTest entries (including settings import and IPC), runtime deployment and distribution ZIP checks | Distribution ZIP candidate, source, checksums, separate artifact of application PDBs, configuration/test/deployment logs, JUnit XML, result JSON |
 
 After common checks pass, the three OS jobs run in parallel. A failure on one OS
 does not cancel another OS's job. A new commit on the same branch or PR cancels
@@ -154,7 +154,7 @@ the reviewed artifact layout. This job does not create tags or Releases.
 
 ## macOS arm64 app and unnotarized DMG candidates
 
-The macOS job retains Homebrew dependencies, a Release build, and 20 full CTest
+The macOS job retains Homebrew dependencies, a Release build, and 21 full CTest
 entries. `stage_validation.py` deploys the app; `package_macos.py` creates its
 distribution app ZIP and DMG. Shared triggers, read permissions, concurrency,
 Windows dependency caches, and other OS jobs are preserved. The macOS timeout is
@@ -219,7 +219,7 @@ behavior must be checked in macOS Actions.
 Start it with **Linux AppImage (Rocky 8) → Run workflow → main**. On an Ubuntu 24.04
 runner, it uses a Rocky Linux 8.10 x86_64 container (`rockylinux/rockylinux:8.10`),
 installs Rocky, EPEL, and Raven RPMs, and runs a GCC Toolset 12 Release build, CLI
-checks, and 20 full CTest entries. Qt and WebEngine use Raven RPMs, not source builds.
+checks, and 21 full CTest entries. Qt and WebEngine use Raven RPMs, not source builds.
 Raven base, extras, rx-devel, and multimedia are enabled; multimedia resolves
 WebEngine dependencies such as FFmpeg, OpenH264, and libvpx.
 
@@ -269,7 +269,7 @@ Broken Cairo development links are supplemented inside the working prefix.
 Poppler CMaps and other data are bundled; a small patch lets AppRun select their
 location with `POPPLER_DATADIR`. Source, patches, original author/license notices,
 origins, checksums, and configuration are retained. AppDir generation starts only
-after all 20 CTest entries pass with these dependencies. Python 3.11 is selected explicitly.
+after all 21 CTest entries pass with these dependencies. Python 3.11 is selected explicitly.
 
 Rocky baseos, appstream, extras, and powertools use `dl.rockylinux.org` directly to
 avoid long mirror-switching delays. DNF connection/low-speed timeouts are 20 seconds

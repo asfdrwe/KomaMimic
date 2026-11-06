@@ -3,6 +3,7 @@
 #include "displayjobs.h"
 #include "archivepath.h"
 #include <QCoreApplication>
+#include <QJsonDocument>
 #include "foldertree.h"
 #include "pageview.h"
 #include "shortcuts.h"
@@ -62,6 +63,8 @@ void MainWindow::focusCurrentView() {
 void MainWindow::setMode(ViewMode mode) {
     const auto previous=m_mode;
     if(previous!=mode) {
+        for(auto *grid:{m_library,m_pages})for(int row:grid->visibleRows())grid->item(row)->setData(ThumbnailRefreshRole,false);
+        for(const auto &scope:{"covers","pages","collection","directory-siblings","cache-maintain","cache-usage"})m_displayJobs->retain(scope);
         if(mode!=ViewMode::Covers)m_displayJobs->retain("directory");
         m_displayJobs->retain("command-image");m_displayJobs->retain("navigation");
         m_displayJobs->retain("prefetch");m_displayJobs->retain("preload");
@@ -159,20 +162,37 @@ void MainWindow::setThumbnailLayout(ThumbnailGrid::Layout layout, int columns) {
         m_settings->setValue("thumbnails/layout", int(layout)); m_settings->setValue("thumbnails/columns", m_library->customColumns()); m_settings->sync();
     }
 }
+void MainWindow::watchThumbnail(const QJsonObject &dependencies) {
+    if(!m_thumbnailWatcher || m_mode==ViewMode::Reader)return;
+    auto watched=m_thumbnailWatcher->files()+m_thumbnailWatcher->directories();
+    QStringList add;
+    for(auto i=dependencies.begin();i!=dependencies.end();++i)if(!watched.contains(i.key()))add.append(i.key());
+    if(!add.isEmpty())m_thumbnailWatcher->addPaths(add);
+}
 void MainWindow::initializeDirectoryWatcher() {
+    m_thumbnailWatcher=new QFileSystemWatcher(this);
+    m_thumbnailWatcher->setObjectName("thumbnailSourceWatcher");
+    auto changed=[this](const QString &path){m_thumbnailChanges->changed(path);};
+    connect(m_thumbnailWatcher,&QFileSystemWatcher::fileChanged,this,changed);
+    connect(m_thumbnailWatcher,&QFileSystemWatcher::directoryChanged,this,changed);
     m_directoryWatcher = new QFileSystemWatcher(this);
     m_directoryWatcher->setObjectName("browserDirectoryWatcher");
     m_directoryRefreshTimer = new QTimer(this);
     m_directoryRefreshTimer->setSingleShot(true);
     m_directoryRefreshTimer->setInterval(250);
     connect(m_directoryWatcher, &QFileSystemWatcher::directoryChanged,
-        this, [this] { m_directoryRefreshTimer->start(); });
+        this, [this](const QString &path) {
+            if(path!=m_directory)return;
+            if(path==m_neighborDirectory){m_neighborDirectory.clear();m_neighborPaths.clear();}
+            if(m_mode!=ViewMode::Covers){m_directoryDirty=true;refreshState();return;}
+            m_directoryRefreshTimer->start();
+        });
     connect(m_directoryRefreshTimer, &QTimer::timeout, this, [this] {
         // Do not replace entries underneath an open context menu or dialog.
         if (QApplication::activePopupWidget() || QApplication::activeModalWidget()) {
             m_directoryRefreshTimer->start(); return;
         }
-        refreshDirectoryListing();
+        if(m_mode==ViewMode::Covers)refreshDirectoryListing();else m_directoryDirty=true;
     });
 }
 void MainWindow::refreshDirectoryListing() {
@@ -199,7 +219,12 @@ void MainWindow::populateDirectory(const QString &path, bool navigate, bool hist
         else m_directorySelections[m_directory] = current->data(PathRole).toString();
     }
     m_archiveDirectory.reset();
-    if(navigate)m_forceCoverRefresh=false;
+    if(navigate) {
+        for(const auto &scope:{"covers","pages","collection","directory-siblings","prefetch","preload","cache-maintain","cache-usage"})m_displayJobs->retain(scope);
+        const auto watched=m_thumbnailWatcher->files()+m_thumbnailWatcher->directories();
+        if(!watched.isEmpty())m_thumbnailWatcher->removePaths(watched);
+        m_forceCoverRefresh=false;
+    }
     m_libraryTitle->setText(QCoreApplication::translate("KomaMimic", "表紙サムネイル — フォルダ・書庫・画像を選択して開く"));
     const auto absolute = info.absoluteFilePath();
     if (history && (m_historyIndex < 0 || m_history[m_historyIndex] != absolute)) {
@@ -231,15 +256,16 @@ void MainWindow::populateDirectory(const QString &path, bool navigate, bool hist
     const auto seed=m_coverSortSeed;const auto directory=m_directory;
     if(navigate){m_lastError.clear();setMode(ViewMode::Covers);}
     if(persist)saveSettings();
-    struct Listing {QFileInfoList entries;};
+    struct Listing {QFileInfoList entries;QString resolved;};
     const auto lane=!background || m_mode==ViewMode::Covers ? DisplayJobs::Lane::Navigation : DisplayJobs::Lane::Background;
     m_displayJobs->submit<Listing>(lane,"directory",QString("directory/%1").arg(generation),
       [directory,sort,reverse,seed](const DisplayJobs::Cancel &cancel) {
-        Listing result;
+        Listing result;result.resolved=QDir(directory).canonicalPath();
         QDirIterator iterator(directory,QDir::Dirs|QDir::Files|QDir::NoDotAndDotDot|QDir::Readable);
         while(iterator.hasNext()) {
             if(cancel())return Listing{};
-            iterator.next();const auto entry=iterator.fileInfo();
+            iterator.next();auto entry=iterator.fileInfo();
+            (void)entry.size();(void)entry.lastModified();
             if(entry.isDir() || isArchivePath(entry.fileName()) || isImagePath(entry.fileName()) || isDocumentPath(entry.fileName()))result.entries.append(entry);
         }
         if(sort==6){std::mt19937 generator(seed);std::shuffle(result.entries.begin(),result.entries.end(),generator);}
@@ -251,8 +277,13 @@ void MainWindow::populateDirectory(const QString &path, bool navigate, bool hist
         if(generation!=m_libraryGeneration || directory!=m_directory)return;
         if(cancelled) {
             m_directoryLoading=false;m_directoryDirty=true;
-            if(m_mode==ViewMode::Covers)QTimer::singleShot(0,this,[this]{if(m_directoryDirty && !m_directoryLoading)populateDirectory(m_directory,false,false,false);});
+            if(m_mode==ViewMode::Covers)QTimer::singleShot(0,this,[this]{if(m_mode==ViewMode::Covers && m_directoryDirty && !m_directoryLoading)populateDirectory(m_directory,false,false,false);});
             return;
+        }
+        m_neighborDirectory=directory;m_neighborPaths.clear();
+        for(const auto &entry:result.entries) {
+            m_thumbnailChanges->observe(entry,result.resolved);
+            if(!entry.isDir() && (isArchivePath(entry.fileName()) || isDocumentPath(entry.fileName())))m_neighborPaths.append(entry.absoluteFilePath());
         }
         m_displayJobs->retain("directory-siblings");
         m_siblingFolders.clear();m_siblingIndex=-1;
@@ -444,6 +475,13 @@ void MainWindow::populatePages() {
     m_pageTitle->setText(QCoreApplication::translate("KomaMimic", "ページサムネイル — %1（%2ページ）").arg(bookDisplayName(m_currentPath)).arg(pageCount()));
     for (int index = 0; index < m_book->pages.size(); ++index) {
         const auto &page = m_book->pages[index];
+        const auto source=QJsonDocument::fromJson(m_book->thumbnailSource(index)).object();
+        const auto sourcePath=source.value("path").toString();
+        if(!sourcePath.isEmpty()) {
+            m_thumbnailChanges->entries[sourcePath]=QJsonObject{{"directory",false},{"modified",source.value("modified")},{"bytes",source.value("bytes")},{"resolved",source.value("resolved")},
+                {"stamp",QString::fromLatin1(QCryptographicHash::hash(m_book->thumbnailSource(index),QCryptographicHash::Sha256).toHex())}};
+            m_thumbnailChanges->entrySerials[sourcePath]=m_thumbnailChanges->serial;
+        }
         const QString name = page.name + (page.documentPage ? QString(" [%1]").arg(page.documentPage+1) : QString{});
         const QString title = (m_settings->value("thumbnails/numbers",false).toBool()?QString::number(index+1)+"  ":QString{})+name;
         auto *item = new QListWidgetItem(m_pages->placeholderIcon(), title);
@@ -455,83 +493,109 @@ void MainWindow::populatePages() {
 }
 void MainWindow::startNextThumbnail(quint64 generation) { if (generation == m_libraryGeneration) requestThumbnails(m_library); }
 void MainWindow::requestThumbnails(ThumbnailGrid *grid) {
-    const bool pages=grid==m_pages;
-    const QString scope=pages?"pages":"covers";
-    const quint64 generation=pages?m_pageGeneration:m_libraryGeneration;
-    const auto rows=grid->isVisible() && (!pages || !m_loading) && !m_backgroundCancel->load()?grid->visibleRows():QVector<int>{};
+    const bool pages=grid==m_pages;const QString scope=pages?"pages":"covers";
+    const auto generation=pages?m_pageGeneration:m_libraryGeneration;
+    const auto rows=m_mode!=ViewMode::Reader && grid->isVisible() && (!pages || !m_loading) && !m_backgroundCancel->load()?grid->visibleRows():QVector<int>{};
     QSet<QString> needed;
     for(int row:rows) {
         const auto id=scope+QString("/%1/%2").arg(generation).arg(row);
-        needed.insert(id);needed.insert(id+"/generate");needed.insert(id+"/validate");
+        needed.insert(id);needed.insert(id+"/generate");needed.insert(id+"/verify");
     }
     m_displayJobs->visible(scope,needed);
     if(m_backgroundCancel->load() || (pages && !m_book))return;
-    const auto now=QDateTime::currentMSecsSinceEpoch();
+    const int maximum=std::clamp(m_settings->value("thumbnails/folderDepth",0).toInt(),0,8);
     for(int row:rows) {
-        auto *item=grid->item(row);
-        const auto id=scope+QString("/%1/%2").arg(generation).arg(row);
-        const bool ready=item->data(ThumbnailRoleReady).toBool();
-        if(m_displayJobs->contains(id))continue;
-        if(ready && (m_displayJobs->contains(id+"/generate") || m_displayJobs->contains(id+"/validate") || item->data(ThumbnailNextCheckRole).toLongLong()>now))continue;
-        if(!ready && item->data(ThumbnailCacheNextCheckRole).toLongLong()>now)continue;
-        const auto path=item->data(PathRole).toString();const int page=item->data(PageRole).toInt();
-        const auto book=m_book;const auto policies=m_thumbnailNamePolicies;const auto cache=m_thumbnailDiskCache;
+        auto *item=grid->item(row);const auto id=scope+QString("/%1/%2").arg(generation).arg(row);
+        bool ready=item->data(ThumbnailRoleReady).toBool();
+        if(ready && item->data(DirectoryRole).toBool() && !item->data(ThumbnailHasPixelsRole).toBool() && item->data(ThumbnailSearchDepthRole).toInt()!=maximum) {
+            ready=false;item->setData(ThumbnailRoleReady,false);item->setData(ThumbnailNextCheckRole,0);item->setData(ThumbnailCacheNextCheckRole,0);
+        }
         const bool refresh=item->data(ThumbnailRefreshRole).toBool();
-        auto work=[pages,path,page,book,policies,cache,refresh](bool cachedOnly,const DisplayJobs::Cancel &cancel) {
-            // View generations guard GUI delivery, not the lifetime of useful cache work.
-            if(pages)return cachedPageThumbnail(book,page,cache,cancel,refresh,cachedOnly);
+        const auto deps=item->data(ThumbnailDependenciesRole).toJsonObject();
+        const bool changed=ready && m_thumbnailChanges->needsUpdate(deps);
+        if(ready && !changed && !refresh)continue;
+        if(m_displayJobs->contains(id))continue;
+        if(ready && (m_displayJobs->contains(id+"/generate") || m_displayJobs->contains(id+"/verify")))continue;
+        if(!ready && item->data(ThumbnailCacheNextCheckRole).toLongLong()>QDateTime::currentMSecsSinceEpoch())continue;
+        if(item->data(ThumbnailNextCheckRole).toLongLong()>QDateTime::currentMSecsSinceEpoch())continue;
+        const int page=item->data(PageRole).toInt();
+        const auto path=pages?QJsonDocument::fromJson(m_book->thumbnailSource(page)).object().value("path").toString():item->data(PathRole).toString();
+        const auto book=m_book;const auto policies=m_thumbnailNamePolicies;const auto cache=m_thumbnailDiskCache;
+        const auto physical=QFileInfo(physicalBookPath(path)).absoluteFilePath();
+        auto observed=m_thumbnailChanges->entries.value(physical);
+        if(m_thumbnailChanges->entrySerials.value(physical)<m_thumbnailChanges->notices.value(physical))observed["_refresh"]=true;
+        auto work=[pages,path,page,book,policies,cache,refresh,observed,maximum](bool cachedOnly,bool verify,const DisplayJobs::Cancel &cancel) {
+            if(pages)return cachedPageThumbnail(book,page,cache,cancel,refresh,cachedOnly,verify,maximum,observed);
             if(cachedOnly) {
                 for(const auto &policy:policies->previews) {
                     auto hit=cachedCover(path,policy,cache,cancel,refresh,0,true);
-                    if(!hit.image.isNull() || cancel())return hit;
+                    if(!hit.image.isNull() || !hit.error.isEmpty() || cancel())return hit;
                 }
                 return ImageResult{};
             }
-            return cachedCover(path,policies->resolve(path),cache,cancel,refresh);
+            return cachedCover(path,policies->resolve(path),cache,cancel,refresh,0,false,verify,maximum,observed);
         };
         auto current=[this,grid,pages,generation,row] {
-            return generation==(pages?m_pageGeneration:m_libraryGeneration) && row<grid->count();
+            return !m_backgroundCancel->load() && m_mode!=ViewMode::Reader && generation==(pages?m_pageGeneration:m_libraryGeneration) && row<grid->count();
         };
-        auto apply=[grid,row,current](ImageResult result,bool cancelled,bool validated) {
+        const auto serial=m_thumbnailChanges->serial;
+        auto apply=[this,grid,row,path,current,serial,maximum,refresh](ImageResult result,bool cancelled,bool checked) {
             if(!current())return;
             auto *entry=grid->item(row);entry->setData(PendingRole,false);
-            if(cancelled){entry->setData(ThumbnailNextCheckRole,0);return;}
+            if(cancelled){entry->setData(ThumbnailRefreshRole,false);return;}
             const bool success=result.error.isEmpty();
-            // Retain an existing preview on transient errors; retry with backoff.
+            const bool hadPreview=entry->data(ThumbnailRoleReady).toBool();
+            auto records=thumbnailDependencies(result,path);
+            if(!success && hadPreview && result.image.isNull()) {
+                const auto previous=entry->data(ThumbnailDependenciesRole).toJsonObject();
+                for(auto i=previous.begin();i!=previous.end();++i)if(!records.contains(i.key()) || records.value(i.key()).toObject().value("cacheStamp").toString().isEmpty())records[i.key()]=i.value();
+            }
             const auto stamp=result.image.text("komamimic-cover-stamp");
-            const bool unchanged=success && !result.image.isNull() && !stamp.isEmpty() &&
-                entry->data(ThumbnailRoleReady).toBool() && entry->data(ThumbnailCoverStampRole).toString()==stamp;
-            if(!unchanged && (success || !entry->data(ThumbnailRoleReady).toBool()))grid->setThumbnail(row,result.image,result.error);
-            entry->setData(ThumbnailCoverStampRole,result.image.text("komamimic-cover-stamp"));
-            entry->setData(ThumbnailCoverValidatedRole,validated && success);
-            entry->setData(ThumbnailNextCheckRole,validated || !success?QDateTime::currentMSecsSinceEpoch()+(success?2000:1000):0);
+            const bool samePixels=!refresh && hadPreview && !stamp.isEmpty() && stamp==entry->data(ThumbnailCoverStampRole).toString();
+            if((success || !hadPreview || !result.image.isNull()) && !samePixels)grid->setThumbnail(row,result.image,result.error);
+            if(success && !result.image.isNull())entry->setData(ThumbnailCoverStampRole,stamp);
+            if(checked) {
+                for(auto i=result.thumbnailEntries.begin();i!=result.thumbnailEntries.end();++i)if(m_thumbnailChanges->notices.value(i.key())<=serial) {
+                    m_thumbnailChanges->entries[i.key()]=i.value().toObject();m_thumbnailChanges->entrySerials[i.key()]=serial;
+                }
+                m_thumbnailChanges->acknowledge(records,serial);
+                // A completed failed attempt is not retried without new evidence.
+                entry->setData(ThumbnailRoleReady,true);entry->setData(ThumbnailRefreshRole,false);entry->setData(ThumbnailSearchDepthRole,maximum);
+            }
+            entry->setData(ThumbnailDependenciesRole,records);
+            entry->setData(ThumbnailCoverValidatedRole,checked);
+            watchThumbnail(records);
+            entry->setData(ThumbnailNextCheckRole,!checked && !success?QDateTime::currentMSecsSinceEpoch()+1000:0);
         };
         item->setData(PendingRole,true);
-        if(item->data(ThumbnailRoleReady).toBool()) {
-            m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Update,scope,id+"/validate",
-                [work](const DisplayJobs::Cancel &cancel){return work(false,cancel);},
-                [apply](ImageResult result,bool cancelled){apply(std::move(result),cancelled,true);},true);
+        if(refresh) {
+            m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Display,scope,id+"/generate",
+                [work](const auto &cancel){return work(false,false,cancel);},
+                [apply](ImageResult result,bool cancelled){apply(std::move(result),cancelled,true);});
+            continue;
+        }
+        if(changed) {
+            m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Update,scope,id+"/verify",
+                [work](const auto &cancel){return work(false,true,cancel);},
+                [apply](ImageResult result,bool cancelled){apply(std::move(result),cancelled,true);});
             continue;
         }
         m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Cache,scope,id,
-            [work](const DisplayJobs::Cancel &cancel){return work(true,cancel);},
+            [work](const auto &cancel){return work(true,false,cancel);},
             [this,grid,row,current,id,scope,work,apply](ImageResult result,bool cancelled) {
-                if(cancelled){apply({},true,false);return;}
-                if(!result.image.isNull()) {
-                    if(!current() || !grid->item(row)->data(ThumbnailRoleReady).toBool())apply(std::move(result),false,false);
+                if(cancelled || !current()){apply({},true,false);return;}
+                if(!result.error.isEmpty() || !result.image.isNull()) {
+                    if(!grid->item(row)->data(ThumbnailRoleReady).toBool())apply(std::move(result),false,false);
                     return;
                 }
-                if(current())grid->item(row)->setData(ThumbnailCacheNextCheckRole,QDateTime::currentMSecsSinceEpoch()+250);
-                if(m_displayJobs->contains(id+"/generate") || m_displayJobs->contains(id+"/validate"))return;
+                grid->item(row)->setData(ThumbnailCacheNextCheckRole,QDateTime::currentMSecsSinceEpoch()+1000);
+                if(m_displayJobs->contains(id+"/generate") || m_displayJobs->contains(id+"/verify"))return;
+                if(!grid->isVisible() || !grid->visibleRows().contains(row))return;
                 m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Display,scope,id+"/generate",
-                    [work](const DisplayJobs::Cancel &cancel){return work(false,cancel);},
-                    [apply](ImageResult result,bool cancelled){apply(std::move(result),cancelled,true);},true,
-                    !current() || !grid->isVisible() || !grid->visibleRows().contains(row));
-                // Reclassify even requests belonging to a previous view generation.
-                requestThumbnails(grid);
+                    [work](const auto &cancel){return work(false,false,cancel);},
+                    [apply](ImageResult result,bool cancelled){apply(std::move(result),cancelled,true);});
             });
     }
-    m_displayJobs->visible(scope,needed);
 }
 void MainWindow::refreshThumbnails() {
     if (m_mode == ViewMode::Covers) m_displayJobs->retain("covers");

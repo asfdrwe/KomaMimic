@@ -33,6 +33,8 @@ public:
     void recoverPending();
     bool invalidate(const QByteArray &key,const std::function<bool()> &cancel={});
     qint64 pendingMemoryBytes() const;
+    QString failedGeneration(const QByteArray &identity);
+    void rememberFailure(const QByteArray &identity,const QString &error);
     // Composite source requests share one invalidation boundary, including
     // folder searches that make multiple child-cache calls.
     quint64 generation() const { return m_generation.load(); }
@@ -45,7 +47,6 @@ public:
 private:
     struct Pending {
         QByteArray key; QImage image; quint64 epoch=0;
-        std::function<bool()> sourceUnchanged;
         QString staged;
         quint64 version=0;
         bool reserved=false;
@@ -55,13 +56,19 @@ private:
     bool stage(Pending &pending);
     StoreResult store(const Pending &,const std::function<bool()> &cancel);
     mutable QMutex m_pendingMutex;
+    QMutex m_recentMutex;
+    QHash<QByteArray,QString> m_failures;
+    QImage recentImage(const QByteArray &key);
+    void rememberRecent(const QByteArray &key,const QImage &image,int cost);
+    void forgetRecent(const QByteArray &key={});
     QList<Pending> m_pending;
     QCache<QByteArray,QImage> m_recentImages{32*1024};
     qint64 m_pendingBytes=0;
     QHash<QByteArray,quint64> m_versions;
+    quint64 m_nextVersion=0; // Request order; m_versions contains only completed replacements.
     std::atomic<bool> m_recovered{false};
     std::atomic<bool> m_deferred{false};
-    struct Entry { qint64 bytes=0, used=0, diskUsed=0; };
+    struct Entry { qint64 bytes=0, created=0; };
     bool prepare(bool create, QString &error);
     bool inventory(const std::function<bool()> &cancel = {});
     void changed();

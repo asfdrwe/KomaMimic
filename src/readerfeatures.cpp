@@ -1702,10 +1702,11 @@ void ReaderFeatures::showCollection(const QString &kind, int layout) {
 }
 void ReaderFeatures::requestBackgroundWork() {
   if(w->m_backgroundCancel->load())return;
-  prefetch();requestCollectionCover();
+  prefetch();
+  if(w->m_mode!=MainWindow::ViewMode::Reader)requestCollectionCover();
 }
 void ReaderFeatures::requestCollectionCover() {
-  if(w->m_backgroundCancel->load() || !m_shelf || !m_tabs)return;
+  if(w->m_backgroundCancel->load() || w->m_mode==MainWindow::ViewMode::Reader || !m_shelf || !m_tabs){w->m_displayJobs->retain("collection");return;}
   QSet<QString> needed,visibleKeys;
   const auto now=QDateTime::currentMSecsSinceEpoch();
   for(auto *list:{m_shelf,qobject_cast<QListWidget *>(m_tabs->currentWidget())}) {
@@ -1719,24 +1720,41 @@ void ReaderFeatures::requestCollectionCover() {
       const auto revision=QCryptographicHash::hash(QJsonDocument(chosen.metadata).toJson(),QCryptographicHash::Sha256).toHex();
       const auto id="collection/"+key+'/'+QString::fromLatin1(revision);
       needed.insert(id);needed.insert(id+"/generate");
+      const bool ready=m_collectionIcons.contains(key);
+      const bool changed=ready && w->m_thumbnailChanges->needsUpdate(m_collectionDependencies.value(key));
+      if(ready && !changed)continue;
       if(w->m_displayJobs->contains(id) || w->m_displayJobs->contains(id+"/generate") || m_collectionChecked.value(key)>now)continue;
       const auto policies=w->m_thumbnailNamePolicies;const auto cache=w->m_thumbnailDiskCache;
-      const bool ready=m_collectionIcons.contains(key);
-      auto work=[chosen,policies,spine,cache](bool cachedOnly,const DisplayJobs::Cancel &cancel) {
+      const auto physical=QFileInfo(physicalBookPath(chosen.path)).absoluteFilePath();
+      auto observed=w->m_thumbnailChanges->entries.value(physical);
+      if(w->m_thumbnailChanges->entrySerials.value(physical)<w->m_thumbnailChanges->notices.value(physical))observed["_refresh"]=true;
+      const int maximum=std::clamp(w->m_settings->value("thumbnails/folderDepth",0).toInt(),0,8);
+      auto work=[chosen,policies,spine,cache,observed,maximum](bool cachedOnly,const DisplayJobs::Cancel &cancel) {
         if(cachedOnly) {
           for(const auto &policy:policies->previews) {
             auto hit=cachedCollectionCover(chosen.path,policy,chosen.metadata,spine,cache,cancel,true);
-            if(!hit.image.isNull() || cancel())return hit;
+            if(!hit.image.isNull() || !hit.error.isEmpty() || cancel())return hit;
           }
           return ImageResult{};
         }
-        return cachedCollectionCover(chosen.path,policies->resolve(chosen.path),chosen.metadata,spine,cache,cancel,false);
+        return cachedCollectionCover(chosen.path,policies->resolve(chosen.path),chosen.metadata,spine,cache,cancel,false,true,maximum,observed);
       };
-      auto apply=[this,chosen,key,spine](ImageResult result,bool cancelled,bool validated) {
-        if(w->m_backgroundCancel->load() || cancelled || m_library->item(chosen.id).metadata!=chosen.metadata)return;
+      const auto serial=w->m_thumbnailChanges->serial;
+      auto apply=[this,chosen,key,spine,serial](ImageResult result,bool cancelled,bool validated) {
+        if(w->m_backgroundCancel->load() || w->m_mode==MainWindow::ViewMode::Reader || cancelled || m_library->item(chosen.id).metadata!=chosen.metadata)return;
         const bool success=result.error.isEmpty();
-        m_collectionChecked[key]=validated || !success?QDateTime::currentMSecsSinceEpoch()+(success?2000:1000):0;
-        if(!success)return;
+        m_collectionChecked[key]=success?0:QDateTime::currentMSecsSinceEpoch()+1000;
+        if(!success && !validated)return;
+        auto deps=thumbnailDependencies(result,chosen.path);
+        if(!success && m_collectionDependencies.contains(key))deps=m_collectionDependencies.value(key);
+        if(validated) {
+          for(auto i=result.thumbnailEntries.begin();i!=result.thumbnailEntries.end();++i)if(w->m_thumbnailChanges->notices.value(i.key())<=serial) {
+            w->m_thumbnailChanges->entries[i.key()]=i.value().toObject();w->m_thumbnailChanges->entrySerials[i.key()]=serial;
+          }
+          w->m_thumbnailChanges->acknowledge(deps,serial);
+        }
+        if(!success && m_collectionIcons.contains(key))return;
+        m_collectionDependencies[key]=deps;w->watchThumbnail(deps);
         m_collectionIcons[key]=ThumbnailGrid::thumbnailIcon(result.image,false);
         m_collectionIconOrder.removeAll(key);m_collectionIconOrder.append(key);
         const auto update=[&](QListWidget *target) {
@@ -1749,15 +1767,16 @@ void ReaderFeatures::requestCollectionCover() {
       w->m_displayJobs->submit<ImageResult>(ready?DisplayJobs::Lane::Update:DisplayJobs::Lane::Cache,"collection",id,
         [work,ready](const DisplayJobs::Cancel &cancel){return work(!ready,cancel);},
         [this,work,apply,id,ready,target=QPointer<QListWidget>(list),itemId=chosen.id](ImageResult result,bool cancelled) {
-          if(cancelled || ready || !result.image.isNull()){apply(std::move(result),cancelled,ready);return;}
+          if(cancelled || ready || !result.image.isNull() || !result.error.isEmpty()){apply(std::move(result),cancelled,ready);return;}
           bool visible=false;
           if(target && target->isVisible())for(int row=0;row<target->count();++row)
             if(target->item(row)->data(Qt::UserRole).toString()==itemId && target->visualItemRect(target->item(row)).intersects(target->viewport()->rect())){visible=true;break;}
+          if(!visible)return;
           w->m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Display,"collection",id+"/generate",
             [work](const DisplayJobs::Cancel &cancel){return work(false,cancel);},
-            [apply](ImageResult result,bool cancelled){apply(std::move(result),cancelled,true);},true,!visible);
+            [apply](ImageResult result,bool cancelled){apply(std::move(result),cancelled,true);},false,!visible);
           requestCollectionCover();
-        },ready);
+        });
     }
   }
   w->m_displayJobs->visible("collection",needed);
@@ -1766,7 +1785,7 @@ void ReaderFeatures::requestCollectionCover() {
   while(m_collectionIcons.size()>std::max(512,int(visibleKeys.size())) && candidates-->0) {
     const auto key=m_collectionIconOrder.takeFirst();
     if(visibleKeys.contains(key)){m_collectionIconOrder.append(key);continue;}
-    m_collectionIcons.remove(key);m_collectionChecked.remove(key);
+    m_collectionIcons.remove(key);m_collectionChecked.remove(key);m_collectionDependencies.remove(key);
     const int slash=key.lastIndexOf('/');const auto id=key.left(slash);
     const auto reset=[&](QListWidget *target) {
       if(!target)return;

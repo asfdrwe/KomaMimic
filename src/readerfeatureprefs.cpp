@@ -570,6 +570,8 @@ void ReaderFeatures::preferences(const QString &pageName) {
   check(display,QCoreApplication::translate("KomaMimic", "自動再生で大きい画像をスクロールしてからめくる"),"slideshow/scroll",false);
   auto *thumbnails = form("thumbnails", QCoreApplication::translate("KomaMimic", "サムネイル"));
   check(thumbnails,QCoreApplication::translate("KomaMimic", "ページサムネイルに連番を表示"),"thumbnails/numbers",false);
+  spin(thumbnails,QCoreApplication::translate("KomaMimic", "フォルダ表紙の追加探索階層数"),"thumbnails/folderDepth",0,0,8);
+  editors["thumbnails/folderDepth"]->setToolTip(QCoreApplication::translate("KomaMimic", "0でも、表示中のフォルダにある各子フォルダの直下を探します。1以上では、さらに下の階層も探します。保存済み画像は削除しません。"));
   spin(thumbnails,QCoreApplication::translate("KomaMimic", "カスタム列数（0は自動）"),"thumbnails/columns",0,0,100);
   spin(thumbnails,QCoreApplication::translate("KomaMimic", "カスタムサムネイルの幅（DIP）"),"thumbnails/width",64,16,1024);
   spin(thumbnails,QCoreApplication::translate("KomaMimic", "カスタムサムネイルの高さ（DIP）"),"thumbnails/height",64,16,1024);
@@ -617,7 +619,7 @@ void ReaderFeatures::preferences(const QString &pageName) {
   auto *diskEnabled=qobject_cast<QCheckBox *>(editors["cache/thumbnailsEnabled"]);
   diskLimit->setEnabled(diskEnabled->isChecked());
   connect(diskEnabled,&QCheckBox::toggled,diskLimit,&QWidget::setEnabled);
-  diskLimit->setToolTip(QCoreApplication::translate("KomaMimic", "保存したPNGの合計容量です。上限を超える前に、最近使っていないサムネイルから削除します。設定ファイルや本の原本は削除しません。"));
+  diskLimit->setToolTip(QCoreApplication::translate("KomaMimic", "保存したPNGの合計容量です。上限を超えた場合は、作成時刻の古いサムネイルから削除します。設定ファイルや本の原本は削除しません。"));
   auto *diskHelp=new QLabel(QCoreApplication::translate("KomaMimic", "表示した分だけ保存します。元ファイル変更時は作り直します。\nF6の再取得では保存済み画像を使わず再生成します。\nサムネイル画像はディスクに残るため、共有PCでは無効化・削除してください。"),&dialog);
   diskHelp->setWordWrap(true);cache->addRow(diskHelp);
   auto *diskPath=new QLabel(w->m_thumbnailDiskCache->directory(),&dialog);

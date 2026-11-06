@@ -4578,8 +4578,8 @@ Backup: %2</translation>
         </message>
         <message>
             <location filename="../src/readerfeatureprefs.cpp" line="595" />
-            <source>保存したPNGの合計容量です。上限を超える前に、最近使っていないサムネイルから削除します。設定ファイルや本の原本は削除しません。</source>
-            <translation>Total size of cached PNG files. Older thumbnails are removed before exceeding the limit. Settings and original books are not deleted.</translation>
+            <source>保存したPNGの合計容量です。上限を超えた場合は、作成時刻の古いサムネイルから削除します。設定ファイルや本の原本は削除しません。</source>
+            <translation>Total size of saved PNGs. When the limit is exceeded, thumbnails with the oldest creation times are removed first. Settings and original books are never deleted.</translation>
         </message>
         <message>
             <location filename="../src/readerfeatureprefs.cpp" line="601" />
@@ -6387,6 +6387,14 @@ The same key can have different actions in reading, thumbnails, and tree views. 
             <location filename="../src/zipmetadata.cpp" line="100" />
             <source>保存中に元のZIPが変更されました。やり直してください。</source>
             <translation>Original ZIP changed while saving. Please retry.</translation>
+        </message>
+        <message>
+            <source>フォルダ表紙の追加探索階層数</source>
+            <translation>Additional folder cover search levels</translation>
+        </message>
+        <message>
+            <source>0でも、表示中のフォルダにある各子フォルダの直下を探します。1以上では、さらに下の階層も探します。保存済み画像は削除しません。</source>
+            <translation>0 searches directly inside each child folder shown in the current view. Higher values include additional subfolder levels. Saved images are kept.</translation>
         </message>
     </context>
 </TS>

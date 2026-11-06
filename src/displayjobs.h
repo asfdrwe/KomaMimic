@@ -34,7 +34,7 @@ public:
     }
     bool contains(const QString &id) const;
     void retain(const QString &scope,const QSet<QString> &ids={});
-    // Keep requested work when it leaves the viewport; only its priority changes.
+    // Leaving the viewport cancels requests; completed pixels belong to the store.
     void visible(const QString &scope,const QSet<QString> &ids={});
     void cancelBackground();
     void stop();
@@ -43,8 +43,8 @@ public:
     bool active() const;
 private:
     struct Job {
-        Lane lane,foreground; QString scope,id;
-        bool restart=false, persistent=false;
+        Lane lane; QString scope,id;
+        std::shared_ptr<QThreadPool> pool;
         qint64 queuedAt=0,startedAt=0,readyAt=0;
         std::shared_ptr<std::atomic<bool>> cancelled=std::make_shared<std::atomic<bool>>(false);
         std::function<void(const Cancel &)> work;
@@ -53,7 +53,8 @@ private:
     };
     bool add(Lane,const QString &,const QString &,std::function<void(const Cancel &)>,std::function<void(bool)>,std::function<bool()>,bool);
     void pump();
-    std::array<QThreadPool,7> m_pools;
+    std::array<std::shared_ptr<QThreadPool>,7> m_pools;
+    QList<std::shared_ptr<Job>> m_retired;
     std::array<QList<std::shared_ptr<Job>>,7> m_waiting;
     std::array<std::shared_ptr<Job>,7> m_running;
     QHash<QString,std::shared_ptr<Job>> m_jobs;

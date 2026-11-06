@@ -38,28 +38,27 @@ Rerun timed-out suites individually to distinguish contention from a genuine han
 
 ## Test scopes
 
-`full` registers 20 CTest entries: 17 Qt suites (compatibility, reader, UI,
+`full` registers 21 CTest entries: 18 Qt suites (compatibility, reader, UI,
 feature, format, PDF, CLI, script, PIC, document, power, evolution, cache, i18n,
-archive_text, legacy_settings and thumbnail), the C-locale format check, and the Python
+archive_text, legacy_settings, thumbnail and thumbnail_scroll), the C-locale format check, and the Python
 single-instance IPC and distribution checks.
-`platform` registers 13 CTest entries: compatibility, CLI, UI, PDF, script,
-document, power, cache, i18n, legacy_settings, thumbnail, single-instance IPC, and
+`platform` registers 14 CTest entries: compatibility, CLI, UI, PDF, script,
+document, power, cache, i18n, legacy_settings, thumbnail, thumbnail_scroll, single-instance IPC, and
 distribution. Some Qt suites run only selected platform integration functions.
 This is the Windows-fast CI default. Its cache suite selects cancellation,
 disk-persistence and worker-scheduling regressions; it is not the full cache suite.
 Do not report passing `platform` checks as the full test scope.
 
-`thumbnail_tests` runs visible-image eviction and the 220-folder/220-page ZIP
-scroll regressions in both scopes. It also checks folder and ZIP reuse in fresh
-processes with marked cached pixels, nested source changes, leaf-cache eviction,
-explicit refresh, invalidation during recursive lookup, and cached folder display
-while the generation worker is busy. The platform cache selection includes the
-regression where 300 cache hits used to discard an unsaved image. It has its own 180-second timeout, separate
-from the cache suite's 300-second budget. Scroll cases log elapsed time at fixture,
-book-load, outward-scroll, disk-cache preparation and return-check milestones.
-This preserves the assertions while making slow filesystem stages visible in CI.
-Its application name also isolates the native Windows/macOS cache directory
-from `cache_tests`, which includes explicit cache-clearing tests.
+`thumbnail_tests` checks source-access counts, visible-image eviction, folder and ZIP
+reuse in fresh processes, nested source changes, explicit refresh, and cached display
+while generation is busy. `thumbnail_scroll_tests` separately runs the 220-folder/
+220-page ZIP scroll-and-persistence cases in both scopes. Each has its own 180-second
+timeout; the cache suite retains its 300-second budget. The split preserves all
+assertions without extending a timeout as coverage grows. Scroll cases log elapsed
+time at fixture, book-load, outward-scroll, persistence and return-check milestones.
+Each suite uses a distinct application name for native Windows/macOS cache isolation.
+The platform cache selection includes the regression where 300 cache hits used to
+discard an unsaved image.
 
 ```sh
 ctest --test-dir build-test -R '^(ui|script)_tests$' --output-on-failure
@@ -88,19 +87,26 @@ reproducible source archives, synthetic fixture loading and RGBA comparisons, an
 validation/deployment helpers. Git tracking tests create small repositories only
 inside temporary directories; they do not initialize the active public source tree.
 
-## サムネイルの優先順位・再試行・永続化
+## サムネイルの優先順位・取消・永続化
 
-cache群では、保存待ち80枚の全件再利用、32 MiB上限、書込失敗とcommit直前取消の再試行、
-pendingの再起動復元と明示clear、キャッシュ表示および前景の完了前にUpdate／Store／Backgroundを開始しないこと、
-画面外要求の降格・再開・エラー再試行を検査する。上限確認だけで未保存画像の脱落を許容しない。
-これらの追加cache試験はfullとplatformの両方に含める。大量の永続書込を行う
-UI／cache／thumbnail群はCTestのRESOURCE_LOCKで相互に直列化する。UI群は新規プロセスの
-起動と設定保存も多いためRUN_SERIALで単独実行し、既存の時間枠を維持する。
+cache群は、保存待ち80枚の全件再利用、32 MiB上限、書込失敗とcommit直前取消の再試行、
+pendingの再起動復元とclear、FIFO容量整理と読込時の日時不変を検査する。
+取消済みnative処理を保留したまま新しいCache／Display／Navigation／Renderが進むこと、
+旧要求を降格・再開しないこと、遅れて終わった旧生成が新画像を上書きしないことも検査する。
 
-thumbnail群では、本棚の遅いmissに続くwarm hitの先行表示、ページ一覧で旧PNGを表示してから
-入力操作なしに新画像へ差し替えること、検証済み子フォルダの変更／一時エラーからの回復、
-空フォルダの旧永続PNG削除、保存lock競合中の終了と別プロセス再利用を確認する。
+thumbnail群は実際の属性検査・走査・生成・Book open／画像読込の回数を観測する。
+未変更の再表示・待機・再訪で回数が増えないこと、変更がある対象だけ更新し、通知を
+処理後に反復しないことを確認する。採用元が変わらないファイル追加ではPNGのバイト列と
+日時も不変とする。既存v2のメタデータ省略PNG、探索深度0／1／2と設定の保存、
+深度縮小後の既存画像保持、読書中のサムネイル処理停止、失敗時の旧画像保持を検査する。
+旧PNGから分からない深部変更のテストには実際の対象ディレクトリ変更通知を供給し、
+周期検証や余計な本体読込をテストの前提にしない。
+
+UI群は親の多数項目から子のwarm hitへの移動、ページ表示、明示次巻操作、
+モードを離れた一覧が勝手に更新されないことを検査する。
 220項目の往復ではfixture側から保存を補わず、アプリ自身の保存済み画像をlookupする。
+大量の永続書込を行うUI／cache／thumbnail／thumbnail_scroll群はRESOURCE_LOCKで直列化し、
+UIはRUN_SERIALで単独実行する。既存の時間枠を延長して不具合を隠さない。
 
 ## Validation with logs
 
@@ -112,10 +118,9 @@ fingerprint and relevant source/name-encoding details; application, Qt,
 script-version and script-settings fingerprints no longer enter these keys.
 Cache-directory paths appear in these local
 logs; review diagnostics before sharing them. Folder cache-only lookup does not
-scan the source. Background validation still scans candidates, and opening an
-archive still indexes its pages; that source I/O alone does not prove thumbnail
-regeneration. `cover-regenerate` identifies actual entry into source decoding,
-whereas a folder PNG can be saved from existing cached pixels.
+scan the source. Change-triggered folder updates scan bounded candidates; a normal cache hit does not.
+The activity counters distinguish directory enumeration, metadata probes, generation,
+and Book opens/image requests. Opening a book to read it is separate from thumbnail reuse.
 
 `document_probe --parse-only path...` checks document parsing without Chromium.
 Without `--parse-only`, it waits for actual WebEngine layout and fails on a
@@ -142,4 +147,4 @@ build. Native manual checks have a [separate procedure](platform-validation.md).
 
 親に300フォルダがある状態からキャッシュ済みの子へ移動し、移動前の生成・検証・保存・
 画面外workerを停止したまま一覧と青い表紙画像が表示されることを確認する。
-また検証中の項目を未表示に戻し、同じ検証要求を残したままキャッシュから復帰できることを検査する。
+また更新中の項目を未表示に戻すと旧要求が取り消され、再可視化ではキャッシュから復帰できることを検査する。

@@ -32,6 +32,7 @@ class DisplayJobs;
 class IdleInhibitor;
 class ThumbnailDiskCache;
 struct ThumbnailNamePolicies;
+struct ThumbnailChanges;
 class ReaderToolBar;
 class QFileSystemWatcher;
 
@@ -118,6 +119,10 @@ private:
     void jump(int anchor);
     void stepPage(int direction, bool onePage = false);
     QString adjacentArchive(int direction) const;
+    bool archiveNeighborsKnown() const;
+    void requestAdjacentBook(int direction,ViewMode mode,bool startAtLastPage=false);
+    QString m_neighborDirectory;
+    QStringList m_neighborPaths;
     void refreshState();
     void saveSettings();
     void activateLibraryItem(QListWidgetItem *item);
@@ -154,7 +159,10 @@ private:
     std::unique_ptr<QSettings> m_settings;
     std::unique_ptr<ReaderFeatures> m_features;
     std::unique_ptr<DisplayJobs> m_displayJobs;
-    bool m_cacheMaintenancePending = true;
+    std::shared_ptr<ThumbnailChanges> m_thumbnailChanges;
+    QFileSystemWatcher *m_thumbnailWatcher=nullptr;
+    void watchThumbnail(const QJsonObject &dependencies);
+    bool m_cacheMaintenancePending = false;
     bool m_renderDirty = true;
     std::shared_ptr<ThumbnailDiskCache> m_thumbnailDiskCache;
     QHash<QString, QAction *> m_actions;

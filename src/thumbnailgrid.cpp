@@ -227,14 +227,13 @@ QVector<int> ThumbnailGrid::visibleRows() const {
 }
 void ThumbnailGrid::clearItems() { m_cached.clear(); m_sourceImages.clear(); clear(); }
 void ThumbnailGrid::invalidateThumbnails() {
-    m_cached.clear(); m_sourceImages.clear();
+    // Explicit refresh replaces pixels only after a successful generation.
     for (int row = 0; row < count(); ++row) {
-        item(row)->setData(ThumbnailRoleReady, false); item(row)->setData(PendingRole, false);
+        item(row)->setData(PendingRole,false);
         item(row)->setData(ThumbnailCoverValidatedRole,false);
         item(row)->setData(ThumbnailNextCheckRole,0);
-        item(row)->setData(ThumbnailCoverStampRole,QString{});
+        item(row)->setData(ThumbnailCacheNextCheckRole,0);
         item(row)->setData(ThumbnailRefreshRole,true);
-        item(row)->setIcon(displayIcon({}, item(row)->data(DirectoryRole).toBool()));
     }
     requestVisible();
 }
@@ -242,6 +241,7 @@ void ThumbnailGrid::setThumbnail(int row, const QImage &image, const QString &er
     if (row < 0 || row >= count()) return;
     auto *entry = item(row); entry->setData(PendingRole, false); entry->setData(ThumbnailRoleReady, error.isEmpty() || !image.isNull());
     entry->setData(ThumbnailRefreshRole,false);
+    entry->setData(ThumbnailHasPixelsRole,!image.isNull());
     if (!error.isEmpty()) entry->setToolTip(entry->toolTip() + '\n' + error);
     if (image.isNull()) {
         m_sourceImages.remove(row);m_cached.removeAll(row);
@@ -265,7 +265,7 @@ void ThumbnailGrid::setThumbnail(int row, const QImage &image, const QString &er
         if (old >= count()) continue;
         m_sourceImages.remove(old);
         item(old)->setIcon(displayIcon({}, item(old)->data(DirectoryRole).toBool()));
-        item(old)->setData(ThumbnailRoleReady, false);
+        item(old)->setData(ThumbnailRoleReady, false);item(old)->setData(ThumbnailHasPixelsRole,false);
         item(old)->setData(ThumbnailNextCheckRole,0);
         item(old)->setData(ThumbnailCacheNextCheckRole,0);
     }

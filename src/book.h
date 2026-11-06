@@ -5,6 +5,10 @@
 #include "documentsource.h"
 #include "publication.h"
 #include <memory>
+#include <atomic>
+struct BookActivity {
+    inline static std::atomic<quint64> opens{0}, imageRequests{0};
+};
 #include <functional>
 #include <QMutex>
 #include <QCache>

@@ -44,7 +44,7 @@ private slots:
         QCOMPARE(opened.book->preview().image,renderTextPreview(text,"2.txt").image);
         QVERIFY(!opened.book->image(0).error.isEmpty());QVERIFY(!opened.book->encoded(0).error.isEmpty());
         auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));
-        QVERIFY(!cachedCover(listing.book->entryPath(1),{},cache).image.isNull());QCOMPARE(cache->stats().entries,0);
+        QVERIFY(!cachedCover(listing.book->entryPath(1),{},cache).image.isNull());QCOMPARE(cache->stats().entries,1);
         const auto combined=openCombinedArchive(path);QVERIFY(!combined.book); // No raster text reading route.
     }
     void cp932NameAndBodyUseDocumentReader() {

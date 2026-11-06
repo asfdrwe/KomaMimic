@@ -197,6 +197,7 @@ void Book::sortPages() {
     });
 }
 Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const OpenOptions &options) {
+    ++BookActivity::opens;
     if (parseArchiveEntryPath(path).valid()) return openArchiveEntry(path, policy, options);
     // libarchive internally transcodes some Unicode names via LC_CTYPE, even
     // when our own adapter supplies display names. Scope UTF-8 to this worker;
@@ -544,6 +545,7 @@ DataResult Book::encoded(int index, const std::function<bool()> &cancel) const {
     cursor.reset(); return {{},error};
 }
 ImageResult Book::image(int index, QSize thumbnail, const std::function<bool()> &cancel) const {
+    ++BookActivity::imageRequests;
     const auto cancelled=[cancel,sourceCancel=openOptions.cancel]{return (cancel && cancel()) || (sourceCancel && sourceCancel());};
     if(cancelled())return {{},QCoreApplication::translate("KomaMimic", "画像読込を取り消しました。")};
     if (index < 0 || index >= pages.size()) return {{}, QCoreApplication::translate("KomaMimic", "ページが範囲外です。")};
