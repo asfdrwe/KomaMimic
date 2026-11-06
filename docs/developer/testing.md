@@ -88,6 +88,20 @@ reproducible source archives, synthetic fixture loading and RGBA comparisons, an
 validation/deployment helpers. Git tracking tests create small repositories only
 inside temporary directories; they do not initialize the active public source tree.
 
+## サムネイルの優先順位・再試行・永続化
+
+cache群では、保存待ち80枚の全件再利用、32 MiB上限、書込失敗とcommit直前取消の再試行、
+pendingの再起動復元と明示clear、前景実行中のUpdate／Store／Backgroundの進行、
+画面外要求の降格・再開・エラー再試行を検査する。上限確認だけで未保存画像の脱落を許容しない。
+これらの追加cache試験はfullとplatformの両方に含める。大量の永続書込を行う
+UI／cache／thumbnail群はCTestのRESOURCE_LOCKで相互に直列化する。UI群は新規プロセスの
+起動と設定保存も多いためRUN_SERIALで単独実行し、既存の時間枠を維持する。
+
+thumbnail群では、本棚の遅いmissに続くwarm hitの先行表示、ページ一覧で旧PNGを表示してから
+入力操作なしに新画像へ差し替えること、検証済み子フォルダの変更／一時エラーからの回復、
+空フォルダの旧永続PNG削除、保存lock競合中の終了と別プロセス再利用を確認する。
+220項目の往復ではfixture側から保存を補わず、アプリ自身の保存済み画像をlookupする。
+
 ## Validation with logs
 
 Thumbnail-cache diagnostics are disabled by default. On Linux, enable them for

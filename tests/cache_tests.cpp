@@ -91,10 +91,105 @@ private slots:
         const auto pixels=[] {return ImageResult{TestData::solid(Qt::blue,{1024,1024}),{}};};
         for(int i=0;i<12;++i)cache.image(QByteArray::number(i),pixels);
         int stored=0;while(cache.hasPendingWrites()){QVERIFY(cache.flushPending());++stored;}
-        QVERIFY(stored<=8);QVERIFY(stored>0);
+        QCOMPARE(stored,12);
+        for(int i=0;i<12;++i)QVERIFY(!ThumbnailDiskCache(d.path()).lookup(QByteArray::number(i)).image.isNull());
         cache.image("old",pixels);QVERIFY(cache.hasPendingWrites());
         QVERIFY(cache.clear().isEmpty());QVERIFY(!cache.hasPendingWrites());QVERIFY(cache.lookup("old").image.isNull());
         cache.image("changed",pixels,{},false,[]{return false;});QVERIFY(!cache.hasPendingWrites());
+    }
+    void deferredPressurePreservesEveryImage() {
+        QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.setDeferredWrites(true);
+        for(int i=0;i<80;++i) {
+            const auto result=cache.image(QByteArray::number(i),[]{return ImageResult{TestData::solid(Qt::blue,{320,480}),{}};});
+            QVERIFY(result.error.isEmpty());QVERIFY(cache.pendingMemoryBytes()<=32LL*1024*1024);
+        }
+        int writes=0;while(cache.hasPendingWrites()){QVERIFY(cache.flushPending());QVERIFY(++writes<=80);}
+        QCOMPARE(writes,80);ThumbnailDiskCache restart(d.path());
+        for(int i=0;i<80;++i)QCOMPARE(restart.lookup(QByteArray::number(i)).image.pixelColor(0,0),QColor(Qt::blue));
+    }
+    void failedStoreRetainsRetryAndOldPixels() {
+        QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.setDeferredWrites(true);
+        const auto target=d.filePath(QString::fromLatin1(QCryptographicHash::hash("key",QCryptographicHash::Sha256).toHex())+".png");
+        QVERIFY(QDir().mkpath(target));
+        cache.image("key",[]{return ImageResult{TestData::solid(Qt::blue),{}};});
+        QVERIFY(!cache.flushPending());QVERIFY(cache.hasPendingWrites());
+        QCOMPARE(cache.lookup("key").image.pixelColor(0,0),QColor(Qt::blue));
+        QVERIFY(QDir().rmdir(target));QVERIFY(cache.flushPending());
+        QCOMPARE(ThumbnailDiskCache(d.path()).lookup("key").image.pixelColor(0,0),QColor(Qt::blue));
+    }
+    void lateStoreCancellationIsRetried() {
+        QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.setDeferredWrites(true);
+        int checks=0;bool cancelled=false;
+        cache.image("key",[]{return ImageResult{TestData::solid(Qt::blue),{}};},{},true,[&]{if(++checks==3)cancelled=true;return true;});
+        QVERIFY(!cache.flushPending([&]{return cancelled;}));QVERIFY(cache.hasPendingWrites());
+        cancelled=false;QVERIFY(cache.flushPending());
+        QCOMPARE(ThumbnailDiskCache(d.path()).lookup("key").image.pixelColor(0,0),QColor(Qt::blue));
+    }
+    void journalSurvivesRestartAndConfiguration() {
+        QTemporaryDir d;
+        {ThumbnailDiskCache cache(d.path());cache.setDeferredWrites(true);
+            cache.image("key",[]{return ImageResult{TestData::solid(Qt::green),{}};});
+            cache.configure(true,16);QVERIFY(cache.hasPendingWrites());
+            cache.configure(false,32);QVERIFY(cache.hasPendingWrites());
+            QVERIFY(cache.checkpoint());QCOMPARE(cache.pendingMemoryBytes(),0);
+        }
+        ThumbnailDiskCache restart(d.path());restart.setDeferredWrites(true);
+        QCOMPARE(restart.lookup("key").image.pixelColor(0,0),QColor(Qt::green));
+        restart.recoverPending();QVERIFY(restart.hasPendingWrites());QVERIFY(restart.flushPending());
+        QVERIFY(QDir(d.filePath("pending")).entryList({"*.png"},QDir::Files).isEmpty());
+        QCOMPARE(ThumbnailDiskCache(d.path()).lookup("key").image.pixelColor(0,0),QColor(Qt::green));
+        restart.image("clear",[]{return ImageResult{TestData::solid(),{}};});QVERIFY(restart.checkpoint());
+        const auto corrupt=d.filePath("pending/"+QString(64,'a')+".png");QVERIFY(TestData::write(corrupt,"broken journal PNG"));
+        QVERIFY(restart.clear().isEmpty());QVERIFY(!QFileInfo::exists(corrupt));ThumbnailDiskCache cleared(d.path());cleared.recoverPending();
+        QVERIFY(!cleared.hasPendingWrites());QVERIFY(cleared.lookup("clear").image.isNull());
+    }
+    void visibleUpdateAndStoreProgressDuringForegroundWork() {
+        DisplayJobs jobs;std::latch release(1);std::atomic<bool> entered=false;
+        const auto cleanup=qScopeGuard([&]{release.count_down();});
+        jobs.submit<int>(DisplayJobs::Lane::Display,"slow","slow",[&](const auto &){entered=true;release.wait();return 1;},[](int,bool){});
+        QTRY_VERIFY(entered.load());bool updated=false,stored=false,background=false;
+        jobs.submit<int>(DisplayJobs::Lane::Update,"update","update",[](const auto &){return 1;},[&](int,bool cancelled){updated=!cancelled;});
+        jobs.submit<int>(DisplayJobs::Lane::Store,"store","store",[](const auto &){return 1;},[&](int,bool cancelled){stored=!cancelled;});
+        jobs.submit<int>(DisplayJobs::Lane::Background,"background","background",[](const auto &){return 1;},[&](int,bool cancelled){background=!cancelled;});
+        QTRY_VERIFY_WITH_TIMEOUT(updated && stored && background,3000);
+    }
+    void invisibleRequestsCompleteWithoutResubmission() {
+        DisplayJobs jobs;std::latch release(1);std::atomic<bool> entered=false;
+        const auto cleanup=qScopeGuard([&]{release.count_down();});
+        jobs.submit<int>(DisplayJobs::Lane::Display,"slow","slow",[&](const auto &){entered=true;release.wait();return 1;},[](int,bool){});
+        QTRY_VERIFY(entered.load());bool finished=false;
+        jobs.submit<int>(DisplayJobs::Lane::Display,"covers","offscreen",[](const auto &){return 1;},[&](int,bool cancelled){finished=!cancelled;});
+        jobs.visible("covers");
+        QTRY_VERIFY_WITH_TIMEOUT(finished,3000);
+    }
+    void offscreenGenerationNeverOccupiesDisplayWorker() {
+        DisplayJobs jobs;std::latch release(1);std::atomic<bool> backgroundStarted=false,generated=false;
+        auto cleanup=qScopeGuard([&]{release.count_down();});bool foreground=false,finished=false;
+        jobs.submit<int>(DisplayJobs::Lane::Background,"blocking","blocking",[&](const auto &){backgroundStarted=true;release.wait();return 1;},[](int,bool){});
+        QTRY_VERIFY(backgroundStarted.load());
+        jobs.submit<int>(DisplayJobs::Lane::Display,"covers","offscreen",[&](const auto &){generated=true;return 1;},[&](int,bool cancelled){finished=!cancelled;},false,true);
+        jobs.submit<int>(DisplayJobs::Lane::Display,"display","foreground",[](const auto &){return 1;},[&](int,bool cancelled){foreground=!cancelled;});
+        QTRY_VERIFY(foreground);QVERIFY(!generated.load());release.count_down();cleanup.dismiss();QTRY_VERIFY(finished);
+    }
+    void visibleValidationSurvivesNewCacheRequests() {
+        DisplayJobs jobs;std::latch release(1);std::atomic<bool> entered=false;bool completed=false,cancelled=false,hit=false;
+        auto cleanup=qScopeGuard([&]{release.count_down();});
+        jobs.submit<int>(DisplayJobs::Lane::Update,"covers","validate",[&](const auto &){entered=true;release.wait();return 1;},[&](int,bool stopped){completed=true;cancelled=stopped;});
+        QTRY_VERIFY(entered.load());
+        jobs.submit<int>(DisplayJobs::Lane::Cache,"covers","hit",[](const auto &){return 1;},[&](int,bool stopped){hit=!stopped;});
+        QTRY_VERIFY(hit);QVERIFY(!completed);release.count_down();cleanup.dismiss();
+        QTRY_VERIFY(completed);QVERIFY(!cancelled);
+    }
+    void demotedRunningRequestResumesAndRetriesErrors() {
+        DisplayJobs jobs;std::atomic<int> calls=0;bool finished=false;int failures=0;
+        jobs.submit<ImageResult>(DisplayJobs::Lane::Display,"covers","moving",[&](const DisplayJobs::Cancel &cancel) {
+            const int attempt=++calls;
+            if(attempt==1){while(!cancel())QThread::msleep(2);return ImageResult{};}
+            if(attempt==2)return ImageResult{{},"temporary read error"};
+            return ImageResult{TestData::solid(Qt::blue),{}};
+        },[&](ImageResult result,bool cancelled){if(!cancelled){if(!result.error.isEmpty())++failures;else finished=!result.image.isNull();}},true);
+        QTRY_COMPARE(calls.load(),1);jobs.visible("covers");QVERIFY(jobs.contains("moving"));
+        QTRY_VERIFY_WITH_TIMEOUT(finished,4000);QCOMPARE(calls.load(),3);QCOMPARE(failures,1);QVERIFY(!jobs.contains("moving"));
     }
     void cacheHitsDoNotDiscardPendingImages() {
         QTemporaryDir d;const auto root=d.filePath("cache");QVERIFY(QDir().mkpath(root));
@@ -281,8 +376,9 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         const auto pngs=QDir(cache->directory()).entryList({"*.png"},QDir::Files);
         QCOMPARE(pngs.size(),1);
         // A blue committed PNG proves a cache hit: the unchanged source is red.
-        QVERIFY(TestData::write(QDir(cache->directory()).filePath(pngs.first()),
-                                TestData::png(TestData::solid(Qt::blue))));
+        const auto file=QDir(cache->directory()).filePath(pngs.first());
+        auto marker=TestData::solid(Qt::blue);marker.setText("komamimic-cover-stamp",QImage(file).text("komamimic-cover-stamp"));
+        QVERIFY(TestData::write(file,TestData::png(marker)));
         OpenOptions options;
         options.scriptSettings.insert("unrelated-reader-option",42);
         const auto reopened=Book::open(source,{},options).book;
@@ -576,15 +672,15 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         const auto book=Book::open(zip).book;QVERIFY(book);
         QCOMPARE(cachedPageThumbnail(book,0,cache).image.pixelColor(0,0),QColor(Qt::red));
         QCOMPARE(cachedPageThumbnail(book,1,cache).image.pixelColor(0,0),QColor(Qt::green));
-        QCOMPARE(cachedCollectionCover(zip,{},{{"cover",1}},false,cache).pixelColor(0,0),QColor(Qt::green));
-        QCOMPARE(cachedCollectionCover(zip,{},{{"cover",0}},false,cache).pixelColor(0,0),QColor(Qt::red));
+        QCOMPARE(cachedCollectionCover(zip,{},{{"cover",1}},false,cache).image.pixelColor(0,0),QColor(Qt::green));
+        QCOMPARE(cachedCollectionCover(zip,{},{{"cover",0}},false,cache).image.pixelColor(0,0),QColor(Qt::red));
         const auto before=cache->stats().entries;
         cachedPageThumbnail(book,1,cache);cachedCollectionCover(zip,{},{{"cover",1}},false,cache);
         QCOMPARE(cache->stats().entries,before);
         QVERIFY(TestData::write(zip,TestData::zip({{"01.png",TestData::png(TestData::solid(Qt::blue,{37,59}))},{"02.png",TestData::png(TestData::solid(Qt::yellow,{37,59}))}})));
         const auto updated=Book::open(zip).book;QVERIFY(updated);
         QCOMPARE(cachedPageThumbnail(updated,0,cache).image.pixelColor(0,0),QColor(Qt::blue));
-        QVERIFY(!cachedPageThumbnail(book,0,cache).error.isEmpty());
+        QCOMPARE(cachedPageThumbnail(book,0,cache).image.pixelColor(0,0),QColor(Qt::blue));
     }
     void preferencesAndAppearance() {
         QTemporaryDir d;const auto settings=d.filePath("settings.ini");

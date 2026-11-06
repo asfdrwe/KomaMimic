@@ -68,12 +68,13 @@ ImageResult cover(const QString &path,const NamePolicy &policy,
             files.insert(std::upper_bound(files.begin(),files.end(),file,before),file);
             if(files.size()>16) files.removeLast();
         }
+        QString failure;
         for(const auto &file:files) {
             if(cancel && cancel()) return {};
             std::function<bool()> childUnchanged;
             auto result=cover(file.absoluteFilePath(),policy,cache,cancel,refresh,depth+1,false,&childUnchanged,
                               old.isNull()?fallback:old);
-            if(result.image.isNull())continue;
+            if(result.image.isNull()){if(!result.error.isEmpty())failure=result.error;continue;}
             const auto unchanged=[path,directorySource,childUnchanged] {
                 return childUnchanged && childUnchanged() && fingerprint(path,true)==directorySource;
             };
@@ -81,10 +82,16 @@ ImageResult cover(const QString &path,const NamePolicy &policy,
             const auto stamp=result.image.text(QStringLiteral("komamimic-cover-stamp"));
             // Text previews and rejected/changed sources must not become
             // persistent simply because their parent folder has a stable key.
-            if(stamp.isEmpty() || !unchanged())return result;
+            if(stamp.isEmpty() || !unchanged()) {
+                if(!(cancel && cancel()) && !cache->invalidate(bytes,cancel))result.error=QCoreApplication::translate("KomaMimic", "サムネイルの保存先を使用できません。");
+                return result;
+            }
             if(!old.isNull() && old.text(QStringLiteral("komamimic-cover-stamp"))==stamp)return {old,{}};
             return cache->image(bytes,[result]{return result;},cancel,true,unchanged);
         }
+        if(cancel && cancel())return {};
+        if(!failure.isEmpty())return {{},failure};
+        if(!cache->invalidate(bytes,cancel))return {{},QCoreApplication::translate("KomaMimic", "サムネイルの保存先を使用できません。")};
         return {};
     }
     const auto source=fingerprint(physicalBookPath(path));
@@ -129,7 +136,9 @@ ImageResult cover(const QString &path,const NamePolicy &policy,
         return result;
     };
     // cacheBytes is stable. A stale PNG must not short-circuit re-generation.
-    return cache->image(cacheBytes,stamped,cancel,true,unchanged);
+    auto result=cache->image(cacheBytes,stamped,cancel,true,unchanged);
+    if(!*cacheableCover && !(cancel && cancel()) && !cache->invalidate(bytes,cancel))result.error=QCoreApplication::translate("KomaMimic", "サムネイルの保存先を使用できません。");
+    return result;
 }
 }
 ImageResult cachedCover(const QString &path,const NamePolicy &policy,
@@ -145,12 +154,24 @@ ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int inde
                                 const std::shared_ptr<ThumbnailDiskCache> &cache,
                                 const std::function<bool()> &cancel,bool refresh,bool cachedOnly) {
     if(!book || index<0 || index>=book->pages.size()) return {{},QCoreApplication::translate("KomaMimic", "ページが範囲外です。")};
-    // A disk hit must not bypass Book's stale-source check when an old Book
-    // survives while the archive is replaced and another job opens its new version.
-    if(!book->sourceUnchanged(index)) return cachedOnly ? ImageResult{} : book->image(index,ThumbnailSize,cancel);
+    // Cached pixels are provisional. Validation reopens changed sources before
+    // using any offsets from a Book snapshot.
+    if(!cachedOnly && !book->sourceUnchanged(index)) {
+        const auto opened=book->reopenedForThumbnail(index,cancel);
+        if(!opened.book)return {{},opened.error};
+        const auto &old=book->pages[index];
+        for(int i=0;i<opened.book->pages.size();++i) {
+            const auto &page=opened.book->pages[i];
+            if((old.archiveEntryId.isEmpty()?page.name==old.name:page.archiveEntryId==old.archiveEntryId) && page.documentPage==old.documentPage && page.portion==old.portion && page.pdfResource==old.pdfResource) {
+                if(!opened.book->sourceUnchanged(i))return book->image(index,ThumbnailSize,cancel);
+                return cachedPageThumbnail(opened.book,i,cache,cancel,refresh,false);
+            }
+        }
+        return book->image(index,ThumbnailSize,cancel);
+    }
     const auto &page=book->pages[index];
     const auto path=page.archivedText ? book->path : book->filesystem || page.document ? page.filePath : book->path;
-    const auto source=fingerprint(physicalBookPath(path));
+    const auto source=book->thumbnailSource(index);
     auto key=baseKey(source,book->namePolicy);key["kind"]="page";
     qCDebug(thumbnailCacheLog) << "page-key" << digest(source);
     key["identity"]=page.identity;key["name"]=page.name;key["ordinal"]=QString::number(page.archiveIndex);
@@ -158,13 +179,35 @@ ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int inde
     key["portion"]=QJsonArray{page.portion.x(),page.portion.y(),page.portion.width(),page.portion.height()};
     key["inline"]=QString::fromLatin1(digest(page.inlineData));
     key["password"]=QString::fromLatin1(digest(book->openOptions.password.toUtf8()));
-    const auto bytes=page.archivedText || (source.isEmpty() && page.inlineData.isEmpty()) || isTextDocumentPath(page.filePath)
-        ? QByteArray{} : QJsonDocument(key).toJson(QJsonDocument::Compact);
-    if(cachedOnly)return refresh ? ImageResult{} : cache->lookup(bytes,cancel);
-    return cache->image(bytes,[book,index,cancel]{return book->image(index,ThumbnailSize,cancel);},cancel,refresh,
+    const bool cacheable=!page.archivedText && (!source.isEmpty() || !page.inlineData.isEmpty()) && !isTextDocumentPath(page.filePath);
+    const auto legacy=cacheable?QJsonDocument(key).toJson(QJsonDocument::Compact):QByteArray{};
+    // Stable page identity lets a changed source paint its old preview first,
+    // including after restart. Freshness belongs in the pixels, not this key.
+    key["source"]=QFileInfo(physicalBookPath(path)).absoluteFilePath();key["revision"]=3;
+    if(!page.archiveEntryId.isEmpty())key["identity"]=page.archiveEntryId;
+    key.remove("ordinal");
+    const auto bytes=cacheable?QJsonDocument(key).toJson(QJsonDocument::Compact):QByteArray{};
+    const auto stamp=QString::fromLatin1(digest(source));
+    if(cachedOnly) {
+        if(refresh)return {};
+        auto hit=cache->lookup(bytes,cancel);
+        return hit.image.isNull()?cache->lookup(legacy,cancel):hit;
+    }
+    if(!refresh && cacheable) {
+        const auto hit=cache->lookup(bytes,cancel);
+        if(!hit.image.isNull() && hit.image.text("komamimic-cover-stamp")==stamp)return hit;
+    }
+    const auto generate=[&] {
+        auto result=refresh?ImageResult{}:cache->lookup(legacy,cancel);
+        if(result.image.isNull())result=book->image(index,ThumbnailSize,cancel);
+        if(!result.image.isNull())result.image.setText("komamimic-cover-stamp",stamp);
+        return result;
+    };
+    return cache->image(bytes,generate,cancel,true,
         [book,index,path,source]{return book->sourceUnchanged(index) && fingerprint(physicalBookPath(path))==source;});
+
 }
-QImage cachedCollectionCover(const QString &path,const NamePolicy &policy,const QJsonObject &metadata,bool spine,
+ImageResult cachedCollectionCover(const QString &path,const NamePolicy &policy,const QJsonObject &metadata,bool spine,
                              const std::shared_ptr<ThumbnailDiskCache> &cache,const std::function<bool()> &cancel,bool cachedOnly) {
     if(cancel && cancel()) return {};
     const QString field=spine && metadata.contains("spinePng") ? "spine" : "cover";
@@ -172,19 +215,24 @@ QImage cachedCollectionCover(const QString &path,const NamePolicy &policy,const 
     // Registered crops are already persistent in the library DB.
     if(!encoded.isEmpty() && encoded.size()<2*1024*1024) {
         const auto image=decodeImage(QByteArray::fromBase64(encoded),"cover.png",ThumbnailSize).image;
-        if(!image.isNull()) return image;
+        if(!image.isNull()) return {image,{}};
     }
     const int page=metadata.value(field).toInt();
-    if(page==0 || QFileInfo(path).suffix().compare("epub",Qt::CaseInsensitive)==0) return cachedCover(path,policy,cache,cancel,false,0,cachedOnly).image;
-    const auto source=fingerprint(physicalBookPath(path));auto key=baseKey(source,policy);
-    key["kind"]="registered-page";key["page"]=page;
-    const auto bytes=source.isEmpty()?QByteArray{}:QJsonDocument(key).toJson(QJsonDocument::Compact);
-    if(cachedOnly)return cache->lookup(bytes,cancel).image;
+    if(page==0 || QFileInfo(path).suffix().compare("epub",Qt::CaseInsensitive)==0) return cachedCover(path,policy,cache,cancel,false,0,cachedOnly);
+    auto key=baseKey(QFileInfo(physicalBookPath(path)).absoluteFilePath().toUtf8(),policy);
+    key["revision"]=3;key["kind"]="registered-page";key["page"]=page;
+    const auto bytes=QJsonDocument(key).toJson(QJsonDocument::Compact);
+    if(cachedOnly)return cache->lookup(bytes,cancel);
+    const auto source=fingerprint(physicalBookPath(path));
+    const auto stamp=QString::fromLatin1(digest(source));
+    const auto old=cache->lookup(bytes,cancel).image;
+    if(!old.isNull() && old.text("komamimic-cover-stamp")==stamp)return {old,{}};
     return cache->image(bytes,[&]() -> ImageResult {
         OpenOptions options;options.cancel=cancel;
         const auto result=Book::open(path,policy,options);
         if(!result.book) return {{},result.error};
         if(result.book->pages.isEmpty()) return {};
-        return result.book->image(std::clamp(page,0,int(result.book->pages.size())-1),ThumbnailSize,cancel);
-    },cancel,false,[path,source]{return fingerprint(physicalBookPath(path))==source;}).image;
+        auto image=result.book->image(std::clamp(page,0,int(result.book->pages.size())-1),ThumbnailSize,cancel);
+        image.image.setText("komamimic-cover-stamp",stamp);return image;
+    },cancel,true,[path,source]{return fingerprint(physicalBookPath(path))==source;});
 }

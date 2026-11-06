@@ -98,14 +98,16 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
     m_thumbnailDiskCache->setDeferredWrites(true);
     auto *cacheTimer=new QTimer(this);cacheTimer->setInterval(100);
     connect(cacheTimer,&QTimer::timeout,this,[this] {
-        if(m_backgroundCancel->load() || !isVisible() || m_loading)return;
+        if(m_backgroundCancel->load())return;
+        requestThumbnails(m_library);requestThumbnails(m_pages);
         if(m_directoryDirty && !m_directoryLoading && !m_archiveDirectory && !m_directory.isEmpty())
             populateDirectory(m_directory,false,false,false,true);
         if(m_features)m_features->requestBackgroundWork();
         const auto cache=m_thumbnailDiskCache;
-        if(cache->hasPendingWrites()) {
-            m_displayJobs->submit<bool>(DisplayJobs::Lane::Background,"cache-store","cache-store",
+        if(cache->enabled()) {
+            m_displayJobs->submit<bool>(DisplayJobs::Lane::Store,"cache-store","cache-store",
                 [cache](const DisplayJobs::Cancel &cancel){
+                    cache->recoverPending();
                     QElapsedTimer elapsed;elapsed.start();bool stored=false;
                     for(int i=0;i<8 && elapsed.elapsed()<20 && !cancel() && cache->hasPendingWrites();++i) {
                         if(!cache->flushPending(cancel))break;
@@ -113,7 +115,8 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
                     }
                     return stored;
                 },[](bool,bool){});
-        } else if(m_cacheMaintenancePending) {
+        }
+        if(m_cacheMaintenancePending && !cache->hasPendingWrites()) {
             m_displayJobs->submit<QString>(DisplayJobs::Lane::Background,"cache-maintain","cache-maintain",
                 [cache](const DisplayJobs::Cancel &cancel){return cache->maintain(cancel);},
                 [this](const QString &,bool cancelled){if(!cancelled)m_cacheMaintenancePending=false;});
@@ -871,8 +874,8 @@ void MainWindow::saveSettings() {
 bool MainWindow::backgroundWorkActive() const {return m_displayJobs && m_displayJobs->active();}
 void MainWindow::cancelBackgroundWork() {
     m_backgroundCancel->store(true);
-    if(m_displayJobs)m_displayJobs->stop();
-    if(m_thumbnailDiskCache)m_thumbnailDiskCache->discardPending();
+    if(m_displayJobs){m_displayJobs->stop();m_displayJobs->waitForDone();}
+    if(m_thumbnailDiskCache)m_thumbnailDiskCache->checkpoint();
     m_thumbnailToken->store(++m_libraryGeneration);
     m_pageThumbnailToken->store(++m_pageGeneration);
     m_renderToken->fetch_add(1); ++m_renderGeneration;

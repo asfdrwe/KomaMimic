@@ -69,15 +69,14 @@ See [Differences from MangaMeeya](compatibility.md) for compatibility and sortin
 Committed, valid thumbnail PNGs can be read without waiting for writer/maintenance locks or a full cache inventory scan.
 Last-use updates are best-effort. Writing, deletion and trimming still use a lock, and PNGs and inventory revisions use temporary-file replacement.
 PNG lookup for the current viewport runs separately from source generation; hits appear as they become available.
-Generated images are returned for display before PNG persistence. Saving, last-use updates, and maintenance run after current display work settles.
+Generated images are returned for display before PNG persistence. Visible updates and saving have separate workers and can progress during continued interaction. Previously requested work continues at lower priority after leaving the viewport.
 Page-thumbnail mode does not render the hidden reading image or prefetch reading pages.
-Pending writes may be omitted because of their memory limit, writer contention, or shutdown; those images may need regeneration next time.
-This does not invalidate other committed PNGs.
+Pending images spill to disk at the memory limit, and write failures or contention are retried. Normal shutdown journals unfinished images for recovery on the next launch. The journal and atomic-write temporary files need extra disk space beyond the completed-cache limit. A full or unwritable disk, or an abrupt shutdown, can still require regeneration.
 
 The configured disk capacity is the only retention limit; there is no file-count limit. Oldest-used thumbnails are removed when capacity is exceeded.
-Cached covers are shown before accessing the original archive's metadata. A low-priority check then compares source size, modification time, resolved path and related information. Changed covers are regenerated and replaced. Full content hashes are not calculated. Other cache types, including page thumbnails, can use different validation rules.
+Cached covers are shown before accessing the original archive's metadata. A low-priority check then compares source size, modification time, resolved path and related information. Changed covers are regenerated and replaced. Full content hashes are not calculated. Page and collection thumbnails also show saved pixels provisionally, then validate them periodically. Changed sources are refreshed automatically; transient read errors retain the previous preview and are retried.
 Folder covers are also saved by folder path and shown before enumerating their contents. Background validation searches the cover candidates again and checks the chosen image or archive; the folder timestamp alone is not sufficient. When upgrading from a version that only saved the inner image, the first visit still searches for that image and reuses it to save the folder cover. If only the inner-image cache was evicted, a matching folder cover can be reused without extracting or rendering its source again.
-Pending image writes take priority over usage-time updates. A stream of cache hits cannot displace unsaved images with usage-time updates.
+When a folder no longer has a cover, its old persistent cover is invalidated as well as its displayed icon. Pending image writes take priority over usage-time updates.
 Changing KomaMimic, Qt, scripts or script settings alone does not invalidate thumbnails. If such a change affects the rendered image, explicitly refresh thumbnails or clear the cache.
 Changing display thumbnail dimensions or spacing alone does not clear all cached images.
 `thumbnails-v2` does not read or migrate the earlier `thumbnails-v1` cache. We recommend clearing the old cache in the **old** app under Preferences → Cache **before updating**. Clearing the cache in the new app normally affects only `thumbnails-v2`; it does not automatically remove the old `thumbnails-v1` directory.

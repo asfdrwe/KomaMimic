@@ -153,6 +153,6 @@ private:
   QHash<QDockWidget *, bool> m_dockVisibility;
   QByteArray m_normalDocks;
   QHash<QString, QIcon> m_collectionIcons;
-  QStringList m_coverQueue, m_collectionIconOrder;
-  bool m_coverBusy = false;
+  QStringList m_collectionIconOrder;
+  QHash<QString,qint64> m_collectionChecked;
 };

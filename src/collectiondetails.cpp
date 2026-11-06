@@ -130,7 +130,7 @@ void ReaderFeatures::zipMetadata(bool save) {
       if (state.contains(key))
         item.state[key] = state.value(key);
     m_library->update(item.id, item.metadata, item.state);
-    m_collectionIcons.remove(item.id);
+    for(const auto &suffix:{"/cover","/spine"}){m_collectionIcons.remove(item.id+suffix);m_collectionChecked.remove(item.id+suffix);}
     m_tocEntries = item.state.value("toc").toArray();
     rebuildLists();
     message(QCoreApplication::translate("KomaMimic", "メタデータを取り込みました。目次の一覧は開き直すと反映します。"));
@@ -230,7 +230,7 @@ void ReaderFeatures::registerBookImage(bool spine) {
   item.metadata[field + "Width"] = crop.width();
   item.metadata[field + "Height"] = crop.height();
   m_library->update(item.id, item.metadata, item.state);
-  m_collectionIcons.remove(item.id);
+  for(const auto &suffix:{"/cover","/spine"}){m_collectionIcons.remove(item.id+suffix);m_collectionChecked.remove(item.id+suffix);}
   rebuildLists();
 }
 void ReaderFeatures::trashPages() {

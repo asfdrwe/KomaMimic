@@ -165,6 +165,7 @@ void ThumbnailGrid::repaintIcons() {
             // A display-only change never clears the disk cache. Reload just
             // the visible image sources that have left this bounded RAM cache.
             entry->setData(ThumbnailRoleReady,false);
+            entry->setData(ThumbnailNextCheckRole,0);
         } else entry->setIcon(displayIcon({},entry->data(DirectoryRole).toBool()));
     }
 }
@@ -229,6 +230,7 @@ void ThumbnailGrid::invalidateThumbnails() {
     for (int row = 0; row < count(); ++row) {
         item(row)->setData(ThumbnailRoleReady, false); item(row)->setData(PendingRole, false);
         item(row)->setData(ThumbnailCoverValidatedRole,false);
+        item(row)->setData(ThumbnailNextCheckRole,0);
         item(row)->setData(ThumbnailCoverStampRole,QString{});
         item(row)->setData(ThumbnailRefreshRole,true);
         item(row)->setIcon(displayIcon({}, item(row)->data(DirectoryRole).toBool()));
@@ -237,7 +239,7 @@ void ThumbnailGrid::invalidateThumbnails() {
 }
 void ThumbnailGrid::setThumbnail(int row, const QImage &image, const QString &error) {
     if (row < 0 || row >= count()) return;
-    auto *entry = item(row); entry->setData(PendingRole, false); entry->setData(ThumbnailRoleReady, true);
+    auto *entry = item(row); entry->setData(PendingRole, false); entry->setData(ThumbnailRoleReady, error.isEmpty() || !image.isNull());
     entry->setData(ThumbnailRefreshRole,false);
     if (!error.isEmpty()) entry->setToolTip(entry->toolTip() + '\n' + error);
     if (image.isNull()) {
@@ -263,6 +265,7 @@ void ThumbnailGrid::setThumbnail(int row, const QImage &image, const QString &er
         m_sourceImages.remove(old);
         item(old)->setIcon(displayIcon({}, item(old)->data(DirectoryRole).toBool()));
         item(old)->setData(ThumbnailRoleReady, false);
+        item(old)->setData(ThumbnailNextCheckRole,0);
     }
 }
 void ThumbnailGrid::moveSelection(int dx, int dy) {

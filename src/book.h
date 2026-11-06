@@ -61,6 +61,8 @@ public:
     // Cover-list previews, including the first page of a text document.
     ImageResult preview(int index = 0, QSize size = {320,480}, const std::function<bool()> &cancel = {}) const;
     bool sourceUnchanged(int index) const;
+    QByteArray thumbnailSource(int index) const;
+    OpenResult reopenedForThumbnail(int index,const std::function<bool()> &cancel) const;
     DataResult encoded(int index, const std::function<bool()> &cancel = {}) const;
     void clearEncodedCache() const;
     MemoryCacheInfo encodedCacheInfo() const;
@@ -82,10 +84,14 @@ private:
     struct ArchiveCursor;
     struct EncodedCache {std::shared_ptr<ArchiveCursor> cursor; QMutex mutex;QCache<QString,QByteArray> values{32*1024};};
     std::shared_ptr<EncodedCache> m_encodedCache=std::make_shared<EncodedCache>();
+    struct ThumbnailReopen {QMutex mutex;std::shared_ptr<const Book> book;};
+    std::shared_ptr<ThumbnailReopen> m_thumbnailReopen=std::make_shared<ThumbnailReopen>();
     DataResult cacheData(const QString &key,const QByteArray &data) const;
     Book() = default;
     qint64 m_fileSize = 0;
     qint64 m_modifiedMs = 0;
+    QHash<QString,QByteArray> m_thumbnailSources;
+    void captureThumbnailSources();
     static OpenResult openArchiveEntry(const QString &path, const NamePolicy &policy, const OpenOptions &options);
     void sortPages();
 };

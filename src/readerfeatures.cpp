@@ -27,6 +27,8 @@
 #include <QFutureWatcher>
 #include <QInputDialog>
 #include <QJsonDocument>
+#include <QCryptographicHash>
+#include <QDateTime>
 #include <QLineEdit>
 #include <QListWidget>
 #include <QMenu>
@@ -872,7 +874,7 @@ void ReaderFeatures::rebuildLists() {
                            .arg(entry.state.value("total").toInt()));
       if (icons)
         item->setIcon(m_collectionIcons.value(
-            entry.id,
+            entry.id+"/cover",
             ThumbnailGrid::thumbnailIcon({}, QFileInfo(entry.path).isDir())));
       if (entry.id == selected)
         it.value()->setCurrentItem(item);
@@ -882,7 +884,7 @@ void ReaderFeatures::rebuildLists() {
   for (const auto &entry : m_library->items("shelf")) {
     auto *item = new QListWidgetItem(
         m_collectionIcons.value(
-            entry.id,
+            entry.id+"/spine",
             ThumbnailGrid::thumbnailIcon({}, QFileInfo(entry.path).isDir())),
         entry.title, m_shelf);
     item->setData(Qt::UserRole, entry.id);
@@ -1703,67 +1705,68 @@ void ReaderFeatures::requestBackgroundWork() {
   prefetch();requestCollectionCover();
 }
 void ReaderFeatures::requestCollectionCover() {
-  if(m_shelf && m_tabs && !m_shelf->isVisible() && !m_tabs->isVisible()) {
-    w->m_displayJobs->retain("collection");return;
-  }
-  if (w->m_backgroundCancel->load() || m_coverBusy || !m_shelf || !m_tabs)
-    return;
-  QListWidget *target = nullptr;
-  LibraryItem chosen;
-  for (auto *list :
-       {m_shelf, qobject_cast<QListWidget *>(m_tabs->currentWidget())}) {
-    if (!list || !list->isVisible())
-      continue;
-    for (int i = 0; i < list->count(); ++i) {
-      const auto id = list->item(i)->data(Qt::UserRole).toString();
-      if (!m_collectionIcons.contains(id) &&
-          list->visualItemRect(list->item(i))
-              .intersects(list->viewport()->rect())) {
-        chosen = m_library->item(id);
-        target = list;
-        break;
-      }
+  if(w->m_backgroundCancel->load() || !m_shelf || !m_tabs)return;
+  QSet<QString> needed,visibleKeys;
+  const auto now=QDateTime::currentMSecsSinceEpoch();
+  for(auto *list:{m_shelf,qobject_cast<QListWidget *>(m_tabs->currentWidget())}) {
+    if(!list || !list->isVisible())continue;
+    const bool spine=list==m_shelf;
+    for(int i=0;i<list->count();++i) {
+      if(!list->visualItemRect(list->item(i)).intersects(list->viewport()->rect()))continue;
+      const auto chosen=m_library->item(list->item(i)->data(Qt::UserRole).toString());
+      if(chosen.id.isEmpty())continue;
+      const auto key=chosen.id+(spine?"/spine":"/cover");visibleKeys.insert(key);
+      const auto revision=QCryptographicHash::hash(QJsonDocument(chosen.metadata).toJson(),QCryptographicHash::Sha256).toHex();
+      const auto id="collection/"+key+'/'+QString::fromLatin1(revision);
+      needed.insert(id);needed.insert(id+"/generate");
+      if(w->m_displayJobs->contains(id) || w->m_displayJobs->contains(id+"/generate") || m_collectionChecked.value(key)>now)continue;
+      const auto policy=w->namePolicyFor(chosen.path);const auto cache=w->m_thumbnailDiskCache;
+      const bool ready=m_collectionIcons.contains(key);
+      auto work=[chosen,policy,spine,cache](bool cachedOnly,const DisplayJobs::Cancel &cancel) {
+        return cachedCollectionCover(chosen.path,policy,chosen.metadata,spine,cache,cancel,cachedOnly);
+      };
+      auto apply=[this,chosen,key,spine](ImageResult result,bool cancelled,bool validated) {
+        if(w->m_backgroundCancel->load() || cancelled || m_library->item(chosen.id).metadata!=chosen.metadata)return;
+        const bool success=result.error.isEmpty();
+        m_collectionChecked[key]=validated || !success?QDateTime::currentMSecsSinceEpoch()+(success?2000:1000):0;
+        if(!success)return;
+        m_collectionIcons[key]=ThumbnailGrid::thumbnailIcon(result.image,false);
+        m_collectionIconOrder.removeAll(key);m_collectionIconOrder.append(key);
+        const auto update=[&](QListWidget *target) {
+          if(!target)return;
+          for(int row=0;row<target->count();++row)
+            if(target->item(row)->data(Qt::UserRole).toString()==chosen.id)target->item(row)->setIcon(m_collectionIcons[key]);
+        };
+        if(spine)update(m_shelf);else for(auto *target:m_lists)update(target);
+      };
+      w->m_displayJobs->submit<ImageResult>(ready?DisplayJobs::Lane::Update:DisplayJobs::Lane::Cache,"collection",id,
+        [work,ready](const DisplayJobs::Cancel &cancel){return work(!ready,cancel);},
+        [this,work,apply,id,ready,target=QPointer<QListWidget>(list),itemId=chosen.id](ImageResult result,bool cancelled) {
+          if(cancelled || ready || !result.image.isNull()){apply(std::move(result),cancelled,ready);return;}
+          bool visible=false;
+          if(target && target->isVisible())for(int row=0;row<target->count();++row)
+            if(target->item(row)->data(Qt::UserRole).toString()==itemId && target->visualItemRect(target->item(row)).intersects(target->viewport()->rect())){visible=true;break;}
+          w->m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Display,"collection",id+"/generate",
+            [work](const DisplayJobs::Cancel &cancel){return work(false,cancel);},
+            [apply](ImageResult result,bool cancelled){apply(std::move(result),cancelled,true);},true,!visible);
+          requestCollectionCover();
+        },ready);
     }
-    if (!chosen.id.isEmpty())
-      break;
   }
-  if (chosen.id.isEmpty())
-    return;
-  m_coverBusy = true;
-  auto completed = [this, id = chosen.id](QImage image,bool cancelled) {
-            m_coverBusy = false;
-            if (w->m_backgroundCancel->load()) return;
-            if(cancelled){QTimer::singleShot(0,this,&ReaderFeatures::requestCollectionCover);return;}
-            if (m_collectionIcons.size() >= 512 &&
-                !m_collectionIconOrder.isEmpty()) {
-              const auto stale = m_collectionIconOrder.takeFirst();
-              m_collectionIcons.remove(stale);
-              for (auto *list : m_lists)
-                for (int i = 0; i < list->count(); ++i)
-                  if (list->item(i)->data(Qt::UserRole).toString() == stale)
-                    list->item(i)->setIcon(ThumbnailGrid::thumbnailIcon());
-              for (int i = 0; i < m_shelf->count(); ++i)
-                if (m_shelf->item(i)->data(Qt::UserRole).toString() == stale)
-                  m_shelf->item(i)->setIcon(ThumbnailGrid::thumbnailIcon());
-            }
-            m_collectionIconOrder.removeAll(id);
-            m_collectionIconOrder.append(id);
-            m_collectionIcons[id] = ThumbnailGrid::thumbnailIcon(image, false);
-            for (auto *list : m_lists)
-              for (int i = 0; i < list->count(); ++i)
-                if (list->item(i)->data(Qt::UserRole).toString() == id)
-                  list->item(i)->setIcon(m_collectionIcons[id]);
-            for (int i = 0; i < m_shelf->count(); ++i)
-              if (m_shelf->item(i)->data(Qt::UserRole).toString() == id)
-                m_shelf->item(i)->setIcon(m_collectionIcons[id]);
-            QTimer::singleShot(0, this,
-                               &ReaderFeatures::requestCollectionCover);
-          };
-  const auto policy = w->namePolicyFor(chosen.path);
-  const bool spine = target == m_shelf;
-  w->m_displayJobs->submit<QImage>(DisplayJobs::Lane::Background,"collection","collection",[chosen, policy, spine, cache=w->m_thumbnailDiskCache,stop=w->m_backgroundCancel](const DisplayJobs::Cancel &cancel) {
-    return cachedCollectionCover(chosen.path,policy,chosen.metadata,spine,cache,[stop,cancel]{return stop->load() || cancel();});
-  },std::move(completed));
+  w->m_displayJobs->visible("collection",needed);
+  // Never evict an icon still required by either visible list.
+  int candidates=m_collectionIconOrder.size();
+  while(m_collectionIcons.size()>std::max(512,int(visibleKeys.size())) && candidates-->0) {
+    const auto key=m_collectionIconOrder.takeFirst();
+    if(visibleKeys.contains(key)){m_collectionIconOrder.append(key);continue;}
+    m_collectionIcons.remove(key);m_collectionChecked.remove(key);
+    const int slash=key.lastIndexOf('/');const auto id=key.left(slash);
+    const auto reset=[&](QListWidget *target) {
+      if(!target)return;
+      for(int row=0;row<target->count();++row)if(target->item(row)->data(Qt::UserRole).toString()==id)target->item(row)->setIcon(ThumbnailGrid::thumbnailIcon());
+    };
+    if(key.endsWith("/spine"))reset(m_shelf);else for(auto *target:m_lists)reset(target);
+  }
 }
 QString ReaderFeatures::currentPositionKey() const {
   return w->pageCount() ? positionKey(w->m_book->pages[w->m_anchor])

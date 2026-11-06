@@ -4,6 +4,9 @@
 
 ## Unreleased
 
+- Display saved thumbnails first across covers, pages, and collections; periodically validate visible images and update changed sources. Continue requested offscreen work at lower priority.
+- Journal pending images instead of dropping them at the RAM limit, retry writes after errors or cancellation, and resume saving after normal shutdown. Invalidate old covers for empty folders.
+
 - Persist folder covers by folder path and display them before scanning their contents after restart. Reuse valid folder pixels even when the separate inner-image cache has been evicted.
 - Prevent usage-time updates from discarding pending images during a stream of cache hits, and prioritize image persistence.
 

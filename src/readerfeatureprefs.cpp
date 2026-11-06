@@ -630,7 +630,7 @@ void ReaderFeatures::preferences(const QString &pageName) {
   std::weak_ptr<std::function<void()>> weakRefresh=refreshUsage;
   *refreshUsage=[&,disk=w->m_thumbnailDiskCache,weakRefresh] {
     QPointer<QLabel> target=usage;
-    w->m_displayJobs->submit<ThumbnailDiskCache::Stats>(DisplayJobs::Lane::Background,"cache-usage",QUuid::createUuid().toString(),
+    w->m_displayJobs->submit<ThumbnailDiskCache::Stats>(DisplayJobs::Lane::Update,"cache-usage",QUuid::createUuid().toString(),
       [disk](const DisplayJobs::Cancel &cancel){return disk->stats(cancel);},
       [target,weakRefresh](const ThumbnailDiskCache::Stats &result,bool cancelled) {
         if(!target)return;
@@ -643,7 +643,7 @@ void ReaderFeatures::preferences(const QString &pageName) {
     clearDisk->setEnabled(false);usage->setText(QCoreApplication::translate("KomaMimic", "削除中…"));
     disk->discardPending();
     QPointer<QPushButton> button=clearDisk;QPointer<QLabel> target=usage;
-    w->m_displayJobs->submit<QString>(DisplayJobs::Lane::Background,"cache-clear",QUuid::createUuid().toString(),
+    w->m_displayJobs->submit<QString>(DisplayJobs::Lane::Store,"cache-clear",QUuid::createUuid().toString(),
       [disk](const DisplayJobs::Cancel &){return disk->clear();},
       [button,target,refreshUsage](const QString &error,bool) {
         if(!button || !target)return;
