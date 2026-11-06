@@ -2,6 +2,12 @@
 
 [日本語](../changelog.md) | English
 
+## v1.4.3
+
+- Fix the automated test for returning from an archive listing to filesystem entries on macOS to wait for the expected list contents. Report expected and actual paths on failure.
+- Register the document URL scheme before Qt application startup in archive-document tests.
+- Version 1.4.2 is skipped.
+
 ## v1.4.1
 
 - Show a restart notice after saving additions or removals of script registrations in Preferences. Combine it with the language restart notice when both change.

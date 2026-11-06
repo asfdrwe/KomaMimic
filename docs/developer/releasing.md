@@ -5,12 +5,13 @@ the existing Build and Rocky/Ubuntu AppImage workflows, assembles their verified
 outputs, uploads them to a draft, checks the uploaded assets, and publishes the
 complete Release. It never creates or moves Git tags.
 
-## v1.4.1のタグ作成前
+## v1.4.3のタグ作成前
 
-v1.4.1は、スクリプト登録後の再起動案内、スクロール後のサムネイル欠落修正、
-各OSの自動テストの安定化を含むパッチ版です。版番号`1.4.1`を`CMakeLists.txt`、
+v1.4.3は、書庫一覧から実ファイル一覧への切替を待つ試験と、文書用URLスキームの
+初期化を修正したパッチ版です。v1.4.2は欠番とし、既存タグは変更しません。
+版番号`1.4.3`を`CMakeLists.txt`、
 両vcpkg manifest、READMEに揃え、日英サイトと開発者向けの更新履歴を更新します。
-Release validatorはこれらとタグ`v1.4.1`の一致を検証します。
+Release validatorはこれらとタグ`v1.4.3`の一致を検証します。
 版番号更新のcommitが`main`へ反映されるまでタグをpushしません。
 
 キャッシュ形式は引き続き`thumbnails-v2`です。`thumbnails-v1`の移行は行いません。
@@ -21,7 +22,7 @@ Release validatorはこれらとタグ`v1.4.1`の一致を検証します。
 版番号更新commitをpushし、BuildとPagesを確認してから、`main`で
 **Release → Run workflow**を手動実行します。この実行は成果物を組み立てて検証し、
 GitHub Releaseは公開しません。成果物・依存ライセンス表示・対応ソース・checksumを確認し、
-成功後に管理者が対象commitへ注釈付き`v1.4.1`タグを作成してpushします。
+成功後に管理者が対象commitへ注釈付き`v1.4.3`タグを作成してpushします。
 既存の公開タグを再試行のために移動しません。
 
 ## Version and tag checks
