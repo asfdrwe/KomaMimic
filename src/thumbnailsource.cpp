@@ -9,7 +9,26 @@
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
+#include <QSettings>
 #include <algorithm>
+
+ThumbnailNamePolicies::ThumbnailNamePolicies(const QSettings &settings) {
+    for(const auto &key:settings.allKeys()) {
+        if(!key.startsWith("archiveNames/") || !key.endsWith("/encoding"))continue;
+        const auto group=key.left(key.size()-9);
+        NamePolicy policy{settings.value(key,"CP932").toString(),settings.value(group+"/force",false).toBool()};
+        if(!legacyEncodings().contains(policy.legacyEncoding))continue;
+        saved.insert(group,policy);if(!previews.contains(policy))previews.append(policy);
+    }
+}
+QString ThumbnailNamePolicies::settingsKey(const QString &path) {
+    const QFileInfo info(physicalBookPath(path));
+    const QByteArray identity=info.absoluteFilePath().toUtf8()+'\0'+QByteArray::number(info.size())+':'+QByteArray::number(info.lastModified().toMSecsSinceEpoch());
+    return "archiveNames/"+QString::fromLatin1(QCryptographicHash::hash(identity,QCryptographicHash::Sha256).toHex());
+}
+NamePolicy ThumbnailNamePolicies::resolve(const QString &path) const {
+    return saved.isEmpty()?NamePolicy{}:saved.value(settingsKey(path));
+}
 
 namespace {
 const QSize ThumbnailSize{320,480};

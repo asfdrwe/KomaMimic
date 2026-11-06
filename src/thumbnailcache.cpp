@@ -133,7 +133,9 @@ bool ThumbnailDiskCache::enqueue(Pending pending,bool retry) {
     m_pendingBytes+=cost;m_pending.append(std::move(pending));return true;
 }
 bool ThumbnailDiskCache::hasPendingWrites() const {
-    QMutexLocker guard(&m_pendingMutex);return !m_pending.isEmpty();
+    // Called by the GUI timer: recovery/staging must never block painting.
+    if(!m_pendingMutex.tryLock())return true;
+    const bool pending=!m_pending.isEmpty();m_pendingMutex.unlock();return pending;
 }
 ImageResult ThumbnailDiskCache::lookup(const QByteArray &key,const std::function<bool()> &cancel) {
     const auto epoch=m_generation.load();

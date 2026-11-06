@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "test_support.h"
 #include "thumbnailcache.h"
+#include "displayjobs.h"
+#include <latch>
 #include "thumbnailsource.h"
 #include "scriptreader.h"
 #include "librarystore.h"
@@ -20,6 +22,72 @@ private slots:
         // Native Windows/macOS cache paths ignore XDG_CACHE_HOME. A distinct
         // app name prevents cache_tests' explicit clears from racing this suite.
         QCoreApplication::setApplicationName("ThumbnailRegression");
+    }
+    void cachedChildDirectoryBypassesParentWork() {
+        QTemporaryDir d;const auto parent=d.filePath("parent"),child=parent+"/child";
+        QVERIFY(QDir().mkpath(child));
+        for(int i=0;i<300;++i)QVERIFY(QDir().mkpath(parent+QString("/folder-%1").arg(i,3,10,QChar('0'))));
+        auto cache=std::make_shared<ThumbnailDiskCache>();
+        for(int i=0;i<4;++i) {
+            const auto folder=child+QString("/book-%1").arg(i);QVERIFY(QDir().mkpath(folder));
+            QVERIFY(TestData::write(folder+"/cover.png",TestData::png(TestData::solid(Qt::blue))));
+            QVERIFY(!cachedCover(folder,{},cache).image.isNull());
+        }
+        MainWindow window(d.filePath("settings.ini"));window.show();window.openDirectory(parent);
+        QTRY_VERIFY(window.directoryReady());
+        auto *grid=window.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(grid);QCOMPARE(grid->count(),301);
+        // Hold all source/persistence workers, including cooperative cancellation
+        // completion. Navigation and cached pixels must not need any of them.
+        grid->hide();window.requestThumbnails(grid);
+        window.m_displayJobs->retain("covers");window.m_displayJobs->retain("directory-siblings");
+        std::latch release(1);std::atomic<int> entered=0;
+        auto cleanup=qScopeGuard([&]{release.count_down();});
+        for(auto lane:{DisplayJobs::Lane::Background,DisplayJobs::Lane::Update,DisplayJobs::Lane::Store,DisplayJobs::Lane::Display}) {
+            const auto id=QString("held/%1").arg(int(lane));
+            const auto expected=entered.load()+1;
+            window.m_displayJobs->submit<int>(lane,"held",id,[&](const auto &){++entered;release.wait();return 0;},[](int,bool){});
+            QTRY_COMPARE_WITH_TIMEOUT(entered.load(),expected,3000);
+        }
+        QTRY_COMPARE_WITH_TIMEOUT(entered.load(),4,3000);
+        grid->show();window.openDirectory(child);
+        QTRY_VERIFY_WITH_TIMEOUT(window.directoryReady() && grid->count()==4,1000);
+        for(int row=0;row<4;++row) {
+            QTRY_VERIFY_WITH_TIMEOUT(grid->item(row)->data(ThumbnailRoleReady).toBool(),1000);
+            const auto image=grid->item(row)->icon().pixmap(64,64).toImage();
+            QCOMPARE(image.pixelColor(image.rect().center()),QColor(Qt::blue));
+        }
+        release.count_down();cleanup.dismiss();window.close();
+    }
+    void readerCacheBypassesOldThumbnailGeneration() {
+        QTemporaryDir d;const auto path=d.filePath("page.png");
+        QVERIFY(TestData::write(path,TestData::png(TestData::solid(Qt::blue))));
+        MainWindow window(d.filePath("settings.ini"));window.show();window.openBook(path);
+        QTRY_VERIFY(window.renderReady());
+        std::latch release(1);std::atomic<bool> entered=false;auto cleanup=qScopeGuard([&]{release.count_down();});
+        window.m_displayJobs->submit<int>(DisplayJobs::Lane::Display,"old-thumbnail","held",[&](const auto &){entered=true;release.wait();return 0;},[](int,bool){});
+        QTRY_VERIFY(entered.load());window.render();
+        QTRY_VERIFY_WITH_TIMEOUT(window.renderReady(),1000);
+        release.count_down();cleanup.dismiss();window.close();
+    }
+    void cachedPixelsBypassExistingValidation() {
+        QTemporaryDir d;const auto books=d.filePath("books"),path=books+"/cover.png";
+        QVERIFY(QDir().mkpath(books));QVERIFY(TestData::write(path,TestData::png(TestData::solid(Qt::blue))));
+        auto cache=std::make_shared<ThumbnailDiskCache>();QVERIFY(!cachedCover(path,{},cache).image.isNull());
+        MainWindow window(d.filePath("settings.ini"));window.show();window.openDirectory(books);
+        auto *grid=window.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(grid);
+        QTRY_VERIFY(window.directoryReady() && grid->count()==1 && grid->item(0)->data(ThumbnailRoleReady).toBool());
+        window.m_displayJobs->retain("covers");
+        std::latch release(1);std::atomic<bool> entered=false;auto cleanup=qScopeGuard([&]{release.count_down();});
+        const auto id=QString("covers/%1/0/validate").arg(window.m_libraryGeneration);
+        window.m_displayJobs->submit<int>(DisplayJobs::Lane::Update,"covers",id,[&](const auto &){entered=true;release.wait();return 0;},[](int,bool){});
+        QTRY_VERIFY(entered.load());
+        // Equivalent to an evicted row becoming visible while its old validation
+        // is still running. Keep the real request id to exercise deduplication.
+        grid->item(0)->setData(ThumbnailRoleReady,false);grid->item(0)->setData(ThumbnailNextCheckRole,0);
+        grid->item(0)->setIcon(grid->placeholderIcon());window.requestThumbnails(grid);
+        QTRY_VERIFY_WITH_TIMEOUT(grid->item(0)->data(ThumbnailRoleReady).toBool(),1000);
+        const auto image=grid->item(0)->icon().pixmap(64,64).toImage();QCOMPARE(image.pixelColor(image.rect().center()),QColor(Qt::blue));
+        release.count_down();cleanup.dismiss();window.close();
     }
     void emptyFolderInvalidatesPersistentPixels_data() {
         QTest::addColumn<bool>("deferred");QTest::newRow("committed")<<false;QTest::newRow("journal")<<true;

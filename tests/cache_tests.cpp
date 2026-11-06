@@ -42,6 +42,18 @@ private slots:
         QVERIFY(!cancelled.error.isEmpty());QVERIFY(cancelled.entries.isEmpty());QCOMPARE(checks,4);
         QCOMPARE(readZipNames(path).entries.size(),20);
     }
+    void cacheDeliveryPrecedesQueuedSourceAndStoreWork() {
+        DisplayJobs jobs;std::latch release(1);std::atomic<bool> entered=false,delivered=false;
+        std::atomic<int> early=0,finished=0;auto cleanup=qScopeGuard([&]{release.count_down();});
+        jobs.submit<int>(DisplayJobs::Lane::Cache,"cache","cache",[&](const auto &){entered=true;release.wait();return 1;},[&](int,bool){delivered=true;});
+        QTRY_VERIFY(entered.load());
+        for(auto lane:{DisplayJobs::Lane::Display,DisplayJobs::Lane::Update,DisplayJobs::Lane::Store,DisplayJobs::Lane::Background}) {
+            const auto id=QString::number(int(lane));
+            jobs.submit<int>(lane,"later",id,[&](const auto &){if(!delivered)++early;return 1;},[&](int,bool){++finished;});
+        }
+        QTest::qWait(1100);QCOMPARE(early.load(),0);QCOMPARE(finished.load(),0);
+        release.count_down();cleanup.dismiss();QTRY_COMPARE(finished.load(),4);
+    }
     void cacheLookupHasReservedWorker() {
         QTemporaryDir d;ThumbnailDiskCache cache(d.path());
         cache.image("warm",[]{return ImageResult{TestData::solid(Qt::blue),{}};});
@@ -143,24 +155,27 @@ private slots:
         QVERIFY(restart.clear().isEmpty());QVERIFY(!QFileInfo::exists(corrupt));ThumbnailDiskCache cleared(d.path());cleared.recoverPending();
         QVERIFY(!cleared.hasPendingWrites());QVERIFY(cleared.lookup("clear").image.isNull());
     }
-    void visibleUpdateAndStoreProgressDuringForegroundWork() {
+    void visibleWorkPrecedesUpdateStoreAndBackground() {
         DisplayJobs jobs;std::latch release(1);std::atomic<bool> entered=false;
-        const auto cleanup=qScopeGuard([&]{release.count_down();});
+        auto cleanup=qScopeGuard([&]{release.count_down();});
         jobs.submit<int>(DisplayJobs::Lane::Display,"slow","slow",[&](const auto &){entered=true;release.wait();return 1;},[](int,bool){});
         QTRY_VERIFY(entered.load());bool updated=false,stored=false,background=false;
         jobs.submit<int>(DisplayJobs::Lane::Update,"update","update",[](const auto &){return 1;},[&](int,bool cancelled){updated=!cancelled;});
         jobs.submit<int>(DisplayJobs::Lane::Store,"store","store",[](const auto &){return 1;},[&](int,bool cancelled){stored=!cancelled;});
         jobs.submit<int>(DisplayJobs::Lane::Background,"background","background",[](const auto &){return 1;},[&](int,bool cancelled){background=!cancelled;});
+        QTest::qWait(1100);QVERIFY(!updated && !stored && !background);
+        release.count_down();cleanup.dismiss();
         QTRY_VERIFY_WITH_TIMEOUT(updated && stored && background,3000);
     }
     void invisibleRequestsCompleteWithoutResubmission() {
         DisplayJobs jobs;std::latch release(1);std::atomic<bool> entered=false;
-        const auto cleanup=qScopeGuard([&]{release.count_down();});
+        auto cleanup=qScopeGuard([&]{release.count_down();});
         jobs.submit<int>(DisplayJobs::Lane::Display,"slow","slow",[&](const auto &){entered=true;release.wait();return 1;},[](int,bool){});
         QTRY_VERIFY(entered.load());bool finished=false;
         jobs.submit<int>(DisplayJobs::Lane::Display,"covers","offscreen",[](const auto &){return 1;},[&](int,bool cancelled){finished=!cancelled;});
         jobs.visible("covers");
-        QTRY_VERIFY_WITH_TIMEOUT(finished,3000);
+        QTest::qWait(1100);QVERIFY(!finished);
+        release.count_down();cleanup.dismiss();QTRY_VERIFY_WITH_TIMEOUT(finished,3000);
     }
     void offscreenGenerationNeverOccupiesDisplayWorker() {
         DisplayJobs jobs;std::latch release(1);std::atomic<bool> backgroundStarted=false,generated=false;

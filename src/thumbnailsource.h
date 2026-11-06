@@ -3,6 +3,15 @@
 #include "book.h"
 #include "thumbnailcache.h"
 #include <QJsonObject>
+#include <QMap>
+class QSettings;
+struct ThumbnailNamePolicies {
+    explicit ThumbnailNamePolicies(const QSettings &settings);
+    static QString settingsKey(const QString &path);
+    NamePolicy resolve(const QString &path) const;
+    QList<NamePolicy> previews{ NamePolicy{} };
+    QMap<QString,NamePolicy> saved;
+};
 
 ImageResult cachedCover(const QString &path,const NamePolicy &policy,
                         const std::shared_ptr<ThumbnailDiskCache> &cache,

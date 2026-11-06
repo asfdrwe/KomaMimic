@@ -91,7 +91,7 @@ inside temporary directories; they do not initialize the active public source tr
 ## サムネイルの優先順位・再試行・永続化
 
 cache群では、保存待ち80枚の全件再利用、32 MiB上限、書込失敗とcommit直前取消の再試行、
-pendingの再起動復元と明示clear、前景実行中のUpdate／Store／Backgroundの進行、
+pendingの再起動復元と明示clear、キャッシュ表示および前景の完了前にUpdate／Store／Backgroundを開始しないこと、
 画面外要求の降格・再開・エラー再試行を検査する。上限確認だけで未保存画像の脱落を許容しない。
 これらの追加cache試験はfullとplatformの両方に含める。大量の永続書込を行う
 UI／cache／thumbnail群はCTestのRESOURCE_LOCKで相互に直列化する。UI群は新規プロセスの
@@ -139,3 +139,7 @@ python3 tools/run_validation.py run --build-dir build-test \
 Use a new output name for each run. Keep result JSON, CTest logs, dependency versions,
 and source hashes; do not mix them with old failure logs or successes from another
 build. Native manual checks have a [separate procedure](platform-validation.md).
+
+親に300フォルダがある状態からキャッシュ済みの子へ移動し、移動前の生成・検証・保存・
+画面外workerを停止したまま一覧と青い表紙画像が表示されることを確認する。
+また検証中の項目を未表示に戻し、同じ検証要求を残したままキャッシュから復帰できることを検査する。

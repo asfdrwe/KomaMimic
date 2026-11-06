@@ -20,7 +20,7 @@ bool DisplayJobs::contains(const QString &id) const {
     const auto job=m_jobs.value(id);return job && (job->restart || !job->cancelled->load());
 }
 bool DisplayJobs::displayBusy() const {
-    return m_running[0] || m_running[1] || !m_waiting[0].isEmpty() || !m_waiting[1].isEmpty();
+    return m_running[0] || m_running[1] || m_running[5] || m_running[6] || !m_waiting[0].isEmpty() || !m_waiting[1].isEmpty() || !m_waiting[5].isEmpty() || !m_waiting[6].isEmpty();
 }
 bool DisplayJobs::active() const {
     for(const auto &job:m_running)if(job)return true;
@@ -36,7 +36,7 @@ bool DisplayJobs::add(Lane lane,const QString &scope,const QString &id,
     job->queuedAt=m_clock.elapsed();
     m_jobs[id]=job;m_waiting[int(job->lane)].append(job);
     qCDebug(displayJobsLog)<<"queued"<<int(job->lane)<<scope<<id;
-    if(!offscreen && (lane==Lane::Cache || lane==Lane::Display)) {m_activity.restart();cancelBackground();}
+    if(!offscreen && (lane==Lane::Cache || lane==Lane::Display || lane==Lane::Navigation || lane==Lane::Render)) {m_activity.restart();cancelBackground();}
     pump();return true;
 }
 void DisplayJobs::retain(const QString &scope,const QSet<QString> &ids) {
@@ -74,7 +74,7 @@ void DisplayJobs::visible(const QString &scope,const QSet<QString> &ids) {
     pump();
 }
 void DisplayJobs::cancelBackground() {
-    if(m_running[2] && !m_running[2]->guaranteed) {
+    if(m_running[2]) {
         if(m_running[2]->persistent)m_running[2]->restart=true;
         m_running[2]->cancelled->store(true);
     }
@@ -87,20 +87,21 @@ void DisplayJobs::stop() {
 }
 void DisplayJobs::pump() {
     if(m_stopping)return;
-    for(int lane:{0,1,3,4,2}) {
+    for(int lane:{0,6,5,1,3,4,2}) {
+        // Deliver the current viewport cache before starting source work or writes.
+        if(lane!=0 && (m_running[0] || !m_waiting[0].isEmpty()))continue;
         if(m_running[lane] || m_waiting[lane].isEmpty())continue;
         auto ready=std::find_if(m_waiting[lane].begin(),m_waiting[lane].end(),[this](const auto &job){return job->readyAt<=m_clock.elapsed();});
         if(ready==m_waiting[lane].end()){m_idleTimer.start(25);continue;}
         if(ready!=m_waiting[lane].begin())m_waiting[lane].move(int(ready-m_waiting[lane].begin()),0);
-        const auto age=m_clock.elapsed()-m_waiting[lane].first()->queuedAt;
-        if(lane==2 || lane==3) {
-            const int maximumWait=lane==3?250:1000;
-            if(age<maximumWait && (displayBusy() || m_activity.elapsed()<75)) {
+        if(lane==2 || lane==3 || lane==4) {
+            // Current navigation and visible misses outrank all speculative,
+            // validation and persistence work, regardless of queue age.
+            if(displayBusy() || m_activity.elapsed()<75) {
                 m_idleTimer.start(25);continue;
             }
         }
         auto job=m_waiting[lane].takeFirst();m_running[lane]=job;job->startedAt=m_clock.elapsed();
-        job->guaranteed=lane==2 && age>=1000;
         qCDebug(displayJobsLog)<<"start"<<lane<<job->scope<<job->id<<"queue-ms"<<job->startedAt-job->queuedAt;
         auto *watcher=new QFutureWatcher<void>(this);
         connect(watcher,&QFutureWatcher<void>::finished,this,[this,watcher,job,lane] {
@@ -116,7 +117,7 @@ void DisplayJobs::pump() {
                 job->done(false);pump();return;
             }
             if(m_jobs.value(job->id)==job)m_jobs.remove(job->id);
-            if(lane==0 || lane==1)m_activity.restart();
+            if(lane==0 || lane==1 || lane==5 || lane==6)m_activity.restart();
             if(!m_stopping)job->done(job->cancelled->load());
             pump();
         });

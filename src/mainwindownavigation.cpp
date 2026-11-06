@@ -232,7 +232,7 @@ void MainWindow::populateDirectory(const QString &path, bool navigate, bool hist
     if(navigate){m_lastError.clear();setMode(ViewMode::Covers);}
     if(persist)saveSettings();
     struct Listing {QFileInfoList entries;};
-    const auto lane=background || m_mode!=ViewMode::Covers ? DisplayJobs::Lane::Background : DisplayJobs::Lane::Display;
+    const auto lane=!background || m_mode==ViewMode::Covers ? DisplayJobs::Lane::Navigation : DisplayJobs::Lane::Background;
     m_displayJobs->submit<Listing>(lane,"directory",QString("directory/%1").arg(generation),
       [directory,sort,reverse,seed](const DisplayJobs::Cancel &cancel) {
         Listing result;
@@ -458,7 +458,7 @@ void MainWindow::requestThumbnails(ThumbnailGrid *grid) {
     const bool pages=grid==m_pages;
     const QString scope=pages?"pages":"covers";
     const quint64 generation=pages?m_pageGeneration:m_libraryGeneration;
-    const auto rows=grid->isVisible() && !m_loading && !m_backgroundCancel->load()?grid->visibleRows():QVector<int>{};
+    const auto rows=grid->isVisible() && (!pages || !m_loading) && !m_backgroundCancel->load()?grid->visibleRows():QVector<int>{};
     QSet<QString> needed;
     for(int row:rows) {
         const auto id=scope+QString("/%1/%2").arg(generation).arg(row);
@@ -470,15 +470,24 @@ void MainWindow::requestThumbnails(ThumbnailGrid *grid) {
     for(int row:rows) {
         auto *item=grid->item(row);
         const auto id=scope+QString("/%1/%2").arg(generation).arg(row);
-        if(m_displayJobs->contains(id) || m_displayJobs->contains(id+"/generate") || m_displayJobs->contains(id+"/validate"))continue;
-        if(item->data(ThumbnailNextCheckRole).toLongLong()>now)continue;
+        const bool ready=item->data(ThumbnailRoleReady).toBool();
+        if(m_displayJobs->contains(id))continue;
+        if(ready && (m_displayJobs->contains(id+"/generate") || m_displayJobs->contains(id+"/validate") || item->data(ThumbnailNextCheckRole).toLongLong()>now))continue;
+        if(!ready && item->data(ThumbnailCacheNextCheckRole).toLongLong()>now)continue;
         const auto path=item->data(PathRole).toString();const int page=item->data(PageRole).toInt();
-        const auto book=m_book;const auto policy=namePolicyFor(path);const auto cache=m_thumbnailDiskCache;
+        const auto book=m_book;const auto policies=m_thumbnailNamePolicies;const auto cache=m_thumbnailDiskCache;
         const bool refresh=item->data(ThumbnailRefreshRole).toBool();
-        auto work=[pages,path,page,book,policy,cache,refresh](bool cachedOnly,const DisplayJobs::Cancel &cancel) {
+        auto work=[pages,path,page,book,policies,cache,refresh](bool cachedOnly,const DisplayJobs::Cancel &cancel) {
             // View generations guard GUI delivery, not the lifetime of useful cache work.
-            return pages?cachedPageThumbnail(book,page,cache,cancel,refresh,cachedOnly)
-                :cachedCover(path,policy,cache,cancel,refresh,0,cachedOnly);
+            if(pages)return cachedPageThumbnail(book,page,cache,cancel,refresh,cachedOnly);
+            if(cachedOnly) {
+                for(const auto &policy:policies->previews) {
+                    auto hit=cachedCover(path,policy,cache,cancel,refresh,0,true);
+                    if(!hit.image.isNull() || cancel())return hit;
+                }
+                return ImageResult{};
+            }
+            return cachedCover(path,policies->resolve(path),cache,cancel,refresh);
         };
         auto current=[this,grid,pages,generation,row] {
             return generation==(pages?m_pageGeneration:m_libraryGeneration) && row<grid->count();
@@ -508,7 +517,12 @@ void MainWindow::requestThumbnails(ThumbnailGrid *grid) {
             [work](const DisplayJobs::Cancel &cancel){return work(true,cancel);},
             [this,grid,row,current,id,scope,work,apply](ImageResult result,bool cancelled) {
                 if(cancelled){apply({},true,false);return;}
-                if(!result.image.isNull()) {apply(std::move(result),false,false);return;}
+                if(!result.image.isNull()) {
+                    if(!current() || !grid->item(row)->data(ThumbnailRoleReady).toBool())apply(std::move(result),false,false);
+                    return;
+                }
+                if(current())grid->item(row)->setData(ThumbnailCacheNextCheckRole,QDateTime::currentMSecsSinceEpoch()+250);
+                if(m_displayJobs->contains(id+"/generate") || m_displayJobs->contains(id+"/validate"))return;
                 m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Display,scope,id+"/generate",
                     [work](const DisplayJobs::Cancel &cancel){return work(false,cancel);},
                     [apply](ImageResult result,bool cancelled){apply(std::move(result),cancelled,true);},true,

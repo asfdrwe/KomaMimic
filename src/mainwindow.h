@@ -31,6 +31,7 @@ class ReaderFeatures;
 class DisplayJobs;
 class IdleInhibitor;
 class ThumbnailDiskCache;
+struct ThumbnailNamePolicies;
 class ReaderToolBar;
 class QFileSystemWatcher;
 
@@ -91,6 +92,7 @@ protected:
     bool eventFilter(QObject *, QEvent *) override;
 private:
     friend class ReaderFeatures;
+    friend class ThumbnailTests;
     friend class ReaderInput;
     void buildDocumentActions();
     void documentSettings();
@@ -148,6 +150,7 @@ private:
     QStringList zipPaths() const;
     NamePolicy namePolicyFor(const QString &path) const;
     QString nameSettingsKey(const QString &path) const;
+    std::shared_ptr<const ThumbnailNamePolicies> m_thumbnailNamePolicies;
     std::unique_ptr<QSettings> m_settings;
     std::unique_ptr<ReaderFeatures> m_features;
     std::unique_ptr<DisplayJobs> m_displayJobs;

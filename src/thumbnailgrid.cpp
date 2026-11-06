@@ -166,6 +166,7 @@ void ThumbnailGrid::repaintIcons() {
             // the visible image sources that have left this bounded RAM cache.
             entry->setData(ThumbnailRoleReady,false);
             entry->setData(ThumbnailNextCheckRole,0);
+        item(row)->setData(ThumbnailCacheNextCheckRole,0);
         } else entry->setIcon(displayIcon({},entry->data(DirectoryRole).toBool()));
     }
 }
@@ -266,6 +267,7 @@ void ThumbnailGrid::setThumbnail(int row, const QImage &image, const QString &er
         item(old)->setIcon(displayIcon({}, item(old)->data(DirectoryRole).toBool()));
         item(old)->setData(ThumbnailRoleReady, false);
         item(old)->setData(ThumbnailNextCheckRole,0);
+        item(old)->setData(ThumbnailCacheNextCheckRole,0);
     }
 }
 void ThumbnailGrid::moveSelection(int dx, int dy) {

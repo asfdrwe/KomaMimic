@@ -17,7 +17,7 @@
 // obsolete waiting work can be removed without occupying a worker or a future.
 class DisplayJobs : public QObject {
 public:
-    enum class Lane { Cache, Display, Background, Update, Store };
+    enum class Lane { Cache, Display, Background, Update, Store, Navigation, Render };
     using Cancel = std::function<bool()>;
     explicit DisplayJobs(QObject *parent=nullptr);
     ~DisplayJobs() override;
@@ -44,7 +44,7 @@ public:
 private:
     struct Job {
         Lane lane,foreground; QString scope,id;
-        bool guaranteed=false, restart=false, persistent=false;
+        bool restart=false, persistent=false;
         qint64 queuedAt=0,startedAt=0,readyAt=0;
         std::shared_ptr<std::atomic<bool>> cancelled=std::make_shared<std::atomic<bool>>(false);
         std::function<void(const Cancel &)> work;
@@ -53,9 +53,9 @@ private:
     };
     bool add(Lane,const QString &,const QString &,std::function<void(const Cancel &)>,std::function<void(bool)>,std::function<bool()>,bool);
     void pump();
-    std::array<QThreadPool,5> m_pools;
-    std::array<QList<std::shared_ptr<Job>>,5> m_waiting;
-    std::array<std::shared_ptr<Job>,5> m_running;
+    std::array<QThreadPool,7> m_pools;
+    std::array<QList<std::shared_ptr<Job>>,7> m_waiting;
+    std::array<std::shared_ptr<Job>,7> m_running;
     QHash<QString,std::shared_ptr<Job>> m_jobs;
     QTimer m_idleTimer;
     QElapsedTimer m_activity,m_clock;

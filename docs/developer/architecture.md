@@ -41,18 +41,20 @@ for verifying changes.
 
 ## 表示要求とキャッシュ保存
 
-`displayjobs.*`はGUIスレッドの要求キューと、各1workerの5系統を所有する。
+`displayjobs.*`はGUIスレッドの要求キューと、各1workerの7系統を所有する。
 
 | 系統 | 役割 | 進行条件 |
 |---|---|---|
-| Cache | 可視の保存PNG／登録画像の読込 | 生成・検証・保存とは独立 |
-| Display | 可視missの生成、現在ページ、Book open、必要な一覧 | FIFO、画面外生成を降格 |
-| Update | 可視画像の検証・差替え、兄弟一覧、使用量表示 | 静穏時に開始。前景が続いても待機250ms以降は開始可能 |
-| Store | PNG保存、明示削除 | 専用workerで進行 |
-| Background | 画面外になった要求済み生成、先読み、整理 | 静穏時に開始。待機1秒以降は前景中も実行可能 |
+| Cache | 可視の保存PNG／登録画像の読込 | 最優先。結果をGUIへ渡すまで他系統の新規実行を保留 |
+| Render | 読書モードの現在画像の描画 | 移動前のサムネイル生成workerから独立 |
+| Navigation | 現在フォルダの一覧取得 | 移動前の生成workerから独立 |
+| Display | 可視missの生成、Book open | 画面外生成を降格 |
+| Update | 可視画像の検証・差替え、兄弟一覧、使用量表示 | 現在の一覧取得と可視missが終わり、静穏になってから開始 |
+| Store | PNG保存、明示削除 | 専用worker。キャッシュ表示・現在の一覧取得・可視missを優先 |
+| Background | 画面外になった要求済み生成、先読み、整理 | 現在の一覧取得と可視missが終わり、静穏になってから開始 |
 
-Update／Store／Backgroundのthread priorityは低くする。数値は空いているworkerへの
-投入条件であり、OS I/Oやcodecを含む表示完了時間の上限ではない。native codec／Poppler
+Update／Store／Backgroundのthread priorityは低くする。待機時間の長さで現在表示の要求を
+追い越すことはない。OS I/Oやcodecを含む表示時間の上限は保証しない。native codec／Poppler
 呼出中は直ちに取消できないことがある。
 
 画面外になった主一覧・本棚等の要求は、`visible(scope, ids)`でBackgroundへ降格し、
@@ -64,6 +66,9 @@ Update／Store／Backgroundのthread priorityは低くする。数値は空い�
 フォルダ一覧は列挙と必要なソートの後、200件単位でGUIへ追加する。名前順でも全対象の
 size/mtimeを取得していた前処理を廃止し、兄弟一覧は独立したUpdate要求にした。
 主グリッドと本棚等は可視の全対象をCacheへ登録し、missだけDisplayへ送る。
+主グリッドで生成・検証が実行中でも、未表示の項目のCache要求を抑止しない。
+文字コード設定のsnapshotから既存キャッシュの候補キーを構築し、Cache投入前に
+元ファイルのsize／mtimeを照会しない。元ソースに対応する設定の確定は生成・検証workerへ送る。
 正常な既存画像は変更検証より先に表示し、表示中は2秒間隔を目安に再検証する。
 エラー時は既存画像を保ち、表紙なしと読取失敗を区別する。
 

@@ -1720,10 +1720,17 @@ void ReaderFeatures::requestCollectionCover() {
       const auto id="collection/"+key+'/'+QString::fromLatin1(revision);
       needed.insert(id);needed.insert(id+"/generate");
       if(w->m_displayJobs->contains(id) || w->m_displayJobs->contains(id+"/generate") || m_collectionChecked.value(key)>now)continue;
-      const auto policy=w->namePolicyFor(chosen.path);const auto cache=w->m_thumbnailDiskCache;
+      const auto policies=w->m_thumbnailNamePolicies;const auto cache=w->m_thumbnailDiskCache;
       const bool ready=m_collectionIcons.contains(key);
-      auto work=[chosen,policy,spine,cache](bool cachedOnly,const DisplayJobs::Cancel &cancel) {
-        return cachedCollectionCover(chosen.path,policy,chosen.metadata,spine,cache,cancel,cachedOnly);
+      auto work=[chosen,policies,spine,cache](bool cachedOnly,const DisplayJobs::Cancel &cancel) {
+        if(cachedOnly) {
+          for(const auto &policy:policies->previews) {
+            auto hit=cachedCollectionCover(chosen.path,policy,chosen.metadata,spine,cache,cancel,true);
+            if(!hit.image.isNull() || cancel())return hit;
+          }
+          return ImageResult{};
+        }
+        return cachedCollectionCover(chosen.path,policies->resolve(chosen.path),chosen.metadata,spine,cache,cancel,false);
       };
       auto apply=[this,chosen,key,spine](ImageResult result,bool cancelled,bool validated) {
         if(w->m_backgroundCancel->load() || cancelled || m_library->item(chosen.id).metadata!=chosen.metadata)return;

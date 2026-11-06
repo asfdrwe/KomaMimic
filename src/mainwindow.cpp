@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "mainwindow.h"
+#include "thumbnailsource.h"
 #include "displayjobs.h"
 #include "defaultpreferences.h"
 #include "archivepath.h"
@@ -89,6 +90,7 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
       m_openToken(std::make_shared<std::atomic<quint64>>(0)),
       m_pageThumbnailToken(std::make_shared<std::atomic<quint64>>(0)), m_imageCache(128 * 1024) {
     initializeMangaPreferences(*m_settings);
+    m_thumbnailNamePolicies=std::make_shared<ThumbnailNamePolicies>(*m_settings);
     m_restoreFullscreen = m_settings->value("window/fullscreen", false).toBool();
     m_imageCache.setMaxCost(std::clamp(m_settings->value("cache/megabytes",128).toInt(),16,2048)*1024);
     setApplicationAppearance(m_settings->value("display/appearance",0).toInt());
@@ -486,7 +488,7 @@ void MainWindow::render() {
         refreshState();
     };
     const bool automatic = m_features && m_features->autoSpread();
-    m_displayJobs->submit<RenderResult>(DisplayJobs::Lane::Display,"render",QString("render/%1").arg(generation),[book, indices, cached, targets, automatic, filter=configuredScriptFilter(m_settings->value("scripts/filter")), condition=m_settings->value("reading/spreadCondition","@height>@width").toString(), options = m_imageOptions, token = m_renderToken, generation](const DisplayJobs::Cancel &cancel) {
+    m_displayJobs->submit<RenderResult>(DisplayJobs::Lane::Render,"render",QString("render/%1").arg(generation),[book, indices, cached, targets, automatic, filter=configuredScriptFilter(m_settings->value("scripts/filter")), condition=m_settings->value("reading/spreadCondition","@height>@width").toString(), options = m_imageOptions, token = m_renderToken, generation](const DisplayJobs::Cancel &cancel) {
         const auto stale=[token,generation,cancel]{return cancel() || token->load()!=generation;};
         RenderResult result;
         for (int n = 0; n < indices.size(); ++n) {
@@ -792,10 +794,7 @@ void MainWindow::updateShortcutBindings() {
     }
 }
 QString MainWindow::nameSettingsKey(const QString &path) const {
-    const QFileInfo info(physicalBookPath(path));
-    const QByteArray identity = info.absoluteFilePath().toUtf8() + '\0' + QByteArray::number(info.size())
-        + ':' + QByteArray::number(info.lastModified().toMSecsSinceEpoch());
-    return "archiveNames/" + QString::fromLatin1(QCryptographicHash::hash(identity, QCryptographicHash::Sha256).toHex());
+    return ThumbnailNamePolicies::settingsKey(path);
 }
 NamePolicy MainWindow::namePolicyFor(const QString &path) const {
     const QString key = nameSettingsKey(path);
@@ -816,6 +815,7 @@ void MainWindow::setNamePolicy(const NamePolicy &policy) {
     if (m_mode == ViewMode::Covers && m_archiveDirectory && m_archiveDirectory->canReinterpret && legacyEncodings().contains(policy.legacyEncoding)) {
         const auto key = nameSettingsKey(m_archiveDirectory->path);
         m_settings->setValue(key + "/encoding", policy.legacyEncoding); m_settings->setValue(key + "/force", policy.force);
+    m_thumbnailNamePolicies=std::make_shared<ThumbnailNamePolicies>(*m_settings);
         const auto renamed = m_archiveDirectory->reinterpretNames(policy); populateArchiveDirectory(renamed); saveSettings(); return;
     }
     if (!m_book || !m_book->canReinterpret || !legacyEncodings().contains(policy.legacyEncoding)) return;
@@ -843,6 +843,7 @@ void MainWindow::setNamePolicy(const NamePolicy &policy) {
     const QString key = nameSettingsKey(m_currentPath);
     m_settings->setValue(key + "/encoding", policy.legacyEncoding);
     m_settings->setValue(key + "/force", policy.force);
+    m_thumbnailNamePolicies=std::make_shared<ThumbnailNamePolicies>(*m_settings);
     populateDirectory(m_directory, false, false);
     populatePages();
     if (selectedRow >= 0) { m_pages->setCurrentRow(selectedRow); m_pages->scrollToItem(m_pages->currentItem()); }
