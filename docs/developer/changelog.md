@@ -1,5 +1,11 @@
 # Changelog
 
+## 未リリース
+
+- Windows依存cacheのキーからアプリ版番号等を除外し、baseline・依存設定・triplet等に基づくidentityへ変更。既存キーもfallback復元し、不要なcold buildを避ける。
+- cache復元と保存を分離。Qt SDKは検証直後、vcpkgの完成packageは後続test失敗時も保存し、immutableな部分cacheを次回更新できる世代キーを使用。変更なしなら再転送しない。
+- cache復元キー・保存判断の診断JSONと回帰試験を追加。platform試験・時間枠・配布検証は維持。
+
 ## v1.5.0
 
 - Windows CIのページcache試験で、画像生成用Bookが保持する書庫cursorを解放してからZIPを削除するようfixtureを修正。元ZIP不在時のcache表示と変更後の更新を維持し、cache hit中の追加アクセスなしも検査。

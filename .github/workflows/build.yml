@@ -62,6 +62,8 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 tools/check_source.py --tracked
+      - name: Test Windows dependency cache rules
+        run: python3 -m unittest discover -s tests -p test_windows_cache.py
       - name: Lint workflows
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/*.yml
       - name: Export source
@@ -200,9 +202,8 @@ jobs:
       - name: Read dependency configuration
         id: dependencies
         run: |
-          $commit = (Get-Content cmake/windows-fast/vcpkg.json -Raw | ConvertFrom-Json).'builtin-baseline'
-          if ($commit -notmatch '^[0-9a-f]{40}$') { throw 'Invalid vcpkg baseline' }
-          "commit=$commit" >> $env:GITHUB_OUTPUT
+          python tools/windows_cache.py identity --github-output "$env:GITHUB_OUTPUT"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
           "image=$env:ImageVersion" >> $env:GITHUB_OUTPUT
           $cache = Join-Path $env:RUNNER_TEMP 'vcpkg-binary-cache'
           "VCPKG_BINARY_SOURCES=clear;files,$cache,readwrite" >> $env:GITHUB_ENV
@@ -211,8 +212,9 @@ jobs:
           "KOMA_QT_PARENT=$qt" >> $env:GITHUB_ENV
           $config = Get-Content tools/windows-fast.json -Raw | ConvertFrom-Json
           "KOMAMIMIC_QT_ROOT=$qt/$($config.qt_version)/$($config.sdk_directory)" >> $env:GITHUB_ENV
-      - name: Cache official Qt SDK
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      - name: Restore official Qt SDK
+        id: qt-cache
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ${{ runner.temp }}/qt-sdk
           key: windows-x64-official-qt-${{ hashFiles('tools/windows-fast.json', 'tools/setup_windows.py') }}
@@ -220,6 +222,12 @@ jobs:
         run: |
           python tools/setup_windows.py --output "$env:KOMA_QT_PARENT"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Save verified Qt SDK before building or testing
+        if: steps.qt-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ${{ runner.temp }}/qt-sdk
+          key: ${{ steps.qt-cache.outputs.cache-primary-key }}
       - name: Checkout pinned non-Qt dependencies
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -227,12 +235,19 @@ jobs:
           ref: ${{ steps.dependencies.outputs.commit }}
           path: .ci/vcpkg
           persist-credentials: false
-      - name: Cache Release-only vcpkg packages
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+      - name: Restore Release-only vcpkg packages
+        id: vcpkg-cache
+        uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: ${{ runner.temp }}/vcpkg-binary-cache
-          key: windows-2022-release-vcpkg-${{ hashFiles('cmake/windows-fast/vcpkg.json', 'cmake/triplets/*.cmake') }}-${{ steps.dependencies.outputs.image }}
-          restore-keys: windows-2022-release-vcpkg-${{ hashFiles('cmake/windows-fast/vcpkg.json', 'cmake/triplets/*.cmake') }}-
+          # Generations allow an incomplete cache to grow after a failed build.
+          key: windows-2022-release-vcpkg-v2-${{ steps.dependencies.outputs.dependency-key }}-${{ steps.dependencies.outputs.image }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            windows-2022-release-vcpkg-v2-${{ steps.dependencies.outputs.dependency-key }}-${{ steps.dependencies.outputs.image }}-
+            windows-2022-release-vcpkg-v2-${{ steps.dependencies.outputs.dependency-key }}-
+            windows-2022-release-vcpkg-${{ hashFiles('cmake/windows-fast/vcpkg.json', 'cmake/triplets/*.cmake') }}-${{ steps.dependencies.outputs.image }}
+            windows-2022-release-vcpkg-${{ hashFiles('cmake/windows-fast/vcpkg.json', 'cmake/triplets/*.cmake') }}-
+            windows-2022-release-vcpkg-v2-
       - name: Bootstrap vcpkg and generate inputs
         run: |
           New-Item -ItemType Directory -Force $env:VCPKG_DEFAULT_BINARY_CACHE | Out-Null
@@ -242,10 +257,31 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           python tests/fixtures/generate_validation_samples.py --output fixtures-ci
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Snapshot restored dependency packages
+        id: vcpkg-before
+        run: |
+          python tools/windows_cache.py snapshot --directory "$env:VCPKG_DEFAULT_BINARY_CACHE" --output results/windows-cache-before.json
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Release build and platform tests (including settings import and IPC)
+        id: validation
         run: |
           python tools/run_validation.py run --build-dir build-windows-fast --fixtures fixtures-ci --output results/windows-ci --jobs 4 --test-scope platform --windows-mode prebuilt --cmake-arg=-DVCPKG_INSTALL_OPTIONS=--x-buildtrees-root=D:/kfb
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Check for newly completed dependency packages
+        id: vcpkg-cache-state
+        if: ${{ !cancelled() && steps.vcpkg-before.outcome == 'success' }}
+        env:
+          RESTORED_DEPENDENCY_KEY: ${{ steps.vcpkg-cache.outputs.cache-matched-key }}
+          DEPENDENCY_CACHE_FAMILY: windows-2022-release-vcpkg-v2-${{ steps.dependencies.outputs.dependency-key }}-
+        run: |
+          python tools/windows_cache.py assess --directory "$env:VCPKG_DEFAULT_BINARY_CACHE" --before results/windows-cache-before.json --restored-key="$env:RESTORED_DEPENDENCY_KEY" --family-prefix "$env:DEPENDENCY_CACHE_FAMILY" --output results/windows-cache-report.json --github-output "$env:GITHUB_OUTPUT"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Save completed dependencies even after validation failure
+        if: ${{ !cancelled() && steps.vcpkg-cache-state.outputs.save == 'true' }}
+        uses: actions/cache/save@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        with:
+          path: ${{ runner.temp }}/vcpkg-binary-cache
+          key: ${{ steps.vcpkg-cache.outputs.cache-primary-key }}
       - name: Stage portable validation ZIP and own PDB symbols
         run: |
           python tools/stage_validation.py --build-dir build-windows-fast --output stage-windows
@@ -293,6 +329,7 @@ jobs:
           name: diagnostics-windows-msvc-x64
           path: |
             results/windows-ci/
+            results/windows-cache-*.json
             results/vcpkg-build-logs/
             stage-windows/STAGE_MANIFEST.json
             stage-windows/*.log

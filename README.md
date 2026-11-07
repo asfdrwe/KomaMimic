@@ -287,6 +287,8 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 
 ## Changelog
 
+- **Unreleased**: Reuse Windows dependency caches across application versions, preserve completed dependencies after test failures, and avoid re-uploading unchanged caches.
+
 - **v1.5.0**: Prioritize the current display and trust saved thumbnails without per-use or periodic source checks. Update only when there is concrete change evidence, cancel obsolete work, add bounded folder-cover search, and retain thumbnails-v2 compatibility. Evict by oldest save time only when capacity is exceeded.
 - **v1.4.3**: Stabilize macOS archive-list navigation tests by waiting for the expected filesystem entries and registering the document URL scheme before Qt application startup. Version 1.4.2 is skipped.
 - **v1.4.1**: Show a restart notice after saving script registration additions or removals. Keep visible cover and page thumbnails from disappearing during cache eviction after fast scrolling. Stabilize cross-platform regression tests and improve Windows test timeout diagnostics.

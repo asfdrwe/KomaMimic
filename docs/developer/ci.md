@@ -94,10 +94,40 @@ Linux AppImage. Build does not create tags, GitHub Releases, or automatic releas
 For initial setup, the administrator commits and pushes the workflow and documents,
 then checks jobs under **Build**. Run workflow can also run main manually. No PAT
 is required. Actions are pinned to commit SHAs. Windows keeps separate Qt SDK and
-vcpkg binary caches, keyed by configuration, manifests, runner image, and other
-inputs. Qt is not rebuilt from source. Disabling WebEngine's sandbox in the root
+vcpkg binary caches. Dependency identities exclude application release metadata
+and retain dependency, triplet, runner-image and ABI checks. Qt is not rebuilt from source. Disabling WebEngine's sandbox in the root
 Fedora container applies only to test processes; it is not a setting recommended
 for normal users.
+
+## Windowsの依存キャッシュと所要時間
+
+`tools/windows_cache.py`で、依存解決に関係するmanifest情報・baseline・triplet・依存設定を
+正規化してキーを作る。アプリの版番号・説明等は除外し、JSON整形とcheckoutの改行差でも
+失効させない。未知のmanifest項目は保守的にキーへ残す。runner imageも検索に使い、
+復元後は従来どおりvcpkg自身がcompiler等を含む各package ABIを照合する。
+
+| 対象 | 復元・保存 |
+|---|---|
+| 公式Qt SDK | 復元して検証し、未登録ならアプリのbuild／testより前に保存 |
+| vcpkgの完成package | 復元直後の一覧を記録し、validation後に追加・置換・削除を確認。後続testが失敗しても完成分を保存 |
+| 変更のない依存cache | 同じfamilyから復元できて内容が同じなら、再アップロードを省略 |
+| 旧キー／互換family | fallback復元し、必要なABIだけ再利用。現familyへ移す最初の一度は変更がなくても保存 |
+
+Actions cacheは既存キーの内容を更新できないため、保存キーにはrun ID／attemptを加える。
+検索は依存familyのprefixで行い、途中までのcacheにも次の試行で完成分を追加できる。
+既存v1キーの復元候補も残し、最適化導入だけで全依存をcold buildし直さない。
+保存対象の完成ZIPが0件の場合やキャンセル時は保存しない。build／testの失敗はそのまま
+ジョブ失敗として残し、検証が通らない配布物を梱包・公開する条件には変えない。
+
+primary keyは実行ごとに異なるため、`cache-hit`の完全一致フラグだけで再利用を判定しない。
+診断artifactの`results/windows-cache-before.json`と`results/windows-cache-report.json`で、
+復元された`restored-key`、package数・bytes、変更数・削除数、移行・保存要否を確認する。
+`automatic.json`のconfigure時間、configure.logの`Restored N package(s)`と組み合わせると、
+archive未復元と、復元後にABIが合わず再構築した場合を切り分けられる。
+
+今回の最適化は依存の再構築と不要な転送の削減を狙う。初回や依存・toolchain変更時の
+cold buildは必要であり、短縮時間はWindows Actionsでのwarm runを実測して判断する。
+platformの試験範囲、時間枠、配布ZIPの検証は維持する。
 
 ## Windows x86_64 distribution ZIP candidates
 

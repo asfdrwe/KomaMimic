@@ -87,6 +87,15 @@ reproducible source archives, synthetic fixture loading and RGBA comparisons, an
 validation/deployment helpers. Git tracking tests create small repositories only
 inside temporary directories; they do not initialize the active public source tree.
 
+## Windows CIキャッシュの回帰試験
+
+`test_windows_cache.py`は版番号だけの変更・JSON整形・改行差で依存キーが変わらないことと、
+依存・baseline・triplet・registry等の変更で変わることを確認する。
+完成ZIPだけの保存判定、途中cacheの継続、package削除の反映、旧キー移行、
+変更なし時の転送省略、CLIのGitHub出力、workflowの失敗時保存条件も検査する。
+source-checksで先行実行し、distribution群にも含める。実際のGitHub cache転送や
+Windowsでの時間短縮を模擬試験だけで確認済みとは扱わない。
+
 ## サムネイルの優先順位・取消・永続化
 
 cache群は、保存待ち80枚の全件再利用、32 MiB上限、書込失敗とcommit直前取消の再試行、

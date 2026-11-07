@@ -30,11 +30,13 @@ def load_tests(loader, tests, pattern):
     from test_windows_package import WindowsPackageTests
     from test_macos_package import MacPackageTests
     from test_release import ReleaseTests
+    from test_windows_cache import WindowsCacheTests
     ValidationTests.probe = PROBE
     tests.addTests(loader.loadTestsFromTestCase(ValidationTests))
     tests.addTests(loader.loadTestsFromTestCase(WindowsPackageTests))
     tests.addTests(loader.loadTestsFromTestCase(MacPackageTests))
     tests.addTests(loader.loadTestsFromTestCase(ReleaseTests))
+    tests.addTests(loader.loadTestsFromTestCase(WindowsCacheTests))
     return tests
 
 
@@ -108,6 +110,19 @@ class DistributionTests(unittest.TestCase):
                           'actions/checkout@main', 'other/repository/.github/workflows/build.yml@main'):
             workflow.write_text('jobs:\n  build:\n    uses: ' + reference + '\n', encoding='utf-8')
             with self.subTest(reference=reference), contextlib.redirect_stdout(io.StringIO()), self.assertRaisesRegex(ValueError, 'Unpinned action'):
+                check(self.project)
+
+    def test_cache_subactions_require_reviewed_paths_and_full_pins(self):
+        path = self.project / '.github/workflows/cache-check.yml'
+        pin = 'cdf6c1fa76f9f475f3d7449005a359c84ca0f306'
+        for action in ('actions/cache/restore@' + pin, 'actions/cache/save@' + pin):
+            path.write_text('steps:\n  - uses: ' + action + '\n', encoding='utf-8')
+            with contextlib.redirect_stdout(io.StringIO()):
+                check(self.project)
+        for action in ('actions/cache/save@v5', 'actions/cache/restore@main',
+                       'actions/cache/arbitrary@' + pin, 'actions/checkout/arbitrary@' + pin):
+            path.write_text('steps:\n  - uses: ' + action + '\n', encoding='utf-8')
+            with self.subTest(action=action), contextlib.redirect_stdout(io.StringIO()), self.assertRaisesRegex(ValueError, 'Unpinned action'):
                 check(self.project)
 
     def test_asset_tampering_stops_export_before_writing(self):

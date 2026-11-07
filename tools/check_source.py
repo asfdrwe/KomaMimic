@@ -83,7 +83,7 @@ def check(root):
         raise ValueError('No public workflows found')
     for path in workflows:
         for action in re.findall(r'uses:\s*(\S+)', path.read_text(encoding='utf-8')):
-            pinned_action = re.fullmatch(r'actions/[a-z-]+@[0-9a-f]{40}', action)
+            pinned_action = re.fullmatch(r'actions/(?:[a-z-]+|cache/(?:restore|save))@[0-9a-f]{40}', action)
             # A local reusable workflow is loaded from this exact commit.
             local_workflow = (re.fullmatch(r'\./\.github/workflows/[A-Za-z0-9_-]+\.ya?ml', action)
                               and root / action[2:] in selected_set)
