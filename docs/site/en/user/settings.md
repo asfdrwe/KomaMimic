@@ -24,6 +24,13 @@ To back up, quit the app and copy the entire settings folder.
 
 ![General settings](../../assets/screenshots/settings-settings-ja.png)
 
+## Autoplay interval
+
+Set Preferences → Display → Automatic playback interval (ms); 1000 ms is one second.
+Start forward/reverse playback, pause, or stop from Book list → Page and playlist playback.
+This differs from MangaMeeya's dedicated Playlist playback settings dialog.
+See [compatibility notes](compatibility.md) and [playback controls](library.md).
+
 ## Fullscreen
 
 Use Preferences → Display → Fullscreen and press OK to change the current window.

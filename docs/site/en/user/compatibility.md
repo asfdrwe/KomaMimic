@@ -12,12 +12,28 @@ compatible replacement. These are known differences, not promises of future supp
 | Custom thumbnails | Columns, dimensions, spacing, filename lines, starting corner and decorative frames are supported. Not all original resamplers, JPEG subsampling controls, cache formats, extensions or locations are reproduced; original caches are not imported | See [display settings](views.md). Cache formats and pixels need not match the original |
 | Sorting menu | Uses the existing natural, name, type, size, date, entry, Unicode and random modes, with a shared reverse toggle, rather than separate entries for every original path-order variant | See persistence below |
 | Folder browser | Two panes start at virtual Desktop on Windows or Places on macOS/Linux. This does not reproduce every Shell or Finder feature | Optional single tree starts at PC on Windows or `/` on macOS/Linux. See [controls](views.md) |
+| Autoplay timing settings | MangaMeeya uses a dedicated playback-settings dialog; KomaMimic uses Preferences → Display | See the locations below and [playback controls](library.md) |
 | Settings migration | Converts only recognized INI settings. Unknown values are not guessed. Original mouse/gamepad, plugin, external-program, path and history settings are not migrated by this operation | Review the actual scope in the [import preview](migration.md) |
 
 
 ### Thumbnail size units
 
 KomaMimic's custom width, height and spacing use **logical pixels**, not DPI. With Qt high-DPI scaling, the physical pixel count may differ from the configured number. MangaMeeya also offers numeric width and height controls, but equal values do not guarantee identical onscreen size or cached image dimensions. This guide does not assert the original program's internal DPI behavior. See [display settings](views.md).
+
+## Autoplay settings and page navigation
+
+| Application | Timing setting |
+|---|---|
+| MangaMeeya | Book list → Playlist playback settings… (「ブックリスト → プレイリスト再生設定…」), then Display time (「表示時間」) in the playback-settings dialog |
+| KomaMimic | Preferences → Display → Automatic playback interval (ms) |
+
+KomaMimic's Book list → Page and playlist playback provides forward/reverse playback,
+pause, and stop. Set the interval separately in Preferences as listed above.
+
+When ordinary autoplay advances or reverses pages, both MangaMeeya and KomaMimic
+use the same navigation behavior as their manual next/previous commands.
+KomaMimic follows the normal page-turning settings, including spreads and behavior
+at the end of a book. The different settings location does not change that navigation behavior.
 
 ## File sorting and persistence
 

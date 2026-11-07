@@ -25,8 +25,12 @@ positions, separate from image page numbers.
 
 Tools → File sort offers natural order, name, type, size, date/time, archive order,
 and other choices. Folder/cover-list settings control cover-list ordering.
-Use Book list → Page and playlist playback to control autoplay. This is separate
-from animated-image playback, such as GIF; animation controls are in Tools.
+Use Book list → Page and playlist playback to control autoplay. Set its interval
+under Preferences → Display → Automatic playback interval (ms). This
+[settings location differs from MangaMeeya](compatibility.md).
+Ordinary forward/reverse autoplay turns pages like manual next/previous navigation,
+following the same spread and end-of-book settings.
+This is separate from animated-image playback, such as GIF; animation controls are in Tools.
 
 Registrations and history are local reading data. See
 [storage locations and backups](settings.md).

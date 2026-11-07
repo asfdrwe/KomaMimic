@@ -21,6 +21,13 @@ Linuxの `XDG_CONFIG_HOME` を指定している場合は `~/.config` の部分�
 
 ![settings-settings-ja.png](../assets/screenshots/settings-settings-ja.png)
 
+## 自動再生の間隔
+
+「環境設定 → 表示」の「自動再生の間隔（ミリ秒）」で指定します。1000ミリ秒が1秒です。
+開始・逆再生・一時停止・停止は「ブックリスト → ページ・プレイリストの再生」で操作します。
+MangaMeeyaの「プレイリスト再生設定…」ダイアログとは設定の入口が異なります。
+[互換性の説明](compatibility.md)と[再生操作](library.md)を参照してください。
+
 ## 全画面表示
 
 「環境設定 → 表示 → 全画面表示」で切り替え、OKを押すと現在のウィンドウに反映します。
