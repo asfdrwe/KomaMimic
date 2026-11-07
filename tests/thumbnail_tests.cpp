@@ -301,15 +301,28 @@ private slots:
     void pageLookupUsesOpenedSnapshotThenRefreshes() {
         QTemporaryDir d;const auto path=d.filePath("book.zip");
         QVERIFY(TestData::write(path,TestData::zip({{"a.png",TestData::png(TestData::solid(Qt::red))}})));
-        const auto book=Book::open(path).book;QVERIFY(book);
         auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));
+        {
+            const auto producer=Book::open(path).book;QVERIFY(producer);
+            QCOMPARE(cachedPageThumbnail(producer,0,cache).image.pixelColor(0,0),QColor(Qt::red));
+        } // Release the generation cursor before removing the ZIP on Windows.
+        const auto book=Book::open(path).book;QVERIFY(book);
+        const auto opens=BookActivity::opens.load(),reads=BookActivity::imageRequests.load();
+        const auto checks=ThumbnailActivity::metadataChecks.load(),scans=ThumbnailActivity::folderScans.load();
+        // A new Book keeps the opened metadata snapshot, without retaining the
+        // producer's source cursor. Even a normal cache hit must not reopen it.
         QCOMPARE(cachedPageThumbnail(book,0,cache).image.pixelColor(0,0),QColor(Qt::red));
-        QVERIFY(QFile::remove(path));
-        // Cache-only is intentionally speculative and must not consult the source.
+        QFile source(path);QVERIFY2(source.remove(),qPrintable(source.errorString()));
+        QVERIFY(!QFileInfo::exists(path));
+        // Cache-only lookup must still work when the source does not exist.
         QCOMPARE(cachedPageThumbnail(book,0,cache,{},false,true).image.pixelColor(0,0),QColor(Qt::red));
         QVERIFY(TestData::write(path,TestData::zip({{"a.png",TestData::png(TestData::solid(Qt::blue,{39,61}))}})));
         QCOMPARE(cachedPageThumbnail(book,0,cache).image.pixelColor(0,0),QColor(Qt::red));
-        QCOMPARE(cachedPageThumbnail(book,0,cache,{},false,false,true).image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(BookActivity::opens.load(),opens);QCOMPARE(BookActivity::imageRequests.load(),reads);
+        QCOMPARE(ThumbnailActivity::metadataChecks.load(),checks);QCOMPARE(ThumbnailActivity::folderScans.load(),scans);
+        const auto refreshed=cachedPageThumbnail(book,0,cache,{},false,false,true);
+        QVERIFY2(refreshed.error.isEmpty(),qPrintable(refreshed.error));
+        QVERIFY(!refreshed.image.isNull());QCOMPARE(refreshed.image.pixelColor(0,0),QColor(Qt::blue));
     }
     void closingPreservesGeneratedPixelsWhileWriterLocked() {
         QTemporaryDir d;const auto books=d.filePath("books"),source=books+"/a.png";

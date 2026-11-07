@@ -2,6 +2,8 @@
 
 ## v1.5.0
 
+- Windows CIのページcache試験で、画像生成用Bookが保持する書庫cursorを解放してからZIPを削除するようfixtureを修正。元ZIP不在時のcache表示と変更後の更新を維持し、cache hit中の追加アクセスなしも検査。
+
 - CMake・通常/Windows-fast manifest・READMEの版番号を1.5.0へ更新。v2キャッシュ互換性を保ち、日英利用ガイド・開発者仕様・Releaseノートを新仕様へ統一。
 - 220件の往復スクロールをthumbnail_scroll_testsへ分離。各群の時間枠と検証内容を維持し、fullは21群、platformは14群。
 
