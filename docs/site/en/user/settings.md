@@ -66,26 +66,55 @@ See [Differences from MangaMeeya](compatibility.md) for compatibility and sortin
 
 ## Reuse and regeneration
 
-Committed, valid thumbnail PNGs can be read without waiting for writer/maintenance locks or a full cache inventory scan.
-Writing, deletion and trimming still use a lock, and PNGs and inventory revisions use temporary-file replacement.
-PNG lookup for the current viewport runs separately from source generation; hits appear as they become available.
-Generated images are returned for display before PNG persistence. Visible updates and saving have separate workers and can progress during continued interaction. Unfinished requests are cancelled after leaving the viewport.
-Page-thumbnail mode does not render the hidden reading image or prefetch reading pages.
-Pending images spill to disk at the memory limit, and write failures or contention are retried. Normal shutdown journals unfinished images for recovery on the next launch. The journal and atomic-write temporary files need extra disk space beyond the completed-cache limit. A full or unwritable disk, or an abrupt shutdown, can still require regeneration.
+In v1.5.0, saved thumbnails are trusted by default. They are not checked against their sources on every use or periodically. Redisplay, scrolling, revisiting a folder, or restarting alone does not reopen source images or ZIPs.
 
-Disk capacity is the only retention limit. When exceeded, the oldest saved images are removed first. Reading a PNG never changes its save time. Neither age alone nor file count causes deletion.
-Saved images are displayed without checking the original source. There is no per-use or periodic validation. Only relevant change notifications or differences in directory-entry information trigger a lower-priority update check. Unchanged source images and ZIPs are not reopened.
-Adding files without changing the selected source or its attributes does not regenerate or rewrite the PNG. Deep changes that the existing format cannot identify are not exhaustively tracked; use F6 when an explicit refresh is needed.
-Preferences → Thumbnails → additional folder-cover search levels defaults to 0. When viewing A containing B, 0 searches B's direct files, including images and archives, without entering B/C. A value of 1 also searches C's direct files. A folder icon is shown if no candidate is found within the limit. Reducing the depth does not delete an existing cover.
-Leaving a folder or view cancels its unfinished work; completed images still get saved. Reading prioritizes the current page, then prefetch, without thumbnail generation or update checks.
+| Situation | Priority |
+|---|---|
+| A visible cover or page has cached pixels | Display them before source checks |
+| A visible thumbnail has no cache | Generate and display it; save afterward |
+| Relevant change evidence exists | Keep the saved image visible, then check at lower priority |
+| Folder, book, or view changes | Cancel unfinished old requests and prioritize the destination |
+| Reading | Current display, then prefetch, then saving previously completed thumbnails |
 
-Changing KomaMimic, Qt, scripts or script settings alone does not invalidate thumbnails. If such a change affects the rendered image, explicitly refresh thumbnails or clear the cache.
-Changing display thumbnail dimensions or spacing alone does not clear all cached images.
-`thumbnails-v2` does not read or migrate the earlier `thumbnails-v1` cache. We recommend clearing the old cache in the **old** app under Preferences → Cache **before updating**. Clearing the cache in the new app normally affects only `thumbnails-v2`; it does not automatically remove the old `thumbnails-v1` directory.
-Clearing thumbnails does not remove source images, archives, the library or reading history.
+Visible PNG reads run separately from heavy generation, without waiting for writer/maintenance locks or a full cache inventory. Page-thumbnail mode does not render or prefetch the hidden reading image. Reading does not generate or validate thumbnails or scan hidden browser lists.
+
+### Checking changes
+
+Reuse the names, sizes, modification times, and other information already obtained for the current directory listing. Only relevant listing differences, OS notifications, or changes made in the app trigger checks. Unchanged ZIPs are not opened, original images are not decoded, and full content hashes are not calculated just to validate a cache.
+
+Adding files without changing the selected cover source or its attributes does not probe the old source again, regenerate the image, rewrite the PNG, or update its save time. Replace the image only when the selected source or its content needs updating.
+
+Deep changes that the existing format cannot identify, or changes missed by notifications, are not exhaustively tracked. Use `F6` for an explicit refresh when needed. Font or script changes do not automatically invalidate all cached images.
+
+### Folder-cover search depth
+
+Preferences → Thumbnails → additional folder-cover search levels accepts **0–8 and defaults to 0**. When viewing A containing B:
+
+| Value | Search range |
+|---|---|
+| 0 | Search B's direct images and archives without entering B/C |
+| 1 | Also search C's direct files |
+| 2 or more | Search up to the configured additional depth, then stop |
+
+Candidates use natural order with files before folders. Sorting the displayed list does not change this selection rule. Show a folder icon if no candidate is found within the limit, without repeatedly searching the same unchanged visible item. Reducing depth or reaching a cutoff does not delete an existing cover.
+
+### Saving, retention, and capacity
+
+Generated pixels are displayed before persistence finishes. Completed images remain pending across folder or view changes and are saved below current-display and reading-prefetch priority. Saving does not recheck the source. Keep the previous PNG until its replacement is saved successfully; temporary generation or write failures do not delete it first.
+
+Pending images spill to disk at the memory limit; contention and write failures are retried. Normal shutdown journals unfinished saves for recovery on the next launch. Journals and atomic-write temporary files need extra space beyond the completed-cache limit. A full or unwritable disk, or an abrupt exit before journaling, can still require regeneration.
+
+Unchanged images are retained regardless of last use, age, file count, scrolling, restart, or display thumbnail size. Only capacity overflow, including a reduced configured limit, triggers **oldest-save-time-first eviction (FIFO)**. Reads never change PNG save times. A changed image receives a new save time after its replacement is saved successfully.
+
+Explicit cache deletion, confirmed source changes or removal, and corruption found while reading the cache can also cause replacement or deletion. Suspected changes alone do not delete an image first.
+
+### Compatibility and text covers
+
+v1.5.0 retains the `thumbnails-v2` location and format. Updating does not require clearing existing v2 images or regenerating the entire cache. Completed **cover previews for TXT, Markdown, and archives containing text are also saved**. Their bodies use document reading, separate from image-page thumbnails.
+
+`thumbnails-v1` is not read, migrated, or automatically deleted. To reclaim its space, use Preferences → Cache in an older version that uses that format. Current cache clearing normally affects only v2 and does not remove source images, archives, bookshelves, or reading history.
 
 Incomplete temporary files left by an abnormal exit are not read as committed PNGs. Qt checks lock ownership and other stale-lock conditions before reclaiming a leftover lock.
-TXT, Markdown and covers of archives containing text may be excluded from disk persistence because they depend on fonts or external images.
 
 ### Workaround for incorrect thumbnails
 

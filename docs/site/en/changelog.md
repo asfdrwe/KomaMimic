@@ -2,12 +2,13 @@
 
 [日本語](../changelog.md) | English
 
-## Unreleased
+## v1.5.0
 
-- Show saved thumbnails first without checking their sources. Remove periodic validation and update only targets with concrete change evidence. Adding files without changing the selected source does not regenerate its thumbnail.
-- Add a folder-cover search depth setting. The default 0 searches the cover target folder's direct files without entering deeper folders. Reducing depth preserves existing images.
+- Show saved thumbnails first without checking their sources. Remove periodic validation and update only targets with concrete change evidence. Adding files without changing the selected source or its attributes does not regenerate or rewrite the thumbnail. Unchanged images are retained.
+- Add a folder-cover search depth setting. The setting accepts 0–8; the default 0 searches the cover target folder's direct files without entering deeper folders. Reducing depth preserves existing images.
 - Cancel obsolete work on folder or view changes and prioritize the current display. Reading runs the current display and prefetch without thumbnail work.
-- Preserve pending images through disk journaling, retry writes, and resume after normal shutdown. When capacity is exceeded, remove the oldest saved images first; reads never change their timestamps. Keep thumbnails-v2 compatibility.
+- Preserve pending images through disk journaling, retry writes, and resume after normal shutdown. When capacity is exceeded, remove the oldest saved images first (FIFO); reads never change their timestamps. Keep thumbnails-v2 compatibility.
+- Generate missing visible thumbnails before background work, display them before saving, and preserve old images on replacement failures. Completed TXT, Markdown, and archive-text cover previews are also saved.
 
 ## v1.4.3
 
