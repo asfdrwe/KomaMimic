@@ -11,10 +11,13 @@
 #include <QAction>
 #include <QJSEngine>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QWebEngineView>
 #include <QWebEnginePage>
 #include <QWebEngineScript>
 #include <QWindow>
+#include <algorithm>
+#include <cmath>
 
 namespace {
 QByteArray epub(bool rtl=false,const QByteArray &coverProperties="",const QByteArray &extra={}) {
@@ -217,10 +220,27 @@ private slots:
         MainWindow w(ini);w.resize(800,1200);w.show();w.openBook(a);QTRY_VERIFY_WITH_TIMEOUT(w.renderReady(),40000);
         auto *view=w.m_documentView;QVERIFY(view);QVERIFY(view->rightToLeft());QCOMPARE(view->visiblePages().size(),1);
         bool done=false;QVariant shape;auto *web=view->findChild<QWebEngineView *>();
-        web->page()->runJavaScript("(()=>{const f=[...document.querySelectorAll('iframe')].find(f=>f.style.visibility==='visible');const r=f.getBoundingClientRect();return {x:r.x,w:r.width};})()",QWebEngineScript::ApplicationWorld,[&](const QVariant &v){shape=v;done=true;});
-        QTRY_VERIFY(done);QVERIFY(shape.toMap().value("w").toDouble()>700);
+        web->page()->runJavaScript("(()=>{const f=[...document.querySelectorAll('iframe')].find(f=>f.style.visibility==='visible');const r=f.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height,vw:innerWidth,vh:innerHeight,cw:f.offsetWidth,ch:f.offsetHeight};})()",QWebEngineScript::ApplicationWorld,[&](const QVariant &v){shape=v;done=true;});
+        QTRY_VERIFY(done);
+        const auto geometry=shape.toMap();const double vw=geometry.value("vw").toDouble(),vh=geometry.value("vh").toDouble();
+        const double cw=geometry.value("cw").toDouble(),ch=geometry.value("ch").toDouble();
+        QVERIFY(vw>0 && vh>0 && cw>0 && ch>0);
+        const double scale=std::min(vw/cw,vh/ch),width=cw*scale,height=ch*scale;
+        const auto diagnostic=QJsonDocument(QJsonObject::fromVariantMap(geometry)).toJson(QJsonDocument::Compact);
+        // Fit the cover to the whole document viewport, independent of sidebar
+        // width, window decorations or the desktop's available screen size.
+        QVERIFY2(std::abs(geometry.value("w").toDouble()-width)<2,diagnostic.constData());
+        QVERIFY2(std::abs(geometry.value("h").toDouble()-height)<2,diagnostic.constData());
+        QVERIFY2(std::abs(geometry.value("x").toDouble()-(vw-width)/2)<2,diagnostic.constData());
+        QVERIFY2(std::abs(geometry.value("y").toDouble()-(vh-height)/2)<2,diagnostic.constData());
         const auto opens=BookActivity::opens.load();w.openBook(b);w.openBook(a);
         QCOMPARE(w.m_documentView,view);QVERIFY(w.renderReady());QVERIFY(BookActivity::opens.load()<=opens+1);
+        // Both views are descendants once B finishes. A first-child lookup
+        // would read A's retained state instead of the currently selected B.
+        w.openBook(b);QTRY_VERIFY_WITH_TIMEOUT(w.renderReady(),40000);
+        auto *second=TestData::currentDocumentView(w);QVERIFY(second);
+        QVERIFY(second!=view);QVERIFY(second->isVisible());QVERIFY(!view->isVisible());
+        w.openBook(a);QCOMPARE(TestData::currentDocumentView(w),view);QVERIFY(w.renderReady());
     }
 };
 ISOLATED_TEST_MAIN(DocumentBehaviorTests)

@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QPainter>
 #include <QPdfWriter>
+#include <QStackedWidget>
 #include <QtEndian>
 #include <zlib.h>
 
@@ -22,6 +23,12 @@ void chunk(QByteArray &b, const QByteArray &type, const QByteArray &data) {
 }
 }
 namespace TestData {
+DocumentView *currentDocumentView(const MainWindow &window) {
+    // Retained books remain descendants too. Inspect the selected view rather
+    // than the first DocumentView in QObject's child order.
+    auto *stack=window.findChild<QStackedWidget *>("contentStack");
+    return stack?qobject_cast<DocumentView *>(stack->currentWidget()):nullptr;
+}
 bool webEngineIpcAvailable() {
 #ifdef Q_OS_UNIX
     int fd[2];

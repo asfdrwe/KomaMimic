@@ -10,6 +10,7 @@
 #include <QTimer>
 #include <QThread>
 #include <QElapsedTimer>
+#include <QSignalBlocker>
 #include <algorithm>
 
 // Keep optional whole-list loading separate from existing persistence budgets.
@@ -114,16 +115,25 @@ private slots:
     void thumbnailPreloadCancellation() {
         QFETCH(QString,action);QTemporaryDir d;MainWindow w(d.filePath("settings.ini"));w.resize(480,320);w.show();
         w.m_settings->setValue("thumbnails/preloadAll",true);w.m_settings->setValue("thumbnails/mouseSelection",false);
-        auto *grid=w.m_library;for(int i=0;i<100;++i)grid->addItem(new QListWidgetItem(grid->placeholderIcon(),QString::number(i)));
+        auto *grid=w.m_library;
+        // Setup's queued visibility notifications must not cancel the probe
+        // before the operation under test. Real signals resume once it runs.
+        QSignalBlocker initializing(grid);
+        for(int i=0;i<100;++i)grid->addItem(new QListWidgetItem(grid->placeholderIcon(),QString::number(i)));
         grid->doItemsLayout();
         for(int i=0;i<100;++i)grid->setThumbnail(i,TestData::solid(),{});
         QTest::qWait(30);
         w.requestThumbnails(grid);w.m_thumbnailPreload[0].next=100;
+        w.m_displayJobs->submit<bool>(DisplayJobs::Lane::Cache,"test-setup","cache-before-preload",
+            [](const auto &){return true;},[](bool,bool){});
+        grid->requestVisible();
         const auto started=std::make_shared<std::atomic<bool>>(false),cancelled=std::make_shared<std::atomic<bool>>(false),delivered=std::make_shared<std::atomic<bool>>(false);
         w.m_displayJobs->submit<bool>(DisplayJobs::Lane::Background,"covers-preload","covers-preload",
             [started,cancelled](const auto &cancel){*started=true;QElapsedTimer t;t.start();while(!cancel() && t.elapsed()<3000)QThread::msleep(1);*cancelled=cancel();return true;},
             [delivered](bool,bool obsolete){*delivered=!obsolete;});
         QTRY_VERIFY(started->load());
+        QVERIFY(!cancelled->load());QVERIFY(!delivered->load());
+        initializing.unblock();
         if(action=="scroll")grid->scrollToItem(grid->item(99),QAbstractItemView::PositionAtBottom);
         else if(action=="mode"){w.setMode(MainWindow::ViewMode::Reader);QCOMPARE(w.m_thumbnailPreload[0].next,0);}
         else if(action=="folder")w.openDirectory(d.path());

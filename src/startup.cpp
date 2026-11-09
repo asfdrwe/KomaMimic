@@ -38,7 +38,14 @@ void ReaderFeatures::runRequest(const QJsonObject &request) {
   auto initialized=std::make_shared<bool>(false);
   auto commandIndex=std::make_shared<int>(0);
   connect(timer, &QTimer::timeout, this, [this, timer, request, attempts, initialized, commandIndex] {
-    if (!w->requestReady() &&
+    const auto ready = [this] {
+      return w->requestReady() &&
+          (w->viewMode()!=MainWindow::ViewMode::Reader || !w->m_book || w->m_readerPresented);
+    };
+    // Apply --page as soon as the book is ready; only its target page needs
+    // presentation before commands, not the initial page selected by opening.
+    const bool canContinue=*initialized ? ready() : w->requestReady();
+    if (!canContinue &&
         ++*attempts < 3000)
       return;
     if(!*initialized) {
@@ -51,7 +58,9 @@ void ReaderFeatures::runRequest(const QJsonObject &request) {
     }
     const auto commands=request.value("commands").toArray();
     while(*commandIndex<commands.size()) {
-      if(m_imageCommandsActive)return;
+      // A page selection or previous command can start asynchronous rendering.
+      // Let that page be presented before a following mode change or quit.
+      if(m_imageCommandsActive || (!ready() && *attempts<3000))return;
       const auto value=commands[(*commandIndex)++];
       const auto text = value.toString();
       bool numeric = false;
@@ -63,7 +72,7 @@ void ReaderFeatures::runRequest(const QJsonObject &request) {
       else
         message(QCoreApplication::translate("KomaMimic", "実行できないコマンド: ") + text);
     }
-    if(m_imageCommandsActive)return;
+    if(m_imageCommandsActive || (!ready() && *attempts<3000))return;
     timer->stop();timer->deleteLater();
   });
   timer->start();

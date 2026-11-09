@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
 #include "mainwindow.h"
+#include "documentview.h"
 #include <QApplication>
 #include <QBuffer>
 #include <QFile>
@@ -10,6 +11,7 @@
 
 namespace TestData {
 bool webEngineIpcAvailable();
+DocumentView *currentDocumentView(const MainWindow &window);
 QImage solid(QColor color = Qt::red, QSize size = {32, 48});
 QByteArray png(const QImage &image);
 bool write(const QString &path, const QByteArray &bytes);
@@ -42,6 +44,7 @@ template<class Suite> int isolatedTestMain(int argc, char **argv) {
         qputenv("QTWEBENGINE_CHROMIUM_FLAGS", "--disable-gpu");
 #endif
     qputenv("QT_QPA_PLATFORM", "offscreen");
+    DocumentView::registerScheme();
     QApplication app(argc, argv);
     QCoreApplication::setOrganizationName("KomaMimicTests");
     QCoreApplication::setApplicationName("Regression");

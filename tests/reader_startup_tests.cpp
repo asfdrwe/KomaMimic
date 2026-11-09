@@ -27,6 +27,31 @@ class ReaderStartupTests : public QObject {
         return TestData::zip(entries);
     }
 private slots:
+    void requestCommandsWaitForRequestedPagePresentation_data() {
+        QTest::addColumn<int>("page");QTest::addColumn<QStringList>("commands");QTest::addColumn<int>("expectedAnchor");QTest::addColumn<bool>("showInitially");
+        QTest::newRow("page-option") << 3 << QStringList{"tree"} << 2 << true;
+        QTest::newRow("page-command") << 1 << QStringList{"nextOne","tree"} << 1 << true;
+        QTest::newRow("page-before-show") << 3 << QStringList{"tree"} << 2 << false;
+    }
+    void requestCommandsWaitForRequestedPagePresentation() {
+        QFETCH(int,page);QFETCH(QStringList,commands);QFETCH(int,expectedAnchor);QFETCH(bool,showInitially);
+        QTemporaryDir d;const auto path=d.filePath("pages.zip"),ini=d.filePath("settings.ini");
+        QVERIFY(TestData::write(path,pages()));settings(ini);
+        MainWindow w(ini);if(showInitially)w.show();
+        bool executed=false,presented=false;int anchor=-1;
+        connect(w.command("tree"),&QAction::toggled,&w,[&] {
+            executed=true;presented=w.m_readerPresented;anchor=w.pageIndex();
+        });
+        w.runRequest({{"path",path},{"page",page},{"commands",QJsonArray::fromStringList(commands)}});
+        if(!showInitially) {
+            QTRY_COMPARE(w.pageIndex(),expectedAnchor);
+            QVERIFY(!executed); // Select the target without painting the initial page.
+            w.show();
+        }
+        QTRY_VERIFY(executed);
+        QCOMPARE(anchor,expectedAnchor);QVERIFY(presented);
+        QCOMPARE(w.m_settings->value("lastBook").toString(),path);
+    }
     void readerDefersThumbnailPreparation() {
         QTemporaryDir d;const auto path=d.filePath("pages.zip"),ini=d.filePath("settings.ini");
         QVERIFY(TestData::write(path,pages(300)));settings(ini);

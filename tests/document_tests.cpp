@@ -251,7 +251,7 @@ private slots:
     QCOMPARE(w.command("next")->shortcut(),doc.value("next"));
     QVERIFY(w.command("previous")->shortcut().isEmpty());
     QCOMPARE(w.bindings().value("next"),base.value("next"));
-    auto *view=w.findChild<DocumentView *>(); QVERIFY(view); view->setFocus();
+    auto *view=TestData::currentDocumentView(w); QVERIFY(view); view->setFocus();
     QTest::keyClick(view,Qt::Key_Right); QCOMPARE(w.pageIndex(),0);
     QTest::keyClick(view,Qt::Key_N,Qt::ControlModifier|Qt::AltModifier);
     QTRY_COMPARE(w.pageIndex(),1);
@@ -614,9 +614,8 @@ private slots:
     QTRY_VERIFY_WITH_TIMEOUT(w.renderReady(), 10000);
     QVERIFY(w.pageCount() > 2);
     w.nextPage();
-    QTRY_VERIFY(w.renderReady());
-    QVERIFY(w.pageIndex() > 0);
-    auto *initialView = w.findChild<DocumentView *>(); QVERIFY(initialView);
+    QTRY_VERIFY(w.renderReady() && w.pageIndex() > 0);
+    auto *initialView = TestData::currentDocumentView(w); QVERIFY(initialView);
     QTRY_VERIFY(initialView->location().offset > 0);
     auto *toc = w.findChild<QListWidget *>("tocList");
     QVERIFY(toc);
@@ -657,7 +656,7 @@ private slots:
     });
     w.command("documentSettings")->trigger();
     QTRY_VERIFY_WITH_TIMEOUT(!w.isLoading() && w.renderReady(), 10000);
-    auto *reflowedView = w.findChild<DocumentView *>(); QVERIFY(reflowedView);
+    auto *reflowedView = TestData::currentDocumentView(w); QVERIFY(reflowedView);
     QTRY_VERIFY(!reflowedView->location().section.isEmpty());
     const int reflowOffset = reflowedView->location().offset;
     const int reflowPage = w.pageIndex();
@@ -881,7 +880,7 @@ private slots:
     QVERIFY2(w.renderReady(),qPrintable(w.lastError()));
     QCOMPARE(w.pageIndex(),0);
     w.nextPage();QTRY_COMPARE(w.pageIndex(),1);
-    auto *view=w.findChild<DocumentView *>();QVERIFY(view);
+    auto *view=TestData::currentDocumentView(w);QVERIFY(view);
     auto *web=view->findChild<QWebEngineView *>();QVERIFY(web);
     bool done=false;QVariant state;
     web->page()->runJavaScript(
@@ -898,7 +897,7 @@ private slots:
     web->setFocus();QTest::keyPress(web,Qt::Key_Space);
     QTRY_VERIFY_WITH_TIMEOUT(!w.isLoading()&&w.renderReady(),40000);
     QVERIFY(!w.command("spread")->isChecked());
-    view=w.findChild<DocumentView *>();QVERIFY(view);
+    view=TestData::currentDocumentView(w);QVERIFY(view);
     web=view->findChild<QWebEngineView *>();QVERIFY(web);
     QTest::keyRelease(web,Qt::Key_Space);
     QCOMPARE(w.pageIndex(),1);
@@ -914,7 +913,7 @@ private slots:
     w.command("documentSettings")->trigger();
     QTRY_VERIFY_WITH_TIMEOUT(!w.isLoading()&&w.renderReady(),40000);
     QCOMPARE(w.pageIndex(),1);
-    view=w.findChild<DocumentView *>();QVERIFY(view);web=view->findChild<QWebEngineView *>();QVERIFY(web);
+    view=TestData::currentDocumentView(w);QVERIFY(view);web=view->findChild<QWebEngineView *>();QVERIFY(web);
     done=false;
     web->page()->runJavaScript("(()=>{const f=[...document.querySelectorAll('iframe')].find(e=>e.style.visibility==='visible');return {width:f.offsetWidth,fit:getComputedStyle(f.contentDocument.querySelector('img')).objectFit};})()",
       QWebEngineScript::ApplicationWorld,[&](const QVariant &v){state=v;done=true;});
@@ -941,7 +940,7 @@ private slots:
     w.openBook(path);
     QTRY_VERIFY_WITH_TIMEOUT(w.renderReady() || !w.lastError().isEmpty(), 40000);
     QVERIFY2(w.renderReady(), qPrintable(w.lastError()));
-    auto *view = w.findChild<DocumentView *>();
+    auto *view = TestData::currentDocumentView(w);
     QVERIFY(view);
     auto *web = view->findChild<QWebEngineView *>();
     QVERIFY(web);
@@ -1004,7 +1003,7 @@ private slots:
     QTRY_VERIFY_WITH_TIMEOUT(!w.isLoading() && w.renderReady(), 40000);
     QCOMPARE(w.pageCount(), count);
     QCOMPARE(w.pageIndex(), count - 2);
-    view = w.findChild<DocumentView *>();
+    view = TestData::currentDocumentView(w);
     QVERIFY(view);
     web = view->findChild<QWebEngineView *>();
     inspect();
@@ -1032,7 +1031,7 @@ private slots:
                              40000);
     QVERIFY2(w.renderReady(), qPrintable(w.lastError()));
     QVERIFY(w.pageCount() > 3);
-    auto *view = w.findChild<DocumentView *>();
+    auto *view = TestData::currentDocumentView(w);
     QVERIFY(view);
     QVERIFY(view->ready());
     auto *web = view->findChild<QWebEngineView *>();
@@ -1081,7 +1080,7 @@ private slots:
     w.openBook(path);
     QTRY_VERIFY_WITH_TIMEOUT(w.renderReady() || !w.lastError().isEmpty(), 40000);
     QVERIFY2(w.renderReady(), qPrintable(w.lastError()));
-    auto *view = w.findChild<DocumentView *>(); QVERIFY(view); QVERIFY(view->ready());
+    auto *view = TestData::currentDocumentView(w); QVERIFY(view); QVERIFY(view->ready());
     w.close();
   }
   void documentReflowAndResume() {
@@ -1094,12 +1093,12 @@ private slots:
     {
       MainWindow w(config);w.show();w.openBook(path);
       QTRY_VERIFY_WITH_TIMEOUT(w.renderReady(),40000);
-      auto *view=w.findChild<DocumentView *>();QVERIFY(view);
+      auto *view=TestData::currentDocumentView(w);QVERIFY(view);
       w.nextPage();QTRY_VERIFY(view->location().offset>0);
       const auto before=view->location();
       w.command("textSizeIncrease")->trigger();
       QTRY_VERIFY_WITH_TIMEOUT(!w.isLoading() && w.renderReady(),40000);
-      auto *reflowed=w.findChild<DocumentView *>();QVERIFY(reflowed);
+      auto *reflowed=TestData::currentDocumentView(w);QVERIFY(reflowed);
       QTRY_COMPARE(reflowed->location().section,before.section);
       auto *web=reflowed->findChild<QWebEngineView *>();QVERIFY(web);
       bool done=false;QVariantMap state;
@@ -1116,7 +1115,7 @@ private slots:
     MainWindow restored(config);restored.show();
     restored.runRequest(QJsonObject{{"path",path},{"entry",0}}); // Resume through the history/--last route.
     QTRY_VERIFY_WITH_TIMEOUT(restored.renderReady(),40000);
-    auto *view=restored.findChild<DocumentView *>();QVERIFY(view);
+    auto *view=TestData::currentDocumentView(restored);QVERIFY(view);
     QTRY_COMPARE(view->location().section,reopenedLocation.section);
     QTRY_COMPARE(view->location().offset,reopenedLocation.offset);
     restored.close();
@@ -1125,7 +1124,6 @@ private slots:
 };
 int main(int argc, char **argv) {
   Q_INIT_RESOURCE(documents);
-  DocumentView::registerScheme();
   return isolatedTestMain<DocumentTests>(argc, argv);
 }
 #include "document_tests.moc"

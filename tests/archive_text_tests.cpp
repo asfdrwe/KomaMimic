@@ -259,12 +259,16 @@ private slots:
         QCOMPARE(documentOptions(settings,second).value("size").toInt(),40);QCOMPARE(documentOptions(settings,first).value("size").toInt(),22);
         grid->setCurrentRow(0);w.command("thumbAccept")->trigger();QTRY_VERIFY_WITH_TIMEOUT(w.renderReady(),15000);
         QVERIFY(w.pageCount()>1);
-        w.command("nextOne")->trigger();QTRY_VERIFY(w.renderReady());QCOMPARE(w.pageIndex(),1);
-        auto *document=w.findChild<DocumentView *>();QVERIFY(document);
+        w.command("nextOne")->trigger();QTRY_VERIFY(w.renderReady());QTRY_COMPARE(w.pageIndex(),1);
+        auto *document=TestData::currentDocumentView(w);QVERIFY(document);
         QTRY_VERIFY(document->location().offset>0);
+        const auto location=document->location();
         w.parentFolder();QTRY_VERIFY(w.viewMode()!=MainWindow::ViewMode::Covers || w.requestReady());QCOMPARE(grid->currentRow(),0);
         grid->setCurrentRow(1);w.command("thumbAccept")->trigger();QTRY_VERIFY(w.renderReady());
         w.parentFolder();QTRY_VERIFY(w.viewMode()!=MainWindow::ViewMode::Covers || w.requestReady());grid->setCurrentRow(0);w.command("thumbAccept")->trigger();QTRY_VERIFY(w.renderReady());QTRY_COMPARE(w.pageIndex(),1);
+        auto *restored=TestData::currentDocumentView(w);QVERIFY(restored);
+        QTRY_COMPARE(restored->location().section,location.section);
+        QTRY_COMPARE(restored->location().offset,location.offset);
         w.parentFolder();QTRY_VERIFY(w.viewMode()!=MainWindow::ViewMode::Covers || w.requestReady());w.parentFolder();QTRY_VERIFY(w.viewMode()!=MainWindow::ViewMode::Covers || w.requestReady());QVERIFY(w.directory()==d.path());QVERIFY(grid->currentItem());
         QCOMPARE(grid->currentItem()->data(PathRole).toString(),path);w.close();
     }

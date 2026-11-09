@@ -75,13 +75,13 @@ private slots:
   QString text;for(int i=0;i<1000;++i)text+=QString("Line %1: document text.\n").arg(i);
   QVERIFY(TestData::write(path,text.toUtf8()));
   {QSettings s(config,QSettings::IniFormat);s.setValue(documentBookKey(path)+"renderer",0);s.setValue(documentBookKey(path)+"font","Serif");s.setValue(documentBookKey(path)+"size",30);s.setValue(documentBookKey(target)+"size",28);s.setValue("reading/spread",false);}
-  MainWindow w(config);w.show();w.openBook(path);QTRY_VERIFY(w.renderReady());w.nextPage();QTRY_VERIFY(w.renderReady());QVERIFY(w.pageIndex()>0);
-  auto *document=w.findChild<DocumentView *>();QVERIFY(document);QTRY_VERIFY(document->location().offset>0);
+  MainWindow w(config);w.show();w.openBook(path);QTRY_VERIFY(w.renderReady());w.nextPage();QTRY_VERIFY(w.renderReady() && w.pageIndex()>0);
+  auto *document=TestData::currentDocumentView(w);QVERIFY(document);QTRY_VERIFY(document->location().offset>0);
   const auto savedLocation=document->location();
   QTimer dialog;dialog.setInterval(10);connect(&dialog,&QTimer::timeout,&w,[&]{if(auto *input=qobject_cast<QInputDialog*>(QApplication::activeModalWidget())){input->setTextValue("after.txt");input->accept();}});
   dialog.start();w.command("renameFile")->trigger();dialog.stop();QTRY_COMPARE(w.bookPath(),target);QTRY_VERIFY(w.renderReady());
   QVERIFY(!QFileInfo::exists(path));QVERIFY(w.pageIndex()>0);
-  auto *renamed=w.findChild<DocumentView *>();QVERIFY(renamed);
+  auto *renamed=TestData::currentDocumentView(w);QVERIFY(renamed);
   QTRY_COMPARE(renamed->location().section,savedLocation.section);QTRY_COMPARE(renamed->location().offset,savedLocation.offset);
   QSettings s(config,QSettings::IniFormat);QCOMPARE(s.value(documentBookKey(target)+"font").toString(),"Serif");QCOMPARE(s.value(documentBookKey(target)+"size").toInt(),30);QCOMPARE(s.value(documentBookKey(target)+"renderer").toInt(),0);
   for(const auto &key:s.allKeys())QVERIFY(!key.startsWith(documentBookKey(path)));
@@ -146,7 +146,7 @@ private slots:
   QTemporaryDir d;const auto path=d.filePath("notes.epub");QVERIFY(TestData::write(path,noteBook()));
   MainWindow w(d.filePath("settings.ini"));w.show();w.openBook(path);
   QTRY_VERIFY_WITH_TIMEOUT(w.renderReady() || !w.lastError().isEmpty(),40000);QVERIFY2(w.renderReady(),qPrintable(w.lastError()));
-  auto *view=w.findChild<DocumentView*>();QVERIFY(view);auto *web=view->findChild<QWebEngineView*>();QVERIFY(web);
+  auto *view=TestData::currentDocumentView(w);QVERIFY(view);auto *web=view->findChild<QWebEngineView*>();QVERIFY(web);
   view->navigate("OPS/note.xhtml","note",0);QTRY_VERIFY(view->auxiliaryActive());const int position=w.pageIndex();
   QVariant state;bool done=false;
   web->page()->runJavaScript("window.komaDocument.state(false)",QWebEngineScript::ApplicationWorld,[&](const QVariant &v){state=v;done=true;});QTRY_VERIFY(done);
