@@ -165,6 +165,7 @@ MainWindow::~MainWindow() {
     cancelBackgroundWork();
     disconnect(qApp, nullptr, this, nullptr);
     if (m_features) m_features->closingBook();
+    clearDocumentView();discardRetainedDocument();
     m_features.reset(); m_displayJobs.reset(); qApp->removeEventFilter(this);
 }
 
@@ -284,7 +285,7 @@ void MainWindow::buildActions() {
     connect(m_actions["nextOne"], &QAction::triggered, this, [this] { stepPage(1, true); });
     connect(m_actions["previousOne"], &QAction::triggered, this, [this] { stepPage(-1, true); });
     connect(m_actions["first"], &QAction::triggered, this, [this] { jump(0); });
-    connect(m_actions["last"], &QAction::triggered, this, [this] { jump(pageCount() - 1); });
+    connect(m_actions["last"], &QAction::triggered, this, [this] { if(documentViewActive() && m_documentView)m_documentView->last();else jump(pageCount()-1); });
     connect(m_actions["nextBook"], &QAction::triggered, this, [this] { moveBook(1); });
     connect(m_actions["previousBook"], &QAction::triggered, this, [this] { moveBook(-1); });
     connect(m_actions["exitFullscreen"], &QAction::triggered, this, [this] { setFullscreen(false); });
@@ -298,7 +299,7 @@ void MainWindow::buildActions() {
         m_options.spread = on; render(); saveSettings();
     });
     connect(m_actions["rtl"], &QAction::toggled, this, [this](bool on) { m_options.rightToLeft = on; render(); saveSettings(); });
-    connect(m_actions["cover"], &QAction::toggled, this, [this](bool on) { m_options.coverAlone = on; render(); saveSettings(); });
+    connect(m_actions["cover"], &QAction::toggled, this, [this](bool on) { if(documentViewActive()){setDocumentOption("coverAlone",on);return;} m_options.coverAlone = on; render(); saveSettings(); });
     connect(m_actions["library"], &QAction::triggered, this, [this] {
         if (m_mode == ViewMode::Covers && m_book) setMode(ViewMode::Reader); else showCovers();
     });
@@ -438,7 +439,7 @@ void MainWindow::render() {
     m_displayJobs->retain("prefetch");m_displayJobs->retain("preload");
     m_renderDirty=false;
     if (documentViewActive()) {
-        if (m_documentView && m_documentView->ready()) m_documentView->jump(m_anchor);
+        if (m_documentView) m_documentView->jump(m_anchor);
         refreshState(); return;
     }
     if (m_features) m_features->beforeRender();
@@ -543,7 +544,10 @@ void MainWindow::nextPage() { stepPage(1); }
 void MainWindow::previousPage() { stepPage(-1); }
 void MainWindow::stepPage(int direction, bool onePage) {
     if (!m_book || pageCount() == 0) return;
-    if(documentViewActive() && m_documentView && m_documentView->auxiliaryActive()) {m_documentView->stepNote(direction);return;}
+    if(documentViewActive() && m_documentView) {
+      if(m_documentView->auxiliaryActive())m_documentView->stepNote(direction);else m_documentView->step(direction,onePage);
+      return;
+    }
     if (m_features && m_features->navigate(direction, onePage)) return;
     setMode(ViewMode::Reader);
     const int target = m_features ? m_features->advance(direction, onePage) : onePage ? std::clamp(m_anchor + direction, 0, pageCount() - 1)
@@ -560,7 +564,7 @@ void MainWindow::stepPage(int direction, bool onePage) {
 }
 QString MainWindow::adjacentArchive(int direction) const {
     if(m_features&&m_features->usesPlaylist())return m_features->collectionNeighbor(direction);
-    if (!m_book || m_book->filesystem) return {};
+    if ((m_book && m_book->filesystem) || (!m_book && !m_loading)) return {};
     // The browser may show another folder while this book remains open.
     // Always resolve adjacent volumes relative to the actual source archive.
     if (parseArchiveEntryPath(m_currentPath).valid() && m_archiveDirectory) {
@@ -585,8 +589,8 @@ void MainWindow::requestAdjacentBook(int direction,ViewMode mode,bool startAtLas
     if(archiveNeighborsKnown()) {
         const auto path=adjacentArchive(direction);if(!path.isEmpty())loadBook(path,mode,startAtLastPage);return;
     }
-    if(!m_book || m_book->filesystem)return;
-    const auto book=m_book;const auto current=m_currentPath;
+    if((m_book && m_book->filesystem) || (!m_book && !m_loading))return;
+    const auto generation=m_bookGeneration;const auto current=m_currentPath;
     const auto directory=QFileInfo(physicalBookPath(current)).absolutePath();
     const int sort=m_settings->value("covers/sort",0).toInt();const bool reverse=m_settings->value("covers/reverse",false).toBool();
     m_displayJobs->retain("navigation");
@@ -596,8 +600,8 @@ void MainWindow::requestAdjacentBook(int direction,ViewMode mode,bool startAtLas
             while(entries.hasNext()){if(cancel())return QStringList{};entries.next();if(isArchivePath(entries.fileName()) || isDocumentPath(entries.fileName()))files.append(entries.fileInfo());}
             std::stable_sort(files.begin(),files.end(),[sort,reverse](const auto &a,const auto &b){return browserLess(a,b,sort,reverse);});
             QStringList result;for(const auto &file:files)result.append(file.absoluteFilePath());return result;
-        },[this,book,current,directory,direction,mode,startAtLastPage](QStringList paths,bool cancelled) {
-            if(cancelled || book!=m_book || current!=m_currentPath || m_mode!=mode)return;
+        },[this,generation,current,directory,direction,mode,startAtLastPage](QStringList paths,bool cancelled) {
+            if(cancelled || generation!=m_bookGeneration || current!=m_currentPath || m_mode!=mode)return;
             m_neighborDirectory=directory;m_neighborPaths=std::move(paths);
             const auto path=adjacentArchive(direction);
             if(!path.isEmpty())loadBook(path,mode,startAtLastPage);else refreshState();
@@ -615,7 +619,7 @@ QStringList MainWindow::zipPaths() const {
 void MainWindow::moveBook(int delta) {
     const auto mode = m_mode == ViewMode::Pages ? ViewMode::Pages : ViewMode::Reader;
     if(m_features&&m_features->usesPlaylist()){const auto neighbor=m_features->collectionNeighbor(delta);if(!neighbor.isEmpty())loadBook(neighbor, mode);return;}
-    if(m_book && !m_book->filesystem && m_mode!=ViewMode::Covers){requestAdjacentBook(delta,mode);return;}
+    if(((m_book && !m_book->filesystem) || m_loading) && m_mode!=ViewMode::Covers){requestAdjacentBook(delta,mode);return;}
     const auto paths = zipPaths();
     const int current = paths.indexOf(m_currentPath);
     const int target = current < 0 ? (delta > 0 ? 0 : paths.size() - 1) : current + delta;
@@ -631,6 +635,14 @@ void MainWindow::refreshState() {
     updateShortcutBindings();
     const bool loaded = bool(m_book) && pageCount() > 0;
     const int count = pageCount();
+    const auto totalText=documentViewActive() && (!m_documentView || !m_documentView->complete())?QString::fromUtf8("…"):QString::number(count);
+    bool readingRtl=m_options.rightToLeft;
+    if(documentViewActive()) {
+        const auto &text=m_book->openOptions.text;const auto &publication=*m_book->publication;
+        if(m_documentView && m_documentView->ready())readingRtl=m_documentView->rightToLeft();
+        else if(text.writingMode && (!publication.epub || publication.sections.isEmpty() || !publication.sections[std::clamp(m_anchor,0,int(publication.sections.size()-1))].fixed))readingRtl=text.writingMode==2;
+        else readingRtl=publication.epub?publication.rightToLeft:text.vertical;
+    }
     const auto indices = m_features?m_features->visiblePagesForView():visiblePages(count, m_anchor, m_options);
     const bool auxiliary=documentViewActive() && m_documentView && m_documentView->auxiliaryActive();
     const bool canNext = auxiliary || (loaded && (m_features ? m_features->advance(1, false) : nextAnchor(count, m_anchor, m_options)) != m_anchor);
@@ -647,7 +659,7 @@ void MainWindow::refreshState() {
     m_actions["last"]->setEnabled(loaded && m_anchor + 1 < count);
     const auto paths = zipPaths();
     const int current = paths.indexOf(m_currentPath);
-    const bool lazyNeighbors=loaded && !m_book->filesystem && m_mode!=ViewMode::Covers;
+    const bool lazyNeighbors=((loaded && !m_book->filesystem) || m_loading) && m_mode!=ViewMode::Covers;
     m_actions["nextBook"]->setEnabled(m_features&&m_features->usesPlaylist()?!m_features->collectionNeighbor(1).isEmpty():(lazyNeighbors?(!archiveNeighborsKnown() || !adjacentArchive(1).isEmpty()):(!paths.isEmpty() && (current < 0 || current + 1 < paths.size()))));
     m_actions["previousBook"]->setEnabled(m_features&&m_features->usesPlaylist()?!m_features->collectionNeighbor(-1).isEmpty():(lazyNeighbors?(!archiveNeighborsKnown() || !adjacentArchive(-1).isEmpty()):(!paths.isEmpty() && (current < 0 || current > 0))));
     m_actions["exitFullscreen"]->setEnabled(isFullScreen());
@@ -668,17 +680,14 @@ void MainWindow::refreshState() {
         QString pages = QString::number(m_anchor + 1);
         if (indices.size() == 2) pages += "–" + QString::number(indices.last() + 1);
         const auto &t = m_book->openOptions.text;
-        const bool rtl = documentViewActive() && m_book->publication
-            ? (m_book->publication->epub ? m_book->publication->rightToLeft
-                : t.writingMode == 2 || (t.writingMode == 0 && t.vertical))
-            : m_options.rightToLeft;
+        const bool rtl=readingRtl;
         const QString layout = documentViewActive()
             ? (t.pageLayout == 1 ? QCoreApplication::translate("KomaMimic", "文書・見開き") : QCoreApplication::translate("KomaMimic", "文書・単ページ"))
             : isTextDocumentPath(m_currentPath)
                 ? (m_options.spread ? QCoreApplication::translate("KomaMimic", "見開き") : QCoreApplication::translate("KomaMimic", "単ページ"))
                 : (m_options.spread ? QCoreApplication::translate("KomaMimic", "見開き") : QCoreApplication::translate("KomaMimic", "単ページ"));
         text = QString("%1    %2 / %3    %4・%5%6")
-            .arg(bookDisplayName(m_currentPath), pages).arg(count)
+            .arg(bookDisplayName(m_currentPath), pages).arg(totalText)
             .arg(layout, rtl ? QCoreApplication::translate("KomaMimic", "右開き") : QCoreApplication::translate("KomaMimic", "左開き"),
                  m_renderReady ? "" : QCoreApplication::translate("KomaMimic", "    読み込み中…"));
         if (m_book->canReinterpret) {
@@ -695,11 +704,11 @@ void MainWindow::refreshState() {
         details += "\n" + name.text + "\n" + name.origin + " / " + name.encoding + "\n" + name.warning;
     }
     m_status->setToolTip(details);
-    m_slider->setInvertedAppearance(m_settings->value("display/sliderDirection",false).toBool()&&m_options.rightToLeft);
+    m_slider->setInvertedAppearance(m_settings->value("display/sliderDirection",false).toBool()&&readingRtl);
     if(loaded && m_mode!=ViewMode::Reader && m_book->format!="生成画像")m_settings->setValue("lastBook",m_currentPath);
     if (m_features) m_features->refresh();
     updateDocumentActions();
-    setWindowTitle(loaded ? QString("%1 [%2/%3] — KomaMimic").arg(bookDisplayName(m_currentPath)).arg(m_anchor + 1).arg(count) : "KomaMimic");
+    setWindowTitle(loaded ? QString("%1 [%2/%3] — KomaMimic").arg(bookDisplayName(m_currentPath)).arg(m_anchor + 1).arg(totalText) : "KomaMimic");
 }
 
 void MainWindow::restoreToolbarSettings() { m_toolbar->restore(*m_settings); }
@@ -910,6 +919,8 @@ void MainWindow::saveSettings() {
 }
 bool MainWindow::backgroundWorkActive() const {return m_displayJobs && m_displayJobs->active();}
 void MainWindow::cancelBackgroundWork() {
+    if(m_documentView)m_documentView->suspend();
+    if(m_retainedDocument.view)m_retainedDocument.view->suspend();
     m_backgroundCancel->store(true);
     if(m_displayJobs){m_displayJobs->stop();m_displayJobs->waitForDone();}
     if(m_thumbnailDiskCache)m_thumbnailDiskCache->checkpoint();

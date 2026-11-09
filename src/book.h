@@ -46,6 +46,7 @@ struct BookPage {
     std::shared_ptr<const ArchiveTextSource> archivedText;
 };
 struct OpenOptions {
+    bool deferDocuments = false; // Reader UI loads only current resources/chapters.
     bool recursive = false, nestedArchives = false, folderContainers=false;
     bool pdfResources = false;
     // Internal concatenated-folder/nested-archive reading and image-only entry view.

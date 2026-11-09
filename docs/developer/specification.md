@@ -112,3 +112,35 @@ nested Bookは展開した内部書庫の一時ファイル寿命を保持し、
 inlineデータのhashをキーに含むため、現在キーがmissした場合だけ、その表示対象のデータから
 旧キーを復元してlookupする。cache-only lookupは元データを読まない。旧PNGが見つかれば
 再復号・再保存せず利用する。旧PNGの全削除・一括変換や新しい永続対応表は導入しない。
+
+
+## 文書の現在表示・組方向・挿絵
+
+ReaderのOpenOptions.deferDocumentsは有効。検査・独立preview向けの既定APIは従来どおり
+全文検査を行い、ReaderはEPUBのZIP inventory／OPFを先に解析し、現在sectionの本文と
+リソースを要求時に取得する。元ファイルの属性と名前・重複・形式・容量・暗号化の検査は維持。
+raw resource cacheは32 MiB、解析済みsectionは16 MiBに制限する。取消はinventory、
+resourceのchunk読込、XML走査へ伝播する。WebEngineのresource供給もGUI threadで
+読込・変換せず、jobとviewの寿命に従う取消付きworkerへ渡す。
+
+文書controllerは未組版sectionを仮のlocationとして保持し、現在sectionと現在の見開きに
+必要な相方だけを組版する。ページ表はrevisionで同期し、未確定の総数は「…」。表示に
+不要なiframeは外し、現在表示と直近のsectionだけを残す。固定・可変の属性を区別し、
+有効な組方向・見開き順序・左右指定・wide/soloを同じページ表で扱う。可変本文への
+縦／横指定は読む順序にも適用し、文書に従う場合は明示的なEPUB指定、なければ本文組方向。
+固定layoutの組方向は上書きしない。
+
+EPUBのcoverAloneは既定true。表紙文書・表紙画像と本文sectionの参照から識別し、
+識別された表紙を単ページ枠で中央にfitする。出版社のsoloは別属性。本文順序にない表紙は
+挿入しない。最初の表示対象が表紙ならキャッシュ／現在画像を先に描き、そのpaint後に
+文書viewを作る。再開位置が本文なら表紙を挟まない。
+
+青空のWindows相対区切りを正規化して既存の範囲検査に通す。変換したTXT/Markdownの
+画像だけのblockは別sectionとし、captionを保持する。canonical locationはtext.htmlと
+元のoffsetを維持するため、画像sectionの追加で履歴の本文位置を別の意味へ変えない。
+standalone画像は実寸で横長かを判定し、wideImages有効なら単独全幅。混在画像は本文内。
+Readerの画像は要求時にdecode／PNG化し、合計容量と32 MiB cacheを制限する。
+
+前後の本への操作は読込中も既知の隣接情報または明示移動時の走査で受理する。直前の
+文書view／Book／locationを1冊だけ保持し、元ファイルのサイズ・時刻と文書設定が同じ場合
+に復帰する。古いviewの通知は現在viewへ適用しない。強制再読込は現在viewを再生成する。

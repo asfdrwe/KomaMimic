@@ -6,6 +6,7 @@
 class QWebEngineView;
 class QWebEngineProfile;
 class QTimer;
+class PageView;
 class DocumentView : public QWidget {
   Q_OBJECT
 public:
@@ -16,7 +17,16 @@ public:
   void open(std::shared_ptr<const Publication> publication,
             const TextOptions &options, const DocumentLocation &location = {});
   void clear();
+  void setPreview(const QImage &image);
   void jump(int page);
+  void last();
+  void step(int direction,bool onePage=false);
+  void suspend();
+  void resume();
+  bool rightToLeft() const {return m_rightToLeft;}
+  bool complete() const {return m_complete;}
+  int currentIndex() const {return m_current;}
+  QVector<int> visiblePages() const {return m_visible;}
   void find(const QString &text);
   void back();
   bool auxiliaryActive() const { return m_auxiliary; }
@@ -26,6 +36,7 @@ public:
   bool ready() const { return m_ready; }
   bool vertical() const { return m_vertical; }
 signals:
+  void boundaryRequested(int direction);
   void nextRequested();
   void previousRequested();
   void laidOut(const QVector<DocumentLocation> &locations);
@@ -34,16 +45,19 @@ signals:
 
 protected:
   bool eventFilter(QObject *object, QEvent *event) override;
+  void resizeEvent(QResizeEvent *event) override;
 
 private:
   void poll();
   QWebEngineView *m_web;
+  PageView *m_preview=nullptr;
   QWebEngineProfile *m_profile;
   QObject *m_handler;
   QTimer *m_timer;
   DocumentLocation m_location;
   bool m_ready = false, m_polling = false;
-  bool m_vertical = false, m_auxiliary = false;
+  bool m_vertical = false, m_auxiliary = false, m_rightToLeft=false, m_complete=false;
+  int m_revision=-1,m_current=0;QVector<int> m_visible;
   quint64 m_generation = 0;
   int m_wheel = 0;
   QVector<DocumentLocation> m_locations;

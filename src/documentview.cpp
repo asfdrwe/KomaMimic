@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "documentview.h"
+#include "pageview.h"
+#include <QResizeEvent>
 #include <QCoreApplication>
 #include <QApplication>
 #include <QBuffer>
@@ -25,6 +27,9 @@
 #include <QWebEngineUrlSchemeHandler>
 #include <QWebEngineView>
 #include <QWheelEvent>
+#include <QFutureWatcher>
+#include <QtConcurrent>
+#include <atomic>
 
 namespace {
 const QByteArray Scheme = "koma-document";
@@ -40,75 +45,56 @@ public:
   std::shared_ptr<const Publication> publication;
   QString host;
   bool fonts = true;
+  std::shared_ptr<std::atomic<bool>> token=std::make_shared<std::atomic<bool>>(false);
   void requestStarted(QWebEngineUrlRequestJob *job) override {
-    if (!publication || job->requestUrl().host() != host ||
-        job->requestMethod() != "GET") {
-      job->fail(QWebEngineUrlRequestJob::RequestDenied);
-      return;
+    if(!publication || job->requestUrl().host()!=host || job->requestMethod()!="GET") {job->fail(QWebEngineUrlRequestJob::RequestDenied);return;}
+    const auto key=publicationPath({},job->requestUrl().path(QUrl::FullyEncoded).mid(1));
+    if(key=="__reader__.html") {
+      auto *buffer=new QBuffer(job);buffer->setData(("<!doctype html><html><head>"+Csp+"</head><body></body></html>").toUtf8());buffer->open(QIODevice::ReadOnly);job->reply("text/html",buffer);return;
     }
-    const auto key =
-        publicationPath({}, job->requestUrl().path(QUrl::FullyEncoded).mid(1));
-    QByteArray data, mime = "text/html";
-    if (key == "__reader__.html")
-      data =
-          ("<!doctype html><html><head>" + Csp + "</head><body></body></html>")
-              .toUtf8();
-    else {
-      for (const auto &section : publication->sections)
-        if (key == section.path) {
-          auto html = section.html;
-          if (section.wide) {
-            QUrl image;
-            image.setPath('/' + section.imagePath);
-            html = "<html><head><style>html,body{margin:0;width:100%;height:100%;overflow:hidden}"
-                   "img{width:100%;height:100%;object-fit:contain;display:block}</style></head><body><img src=\"" +
-                   image.toString(QUrl::FullyEncoded).toHtmlEscaped() + "\"></body></html>";
-          }
-          html.remove(QRegularExpression("<\\?xml[^>]*>"));
-          const auto head =
-              QRegularExpression("<head(?:\\s[^>]*)?>",
-                                 QRegularExpression::CaseInsensitiveOption)
-                  .match(html);
-          auto childCsp = Csp;
-          childCsp.replace("frame-src 'self'", "frame-src 'none'");
-          if (head.hasMatch())
-            html.insert(head.capturedEnd(), childCsp);
-          else
-            html = "<!doctype html><html><head>" + childCsp + "</head><body>" +
-                   html + "</body></html>";
-          data = html.toUtf8();
-          break;
+    struct Reply {QByteArray data,mime;};
+    const auto cancelled=std::make_shared<std::atomic<bool>>(false);
+    connect(job,&QObject::destroyed,this,[cancelled]{cancelled->store(true);});
+    auto *watcher=new QFutureWatcher<Reply>(this);QPointer<QWebEngineUrlRequestJob> guard(job);
+    const auto requestToken=token;
+    connect(watcher,&QFutureWatcher<Reply>::finished,this,[watcher,guard,requestToken] {
+      const auto result=watcher->result();watcher->deleteLater();if(!guard)return;
+      if(requestToken->load()){guard->fail(QWebEngineUrlRequestJob::RequestAborted);return;}
+      if(result.data.isEmpty()){guard->fail(QWebEngineUrlRequestJob::UrlNotFound);return;}
+      auto *buffer=new QBuffer(guard);buffer->setData(result.data);buffer->open(QIODevice::ReadOnly);guard->reply(result.mime,buffer);
+    });
+    watcher->setFuture(QtConcurrent::run([p=publication,key,fonts=fonts,requestToken,cancelled] {
+      Reply result;const auto cancel=[requestToken,cancelled]{return requestToken->load() || cancelled->load();};
+      if(cancel())return result;
+      for(int i=0;i<p->sections.size();++i)if(p->sections[i].path==key) {
+        const auto section=loadPublicationSection(*p,i,cancel);if(cancel())return result;
+        auto html=section.html;
+        QJsonObject metadata{{"fixed",section.fixed},{"authoredFixed",p->epub && section.fixed},{"imagePage",!section.imagePath.isEmpty()},
+          {"cover",section.cover},{"caption",!section.caption.isEmpty()},{"wide",section.wide},{"side",section.side},{"solo",section.solo},
+          {"width",section.viewport.isValid()?section.viewport.width():1200},{"height",section.viewport.isValid()?section.viewport.height():1600},
+          {"error",section.error}};
+        if(!section.imagePath.isEmpty()) {
+          QUrl image;image.setPath('/'+section.imagePath);
+          html="<html><head></head><body><div class=\"koma-picture-image\"><img src=\""+image.toString(QUrl::FullyEncoded).toHtmlEscaped()+"\"/></div><div class=\"koma-picture-caption\">"+section.caption+"</div></body></html>";
         }
-      if (data.isEmpty()) {
-        data = publication->resources.value(key);
-        mime = QMimeDatabase()
-                   .mimeTypeForFile(key, QMimeDatabase::MatchExtension)
-                   .name()
-                   .toUtf8();
-        if (!fonts && (mime.startsWith("font/") || key.endsWith(".otf") ||
-                       key.endsWith(".ttf") || key.endsWith(".woff") ||
-                       key.endsWith(".woff2")))
-          data.clear();
-        if (data.isEmpty() && !publication->localRoot.isEmpty()) {
-          const auto image = documentResource(publication->localRoot, QUrl(key))
-                                 .value<QImage>();
-          if (!image.isNull()) {
-            QBuffer buffer(&data);
-            buffer.open(QIODevice::WriteOnly);
-            image.save(&buffer, "PNG");
-            mime = "image/png";
-          }
-        }
+        if(!section.error.isEmpty())html="<html><head></head><body></body></html>";
+        html.remove(QRegularExpression("<\\?xml[^>]*>"));
+        auto csp=Csp;csp.replace("frame-src 'self'","frame-src 'none'");
+        const auto stamp="<meta name=\"koma-section\" content=\""+QString::fromUtf8(QJsonDocument(metadata).toJson(QJsonDocument::Compact)).toHtmlEscaped()+"\">";
+        const auto head=QRegularExpression("<head(?:\\s[^>]*)?>",QRegularExpression::CaseInsensitiveOption).match(html);
+        if(head.hasMatch())html.insert(head.capturedEnd(),csp+stamp);else html="<html><head>"+csp+stamp+"</head><body>"+html+"</body></html>";
+        result.data=html.toUtf8();result.mime="text/html";return result;
       }
-    }
-    if (data.isEmpty()) {
-      job->fail(QWebEngineUrlRequestJob::UrlNotFound);
-      return;
-    }
-    auto *buffer = new QBuffer(job);
-    buffer->setData(data);
-    buffer->open(QIODevice::ReadOnly);
-    job->reply(mime, buffer);
+      result.mime=QMimeDatabase().mimeTypeForFile(key,QMimeDatabase::MatchExtension).name().toUtf8();
+      if(!fonts && (result.mime.startsWith("font/") || key.endsWith(".otf") || key.endsWith(".ttf") || key.endsWith(".woff") || key.endsWith(".woff2")))return result;
+      result.data=publicationResource(*p,key,cancel);
+      if(result.data.isEmpty() && !p->localRoot.isEmpty() && !cancel()) {
+        const auto image=documentResource(p->localRoot,QUrl(key)).value<QImage>();
+        if(!image.isNull()){QBuffer buffer(&result.data);buffer.open(QIODevice::WriteOnly);image.save(&buffer,"PNG");result.mime="image/png";}
+      }
+      if(cancel())result.data.clear();
+      return result;
+    }));
   }
 };
 class Interceptor : public QWebEngineUrlRequestInterceptor {
@@ -149,6 +135,7 @@ QJsonObject DocumentView::readerMessages() {
     {"notePrevious", QCoreApplication::translate("KomaMimic", "注釈の前頁")},
     {"noteNext", QCoreApplication::translate("KomaMimic", "注釈の次頁")},
     {"loadFailed", QCoreApplication::translate("KomaMimic", "本文を読み込めません。")},
+    {"imageFailed",QCoreApplication::translate("KomaMimic", "画像データを読めません。")},
     {"loadTimeout", QCoreApplication::translate("KomaMimic", "本文の読み込みがタイムアウトしました。")},
     {"parseFailed", QCoreApplication::translate("KomaMimic", "本文がHTMLとして解釈できません。")}
   };
@@ -190,6 +177,7 @@ DocumentView::DocumentView(QWidget *parent) : QWidget(parent) {
   auto *layout = new QVBoxLayout(this);
   layout->setContentsMargins(0, 0, 0, 0);
   layout->addWidget(m_web);
+  m_preview=new PageView(this);m_preview->setObjectName("documentCoverPreview");m_preview->setFilenameVisible(false);m_preview->hide();
   m_timer = new QTimer(this);
   m_timer->setInterval(150);
   connect(m_timer, &QTimer::timeout, this, &DocumentView::poll);
@@ -206,11 +194,13 @@ DocumentView::~DocumentView() {
 }
 void DocumentView::clear() {
   ++m_generation;
+  static_cast<Handler *>(m_handler)->token->store(true);
   m_timer->stop();
   m_ready = false;
+  m_preview->setMessage({});m_preview->hide();
   m_vertical = false; m_auxiliary=false;
   m_polling = false;
-  m_locations.clear();
+  m_locations.clear();m_visible.clear();m_revision=-1;m_complete=false;
   m_location = {};
   m_web->stop();
   static_cast<Handler *>(m_handler)->publication.reset();
@@ -218,9 +208,10 @@ void DocumentView::clear() {
 void DocumentView::open(std::shared_ptr<const Publication> publication,
                         const TextOptions &o,
                         const DocumentLocation &location) {
-  clear();
+  clear();m_location=location;
   const auto generation = m_generation;
   auto *handler = static_cast<Handler *>(m_handler);
+  handler->token=std::make_shared<std::atomic<bool>>(false);
   handler->publication = publication;
   handler->host = QUuid::createUuid().toString(QUuid::WithoutBraces);
   handler->fonts = o.embeddedFonts;
@@ -229,7 +220,7 @@ void DocumentView::open(std::shared_ptr<const Publication> publication,
   for (const auto &s : publication->sections)
     sections.append(QJsonObject{
         {"path", s.path},
-        {"plain", s.plain},
+        {"plain", s.plain},{"locationPath",s.locationPath},{"baseOffset",s.baseOffset},
         {"side",s.side},{"solo",s.solo},{"auxiliary",s.auxiliary},
         {"fixed", s.fixed || s.wide},
         {"imagePage", s.wide},
@@ -243,7 +234,7 @@ void DocumentView::open(std::shared_ptr<const Publication> publication,
                       {"size", o.pointSize},
                       {"spacing", o.lineSpacing},
                       {"margin", o.margin},
-                      {"pageLayout", o.pageLayout},
+                      {"pageLayout", o.pageLayout},{"wideImages",o.wideImages},{"coverAlone",o.coverAlone},
                       {"writingMode", o.writingMode == 0 && !publication->epub
                                           ? (o.vertical ? 2 : 1)
                                           : o.writingMode},
@@ -254,7 +245,7 @@ void DocumentView::open(std::shared_ptr<const Publication> publication,
       QJsonDocument(QJsonObject{{"base", base},
                                 {"messages", readerMessages()}, {"sections", sections},
                                 {"options", options},
-                                {"epub", publication->epub},
+                                {"epub", publication->epub},{"directionSpecified",publication->directionSpecified},
                                 {"rightToLeft", publication->epub ? publication->rightToLeft
                                     : options.value("writingMode").toInt() == 2},
                                 {"location", location.json()}})
@@ -302,8 +293,7 @@ void DocumentView::poll() {
   const auto generation = m_generation;
   QPointer<DocumentView> guard(this);
   m_web->page()->runJavaScript(
-      (m_ready ? "window.komaDocument && window.komaDocument.state(false)"
-               : "window.komaDocument && window.komaDocument.state(true)"),
+      QString("window.komaDocument && window.komaDocument.state(%1)").arg(m_revision),
       QWebEngineScript::ApplicationWorld,
       [guard, generation](const QVariant &value) {
         if (!guard || generation != guard->m_generation)
@@ -312,35 +302,50 @@ void DocumentView::poll() {
         self->m_polling = false;
         const auto state = QJsonObject::fromVariantMap(value.toMap());
         if (!state.value("error").toString().isEmpty()) {
-          self->m_timer->stop();
+          if(!self->m_ready)self->m_timer->stop();
           emit self->failed(state.value("error").toString());
           return;
         }
         if (!state.value("ready").toBool())
           return;
+        if(!self->m_preview->isHidden()){self->m_preview->setMessage({});self->m_preview->hide();}
         self->m_auxiliary=state.value("auxiliary").toBool();
-        self->m_vertical = state.value("vertical").toBool();
-        if (!self->m_ready) {
-          for (const auto &p : state.value("pages").toArray())
-            self->m_locations.append(DocumentLocation::fromJson(p.toObject()));
-          self->m_ready = true;
-          emit self->laidOut(self->m_locations);
-        }
-        const int page = state.value("current").toInt();
-        if (page >= 0 && page < self->m_locations.size() &&
-            state.value("changed").toBool()) {
-          self->m_location = self->m_locations[page];
-          emit self->positionChanged(page, self->m_location);
+        self->m_vertical=state.value("vertical").toBool();self->m_rightToLeft=state.value("rightToLeft").toBool();self->m_complete=state.value("complete").toBool();
+        self->m_visible.clear();for(const auto &v:state.value("visible").toArray())self->m_visible.append(v.toInt());
+        const auto revision=state.value("revision").toInt();const bool layoutChanged=revision!=self->m_revision;
+        if(layoutChanged){self->m_locations.clear();for(const auto &p:state.value("pages").toArray())self->m_locations.append(DocumentLocation::fromJson(p.toObject()));self->m_revision=revision;}
+        if(const int boundary=state.value("boundary").toInt();boundary){emit self->boundaryRequested(boundary);if(!guard || generation!=guard->m_generation)return;}
+        const int page=state.value("current").toInt();self->m_current=page;self->m_ready=true;
+        if(page>=0 && page<self->m_locations.size()) {
+          self->m_location=self->m_locations[page];
+          if(layoutChanged){emit self->laidOut(self->m_locations);if(!guard || generation!=guard->m_generation)return;}
+          if(state.value("changed").toBool())emit self->positionChanged(page,self->m_location);
         }
       });
 }
+void DocumentView::setPreview(const QImage &image) {
+  if(image.isNull())return;
+  m_preview->setPages({image},false,{});m_preview->setGeometry(rect());m_preview->show();m_preview->raise();
+}
+void DocumentView::resizeEvent(QResizeEvent *event) {
+  QWidget::resizeEvent(event);if(m_preview)m_preview->setGeometry(rect());
+}
 void DocumentView::jump(int page) {
+  m_timer->start();
   m_web->page()->runJavaScript(
       QString("window.komaDocument && window.komaDocument.select(%1)")
           .arg(page),
       QWebEngineScript::ApplicationWorld);
 }
+void DocumentView::last() {m_timer->start();m_web->page()->runJavaScript("window.komaDocument && window.komaDocument.last()",QWebEngineScript::ApplicationWorld);}
+void DocumentView::step(int direction,bool onePage) {
+  m_timer->start();
+  m_web->page()->runJavaScript(QString("window.komaDocument && window.komaDocument.step(%1,%2)").arg(direction).arg(onePage?"true":"false"),QWebEngineScript::ApplicationWorld);
+}
+void DocumentView::suspend(){++m_generation;m_polling=false;m_timer->stop();static_cast<Handler *>(m_handler)->token->store(true);m_web->page()->runJavaScript("window.komaDocument && window.komaDocument.pause()",QWebEngineScript::ApplicationWorld);}
+void DocumentView::resume(){m_revision=-1;m_polling=false;static_cast<Handler *>(m_handler)->token=std::make_shared<std::atomic<bool>>(false);m_timer->start();}
 void DocumentView::find(const QString &text) {
+  m_timer->start();
   const auto arg = QString::fromUtf8(
       QJsonDocument(QJsonArray{text}).toJson(QJsonDocument::Compact));
   m_web->page()->runJavaScript(

@@ -41,3 +41,9 @@ Other attributes such as event handlers are discarded; arbitrary HTML is not exe
 External URLs and images outside the allowed root are blocked. Unresolved references remain visible as annotations.
 Limits are 256 distinct image references, 16 MiB and 16 million pixels per image, and 64 MiB of converted images in total.
 Not every Aozora annotation or HTML tag is interpreted.
+
+Aozora illustration references also accept Windows-style relative separators after
+normalization. Standalone image blocks are separate reading pages; landscape images
+use the full spread width when wide-image display is enabled. Captions and text
+locations are preserved. Images mixed with prose remain inline, and reading resources
+are loaded when their section is needed.

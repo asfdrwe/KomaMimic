@@ -3,6 +3,10 @@
 <TS version="2.1" language="en" sourcelanguage="ja">
     <context>
         <name>KomaMimic</name>
+    <message>
+        <source>EPUBの表紙を単ページにする</source>
+        <translation>Show the EPUB cover on a single page</translation>
+    </message>
         <message>
             <location filename="../src/apng.cpp" line="52" />
             <source>APNGのチャンク数が上限を超えています。</source>

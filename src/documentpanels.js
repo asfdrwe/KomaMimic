@@ -32,5 +32,10 @@ window.komaPanels = (() => {
         return {scale, left: panel.left + (panel.width - width) / 2,
                 top: panel.top + (panel.height - height) / 2, width, height};
     }
-    return {plan, geometry, contentGeometry};
+    function direction(epub, specified, published, writingMode, fixed, vertical) {
+        if(!fixed && writingMode) return writingMode===2;
+        return epub && specified ? published : vertical;
+    }
+    function isWide(w,h){return w>h && w>=512 && h>=256;}
+    return {plan, geometry, contentGeometry, direction, isWide};
 })();

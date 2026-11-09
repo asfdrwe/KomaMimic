@@ -95,12 +95,16 @@ private:
     friend class ReaderFeatures;
     friend class ThumbnailTests;
     friend class ReaderStartupTests;
+    friend class DocumentBehaviorTests;
     friend class ReaderInput;
     void buildDocumentActions();
     void documentSettings();
     void updateDocumentActions();
-    void openDocumentView();
+    void openDocumentView(const QImage &preview = {});
     void clearDocumentView();
+    void retainDocumentView();
+    void discardRetainedDocument();
+    bool restoreRetainedDocument(const QString &path,ViewMode mode);
     void documentLaidOut(const QVector<DocumentLocation> &locations);
     void saveDocumentLocation();
     DocumentLocation currentDocumentLocation() const;
@@ -214,7 +218,13 @@ private:
     DocumentView *m_documentView = nullptr;
     DocumentLocation m_pendingDocumentLocation;
     bool m_restoreDocumentLocation = false;
-    QSet<int> m_documentWidePages, m_documentSoloPages;
+    QSet<int> m_documentWidePages, m_documentSoloPages, m_documentRtlPages;
+    struct RetainedDocument {
+        DocumentView *view=nullptr;std::shared_ptr<const Book> book;
+        QString path;QVariantMap settings; qint64 size=0,modified=0;int anchor=0;
+        QSet<int> wide,solo,rtl;QHash<int,int> sides;
+    } m_retainedDocument;
+    QMetaObject::Connection m_documentPreviewPaint;
     QHash<int,int> m_documentSides;
     QHash<QString, QKeySequence> m_baseBindings, m_documentBindings;
     QLabel *m_status;

@@ -4,6 +4,9 @@
 
 ## Unreleased
 
+- Synchronize reflow writing mode and spread order. Center EPUB covers on a single page, prepare current sections/resources first, cancel obsolete loads, and reuse the previous document view.
+- Resolve Windows-style relative Aozora image paths. Load illustration sections on demand, preserve captions/text locations, and display standalone landscape illustrations at full spread width.
+
 - Defer hidden thumbnail preparation and directory listing until the relevant view is active. Cancel old GUI deliveries and avoid duplicate image requests during opening.
 - Make Load all files a saved loading option. Retain file data within its memory budget only while reading, after current display and nearby preloading.
 - Read nested and folder-container images on demand. Isolate local errors in unshown entries and improve animation cancellation.

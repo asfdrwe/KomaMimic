@@ -800,7 +800,7 @@ private slots:
     QFETCH(bool, vertical);
     auto publication = std::make_shared<Publication>();
     publication->epub = true;
-    publication->rightToLeft = true;
+    publication->rightToLeft = true;publication->directionSpecified=true;
     publication->resources["cover.png"] = TestData::png(TestData::solid(Qt::green, {480,720}));
     // Same viewport, vertical flow, paragraph and inline image as C16. A larger
     // iframe with a scaled body clips this content before the outer page is fit.
@@ -829,17 +829,22 @@ private slots:
       QTRY_VERIFY_WITH_TIMEOUT(view.ready(),30000);
       QCOMPARE(pageCount,3);
       auto *web = view.findChild<QWebEngineView *>(); QVERIFY(web);
-      bool done = false; QVariant result;
-      web->page()->runJavaScript(R"JS((()=>{
-        const rect=r=>({x:r.x,y:r.y,width:r.width,height:r.height});
-        return [...document.querySelectorAll('iframe')].map(f=>{
-          const d=f.contentDocument, range=d.createRange();range.selectNodeContents(d.querySelector('p'));
+      QVariantList frames;
+      // Visit every authored page; unread iframes are intentionally not created.
+      for(int page=0;page<3;++page) {
+        view.jump(page);QTRY_COMPARE(view.location().section,QString("c%1.xhtml").arg(page+1));
+        bool done=false;QVariant result;
+        web->page()->runJavaScript(QString(R"JS((()=>{
+          const f=[...document.querySelectorAll('iframe')].find(f=>f.style.visibility==='visible' && f.src.endsWith('/c%1.xhtml'));
+          const d=f.contentDocument,range=d.createRange();range.selectNodeContents(d.querySelector('p'));
+          const rect=r=>({x:r.x,y:r.y,width:r.width,height:r.height});
           return {width:f.contentWindow.innerWidth,height:f.contentWindow.innerHeight,
             mode:getComputedStyle(d.body).writingMode,font:getComputedStyle(d.body).fontSize,
             image:rect(d.querySelector('img').getBoundingClientRect()),text:rect(range.getBoundingClientRect())};
-        });})())JS", QWebEngineScript::ApplicationWorld,[&](const QVariant &v){result=v;done=true;});
-      QTRY_VERIFY(done);
-      const auto frames=result.toList(); QCOMPARE(frames.size(),3);
+        })())JS").arg(page+1),QWebEngineScript::ApplicationWorld,[&](const QVariant &v){result=v;done=true;});
+        QTRY_VERIFY(done);frames.append(result);
+      }
+      QCOMPARE(frames.size(),3);
       for (const auto &frame : frames) {
         const auto data=frame.toMap();
         QCOMPARE(data.value("width").toInt(),480); QCOMPARE(data.value("height").toInt(),720);

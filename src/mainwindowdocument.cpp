@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "documentsettings.h"
+#include "archivepath.h"
 #include <QCoreApplication>
 #include "mainwindow.h"
 #include "pageview.h"
@@ -90,11 +91,13 @@ void MainWindow::updateDocumentActions() {
   m_actions["autoSpread"]->setEnabled(!extended && !m_loading);
   for (const auto &id : {"rtl", "cover", "thumbnails", "imagePaste"})
     if (auto *a = m_actions.value(id))
-      a->setEnabled(!extended || (QString(id) == "thumbnails" && m_mode == ViewMode::Covers));
+      a->setEnabled(!extended || (QString(id) == "cover" && m_book->publication->epub) || (QString(id) == "thumbnails" && m_mode == ViewMode::Covers));
+  if(extended) {const QSignalBlocker cover(m_actions["cover"]);m_actions["cover"]->setChecked(m_book->openOptions.text.coverAlone);}
   if (extended) {
     const QSignalBlocker blocker(m_actions["spread"]);
     m_actions["spread"]->setChecked(m_book->openOptions.text.pageLayout == 1);
   } else {
+    const QSignalBlocker cover(m_actions["cover"]);m_actions["cover"]->setChecked(m_options.coverAlone);
     const QSignalBlocker blocker(m_actions["spread"]);
     m_actions["spread"]->setChecked(m_options.spread);
   }
@@ -141,6 +144,8 @@ void MainWindow::setDocumentOption(const QString &key, const QVariant &value) {
 DocumentLocation MainWindow::currentDocumentLocation() const {
   if (!m_book || m_anchor < 0 || m_anchor >= pageCount())
     return {};
+  if(documentViewActive() && m_documentView && m_documentView->ready())return m_documentView->location();
+  if(m_retainedDocument.path==m_currentPath && m_retainedDocument.view)return m_retainedDocument.view->location();
   const auto &p = m_book->pages[m_anchor];
   QString quote;
   if (m_book->documentContent)
@@ -283,6 +288,7 @@ void MainWindow::documentSettings() {
   {
     choice(af, "pageLayout", QCoreApplication::translate("KomaMimic", "ページ配置"),
            {QCoreApplication::translate("KomaMimic", "単ページ"), QCoreApplication::translate("KomaMimic", "見開き（2ページ）")});
+    check(af,"coverAlone",QCoreApplication::translate("KomaMimic", "EPUBの表紙を単ページにする"));
     check(af, "wideImages", QCoreApplication::translate("KomaMimic", "横長の画像ページを全幅表示"));
     check(af, "publisherStyles", QCoreApplication::translate("KomaMimic", "EPUBの出版社CSSを使用"));
     check(af, "embeddedFonts", QCoreApplication::translate("KomaMimic", "EPUBの埋め込みフォントを使用"));
@@ -300,6 +306,7 @@ void MainWindow::documentSettings() {
   const auto reload = [&] {
     const int s = book ? scope->currentIndex() : 2;
     values = documentOptions(*m_settings, path, s == 0, s <= 1);
+    fields["coverAlone"]->setEnabled(!book || QFileInfo(path).suffix().compare("epub",Qt::CaseInsensitive)==0 || s==2);
     for (auto i = fields.begin(); i != fields.end(); ++i) {
       const auto v = values.value(i.key());
       if (auto *c = qobject_cast<QFontComboBox *>(i.value()))
@@ -369,21 +376,24 @@ void MainWindow::documentSettings() {
   else
     updateDocumentActions();
 }
-void MainWindow::openDocumentView() {
+void MainWindow::openDocumentView(const QImage &preview) {
   if (!m_documentView) {
     m_documentView = new DocumentView(m_stack);
     for (const auto &spec : shortcutSpecs())
       if (spec.scope == ShortcutScope::Reader) m_documentView->addAction(m_actions[spec.id]);
     m_stack->addWidget(m_documentView);
-    connect(m_documentView, &DocumentView::nextRequested, this,
-            &MainWindow::nextPage);
-    connect(m_documentView, &DocumentView::previousRequested, this,
-            &MainWindow::previousPage);
-    connect(m_documentView, &DocumentView::laidOut, this,
-            &MainWindow::documentLaidOut);
+    auto *view=m_documentView;
+    connect(view,&DocumentView::boundaryRequested,this,[this,view](int direction){
+      if(view!=m_documentView || !documentViewActive())return;
+      if(m_options.boundaryMode==BoundaryMode::RepeatSource){if(direction>0)view->jump(0);else view->last();}
+      else if(m_options.boundaryMode==BoundaryMode::AdvanceSource)requestAdjacentBook(direction,ViewMode::Reader,direction<0);
+    });
+    connect(view,&DocumentView::nextRequested,this,[this,view]{if(view==m_documentView)nextPage();});
+    connect(view,&DocumentView::previousRequested,this,[this,view]{if(view==m_documentView)previousPage();});
+    connect(view,&DocumentView::laidOut,this,[this,view](const QVector<DocumentLocation> &locations){if(view==m_documentView)documentLaidOut(locations);});
     connect(m_documentView, &DocumentView::positionChanged, this,
-            [this](int page, const DocumentLocation &) {
-              if (!documentViewActive())
+            [this,view](int page, const DocumentLocation &) {
+              if (view!=m_documentView || !documentViewActive())
                 return;
               m_anchor = page;
               m_renderReady = true;
@@ -393,8 +403,10 @@ void MainWindow::openDocumentView() {
               refreshState();
             });
     connect(m_documentView, &DocumentView::failed, this,
-            [this](const QString &error) {
+            [this,view](const QString &error) {
+              if(view!=m_documentView)return;
               m_lastError = error;
+              if(view->ready()){m_renderReady=true;refreshState();statusBar()->showMessage(error);return;}
               m_renderReady = false;
               m_view->setMessage(error);
               if (m_mode == ViewMode::Reader)
@@ -406,6 +418,7 @@ void MainWindow::openDocumentView() {
                                                   : currentDocumentLocation();
   m_restoreDocumentLocation = false;
   m_documentView->open(m_book->publication, m_book->openOptions.text, location);
+  m_documentView->setPreview(preview);
   setMode(m_mode);
 }
 void MainWindow::documentLaidOut(const QVector<DocumentLocation> &locations) {
@@ -413,8 +426,9 @@ void MainWindow::documentLaidOut(const QVector<DocumentLocation> &locations) {
     return;
   const auto old = currentDocumentLocation();
   QVector<BookPage> pages;
-  m_documentWidePages.clear(); m_documentSoloPages.clear(); m_documentSides.clear();
+  m_documentWidePages.clear(); m_documentSoloPages.clear(); m_documentSides.clear();m_documentRtlPages.clear();
   for (const auto &location : locations) {
+    if(location.rightToLeft)m_documentRtlPages.insert(pages.size());
     if (location.wide) m_documentWidePages.insert(pages.size());
     if (location.solo) m_documentSoloPages.insert(pages.size());
     if (location.side) m_documentSides.insert(pages.size(),location.side);
@@ -431,6 +445,7 @@ void MainWindow::documentLaidOut(const QVector<DocumentLocation> &locations) {
   m_book = m_book->withPages(pages);
   m_anchor = resolveDocumentLocation(old);
   m_renderReady = true;
+  m_view->setMessage({});
   presentedBook();
   populatePages();
   if (m_features)
@@ -439,11 +454,46 @@ void MainWindow::documentLaidOut(const QVector<DocumentLocation> &locations) {
 }
 
 void MainWindow::clearDocumentView() {
-  m_documentWidePages.clear(); m_documentSoloPages.clear(); m_documentSides.clear();
+  m_documentWidePages.clear(); m_documentSoloPages.clear(); m_documentSides.clear();m_documentRtlPages.clear();
   if (m_documentView) {
     m_documentView->clear();
     m_stack->removeWidget(m_documentView);
     delete m_documentView;
     m_documentView = nullptr;
   }
+}
+
+void MainWindow::discardRetainedDocument() {
+  if(auto *view=m_retainedDocument.view){m_stack->removeWidget(view);delete view;}
+  m_retainedDocument={};
+}
+void MainWindow::retainDocumentView() {
+  if(!m_documentView || !m_documentView->ready() || !m_book){clearDocumentView();return;}
+  discardRetainedDocument();const QFileInfo source(physicalBookPath(m_currentPath));
+  m_retainedDocument={m_documentView,m_book,m_currentPath,documentOptions(*m_settings,m_currentPath),source.size(),source.lastModified().toMSecsSinceEpoch(),m_anchor,
+    m_documentWidePages,m_documentSoloPages,m_documentRtlPages,m_documentSides};
+  m_documentView->suspend();m_documentView->hide();m_documentView=nullptr;
+  m_documentWidePages.clear();m_documentSoloPages.clear();m_documentRtlPages.clear();m_documentSides.clear();
+}
+bool MainWindow::restoreRetainedDocument(const QString &path,ViewMode mode) {
+  auto saved=m_retainedDocument;
+  if(!saved.view || saved.path!=QFileInfo(path).absoluteFilePath())return false;
+  const QFileInfo file(physicalBookPath(path));
+  if(file.size()!=saved.size || file.lastModified().toMSecsSinceEpoch()!=saved.modified || saved.settings!=documentOptions(*m_settings,path)) {
+    discardRetainedDocument();return false;
+  }
+  // Swap the one retained view with the currently displayed document.
+  m_retainedDocument={};saveDocumentLocation();
+  if(m_features)m_features->closingBook();
+  if(m_currentPath!=saved.path)retainDocumentView();else clearDocumentView();
+  const auto directory=QFileInfo(physicalBookPath(saved.path)).absolutePath();
+  if(directory!=m_directory){m_directory=directory;m_directoryDirty=true;m_neighborDirectory.clear();m_neighborPaths.clear();}
+  m_currentPath=saved.path;m_book=saved.book;m_documentView=saved.view;
+  m_documentWidePages=saved.wide;m_documentSoloPages=saved.solo;m_documentRtlPages=saved.rtl;m_documentSides=saved.sides;
+  m_loading=false;m_renderReady=true;m_readerPresented=true;m_lastError.clear();m_anchor=saved.anchor;
+  ++m_bookGeneration;m_openToken->store(m_bookGeneration);m_renderToken->store(++m_renderGeneration);
+  if(m_features)m_features->openedBook();
+  m_anchor=saved.anchor;
+  if(mode==ViewMode::Reader || mode==ViewMode::Pages)m_documentView->resume();
+  setMode(mode==ViewMode::Pages?ViewMode::Reader:mode);refreshState();return true;
 }

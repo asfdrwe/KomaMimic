@@ -14,7 +14,7 @@ struct TextOptions {
   int markdownDialect = 1; // 0: CommonMark, 1: GitHub
   int contentMode = 0; // 0: extension, 1: plain/Aozora, 2: Markdown
   int pageLayout = 0; // 0: single, 1: two-page spread
-  bool wideImages = true;
+  bool wideImages = true, coverAlone = true;
 };
 bool isTextDocumentPath(const QString &path);
 bool isArchiveTextPath(const QString &path);

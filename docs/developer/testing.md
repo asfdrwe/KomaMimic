@@ -38,12 +38,12 @@ Rerun timed-out suites individually to distinguish contention from a genuine han
 
 ## Test scopes
 
-`full` registers 22 CTest entries: 19 Qt suites (compatibility, reader, UI,
+`full` registers 23 CTest entries (24 when Node.js is available): 20 Qt suites (compatibility, reader, UI,
 feature, format, PDF, CLI, script, PIC, document, power, evolution, cache, i18n,
-archive_text, legacy_settings, thumbnail and thumbnail_scroll), the C-locale format check, and the Python
+archive_text, legacy_settings, thumbnail, thumbnail_scroll, reader_startup and document_behavior), the C-locale format check, and the Python
 single-instance IPC and distribution checks.
-`platform` registers 15 CTest entries: compatibility, CLI, UI, PDF, script,
-document, power, cache, i18n, legacy_settings, thumbnail, thumbnail_scroll, single-instance IPC, and
+`platform` registers 16 CTest entries (17 when Node.js is available): compatibility, CLI, UI, PDF, script,
+document, power, cache, i18n, legacy_settings, thumbnail, thumbnail_scroll, reader_startup, document_behavior, single-instance IPC, and
 distribution. Some Qt suites run only selected platform integration functions.
 This is the Windows-fast CI default. Its cache suite selects cancellation,
 disk-persistence and worker-scheduling regressions; it is not the full cache suite.
@@ -161,3 +161,14 @@ build. Native manual checks have a [separate procedure](platform-validation.md).
 親に300フォルダがある状態からキャッシュ済みの子へ移動し、移動前の生成・検証・保存・
 画面外workerを停止したまま一覧と青い表紙画像が表示されることを確認する。
 また更新中の項目を未表示に戻すと旧要求が取り消され、再可視化ではキャッシュから復帰できることを検査する。
+
+
+`document_behavior_tests` exercises deferred EPUB resources, document cancellation,
+legacy relative illustration paths, caption/location preservation, and book navigation
+without cover-list items. Its native cases verify writing-mode overrides, cover sizing,
+landscape Aozora pages and retained-view restoration; they require working WebEngine IPC.
+When Node.js is available, `document_layout_tests` also executes the production reader
+controller against a deterministic DOM adapter to test lazy scheduling, spread order,
+resume offsets, request replacement and recovery from a later chapter error. This
+adapter does not replace native rendering checks. Synthetic fixtures contain no real
+book or author names. Private sample diagnostics must use anonymous identifiers in logs.

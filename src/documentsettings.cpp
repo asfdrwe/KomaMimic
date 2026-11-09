@@ -35,6 +35,7 @@ QVariantMap documentOptionDefaults() {
           {"writingMode", 0},
           {"pageLayout", 0},
           {"wideImages", true},
+          {"coverAlone",true},
           {"markdownDialect", 1},
           {"contentMode", 0}};
 }
@@ -86,6 +87,7 @@ TextOptions textOptions(const QVariantMap &v) {
   o.markdownDialect = std::clamp(v.value("markdownDialect", 1).toInt(), 0, 1);
   o.contentMode = std::clamp(v.value("contentMode").toInt(), 0, 2);
   o.pageLayout = std::clamp(v.value("pageLayout").toInt(), 0, 1);
+  o.coverAlone=v.value("coverAlone",true).toBool();
   o.wideImages = v.value("wideImages", true).toBool();
   return o;
 }

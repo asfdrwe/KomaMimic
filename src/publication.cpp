@@ -2,6 +2,9 @@
 #include "publication.h"
 #include <QCoreApplication>
 #include <QDir>
+#include <QCache>
+#include <QMutex>
+#include <QThread>
 #include <QCryptographicHash>
 #include <QBuffer>
 #include <QFile>
@@ -18,6 +21,72 @@
 #include <archive.h>
 #include <archive_entry.h>
 
+// Immutable archive inventory; only the bounded raw cache is mutable.
+struct PublicationArchive {
+  QString path; qint64 size=0, modified=0;
+  QHash<QString,qint64> entries;
+  QMutex mutex; QCache<QString,QByteArray> cache{32*1024};QCache<QString,PublicationSection> sections{16*1024};
+};
+struct PublicationImages {
+  QMutex mutex;QCache<QString,QByteArray> cache{32*1024};
+  QHash<QString,qint64> sizes; qint64 total=0;
+};
+QByteArray publicationResource(const Publication &p,const QString &key,const std::function<bool()> &cancel,QString *error) {
+  const auto fail=[&](const QString &message){if(error)*error=message;return QByteArray{};};
+  const auto cancelled=[&]{return cancel && cancel();};
+  if(cancelled())return fail(QCoreApplication::translate("KomaMimic", "EPUBの読み込みを中止しました。"));
+  if(p.blockedResources.contains(key))return {};
+  if(p.resources.contains(key))return p.resources.value(key);
+  if(p.imageSources.contains(key)) {
+    const auto state=p.images;
+    {QMutexLocker lock(&state->mutex);if(const auto *hit=state->cache.object(key))return *hit;}
+    QUrl url;url.setPath(p.imageSources.value(key));
+    ++PublicationActivity::imageDecodes;
+    const auto image=(p.imageReader?p.imageReader(url,cancel):p.imageLoader?p.imageLoader(url):documentResource(p.localRoot,url)).value<QImage>();
+    if(cancelled() || image.isNull() || image.sizeInBytes()>64*1024*1024)return {};
+    QByteArray data;QBuffer output(&data);output.open(QIODevice::WriteOnly);
+    if(!image.save(&output,"PNG") || cancelled())return {};
+    QMutexLocker lock(&state->mutex);
+    if(!state->sizes.contains(key)) {
+      if(state->total+data.size()>64*1024*1024)return {};
+      state->sizes[key]=data.size();state->total+=data.size();
+    }
+    state->cache.insert(key,new QByteArray(data),int((data.size()+1023)/1024));return data;
+  }
+  const auto source=p.archive;
+  if(!source || !source->entries.contains(key))return {};
+  const QFileInfo info(source->path);
+  if(info.size()!=source->size || info.lastModified().toMSecsSinceEpoch()!=source->modified)
+    return fail(QCoreApplication::translate("KomaMimic", "画像・書庫が変更されています。開き直してください。"));
+  QByteArray data;
+  {QMutexLocker lock(&source->mutex);if(const auto *hit=source->cache.object(key))data=*hit;}
+  if(data.isEmpty()) {
+    auto *a=archive_read_new();archive_read_support_format_zip(a);QFile input(source->path);
+    struct Cleanup {archive *a;~Cleanup(){archive_read_free(a);}} cleanup{a};
+    if(!input.open(QIODevice::ReadOnly) || archive_read_open_fd(a,input.handle(),65536)!=ARCHIVE_OK)
+      return fail(QCoreApplication::translate("KomaMimic", "EPUBのZIPを開けません。"));
+    archive_entry *entry=nullptr;bool found=false;
+    while(archive_read_next_header(a,&entry)==ARCHIVE_OK) {
+      if(cancelled())return fail(QCoreApplication::translate("KomaMimic", "EPUBの読み込みを中止しました。"));
+      const auto *raw=archive_entry_pathname_utf8(entry);
+      if(!raw || QString::fromUtf8(raw)!=key){if(archive_read_data_skip(a)<ARCHIVE_WARN)break;continue;}
+      found=true;++PublicationActivity::payloadReads;char buffer[65536];la_ssize_t n;
+      while((n=archive_read_data(a,buffer,sizeof buffer))>0) {
+        if(cancelled())return fail(QCoreApplication::translate("KomaMimic", "EPUBの読み込みを中止しました。"));
+        if(data.size()+n>32*1024*1024)return fail(QCoreApplication::translate("KomaMimic", "EPUB表紙の項目が大きすぎるか、暗号化されています。"));
+        PublicationActivity::payloadBytes+=n;data.append(buffer,n);
+      }
+      if(n<0 || data.size()!=source->entries.value(key))return fail(QCoreApplication::translate("KomaMimic", "EPUBのZIPを読み終えられません。"));
+      break;
+    }
+    if(!found)return fail(QCoreApplication::translate("KomaMimic", "EPUBのZIPを読み終えられません。"));
+    if(cancelled())return {};
+    QMutexLocker lock(&source->mutex);source->cache.insert(key,new QByteArray(data),int((data.size()+1023)/1024));
+  }
+  const auto font=p.fontKeys.value(key);
+  if(!font.isEmpty())for(int i=0;i<std::min<qsizetype>(1040,data.size());++i)data[i]=char(uchar(data[i])^uchar(font[i%font.size()]));
+  return data;
+}
 QJsonObject DocumentLocation::json() const {
   return {{"version", 1},
           {"section", section},
@@ -27,7 +96,7 @@ QJsonObject DocumentLocation::json() const {
 DocumentLocation DocumentLocation::fromJson(const QJsonObject &o) {
   return {o.value("section").toString(), std::max(0, o.value("offset").toInt()),
           o.value("quote").toString(), o.value("wide").toBool(),
-          o.value("side").toInt(), o.value("solo").toBool()};
+          o.value("side").toInt(), o.value("solo").toBool(), o.value("rightToLeft").toBool(), o.value("pending").toBool()};
 }
 QString publicationPath(const QString &base, const QString &reference) {
   const QUrl ref(reference);
@@ -80,7 +149,7 @@ QVariant LocalTextDocument::loadResource(int type, const QUrl &url) {
   m_bytes += image.sizeInBytes();
   return image;
 }
-QString aozoraHtml(const QString &text, const std::function<QString(const QString &)> &imageSource) {
+QString aozoraHtml(const QString &text, const std::function<QString(const QString &)> &imageSource, const std::function<bool()> &cancel) {
   const QRegularExpression ruby(QStringLiteral("(?:｜([^《\n]+)|([\\p{Han}々]+))《([^》\n]+)》"));
   // Offsets use the canonical plain text shared with cover previews: ruby
   // readings are excluded; annotation characters retain their source positions.
@@ -108,6 +177,7 @@ QString aozoraHtml(const QString &text, const std::function<QString(const QStrin
   };
   QString html; int offset=0, blockIndent=0, heading=0; bool horizontal=false, caption=false;
   for(const auto &line:text.split('\n')) {
+    if(cancel && cancel())return {};
     const int lineStart=offset; int lineHeading=heading; bool lineCaption=caption;
     QString content; int previous=0, lineIndent=blockIndent;
     auto matches=tokens.globalMatch(line);
@@ -125,6 +195,7 @@ QString aozoraHtml(const QString &text, const std::function<QString(const QStrin
         else {for(int i=1;i<=3;++i)if(!rawSource.captured(i).isNull()){reference=rawSource.captured(i);break;}}
         // References are filenames, not HTML or executable URLs. Never pass
         // arbitrary attributes from legacy TXT <img> tags into the browser.
+        reference.replace('\\','/');
         QUrl url;url.setPath(reference);
         const bool relative=!reference.isEmpty() && !reference.startsWith('/') &&
             !reference.contains('\\') && !reference.contains(':') && !reference.contains(QChar(0));
@@ -133,14 +204,15 @@ QString aozoraHtml(const QString &text, const std::function<QString(const QStrin
           if(imageSource)source=imageSource(reference); // The resolver enforces its own root.
           else if(!publicationPath({},url.toString(QUrl::FullyEncoded)).isEmpty())source=url.toString(QUrl::FullyEncoded);
         }
-        if(source.isEmpty())content+="<span class=\"koma-missing-image\">"+token.toHtmlEscaped()+"</span>";
+        const auto fallback=picture.hasMatch()?token:QString("<img src=\"%1\">").arg(reference);
+        if(source.isEmpty())content+="<span class=\"koma-missing-image\">"+fallback.toHtmlEscaped()+"</span>";
         else {
           content+="<img class=\"illustration\" data-koma-offset=\""+QString::number(offset)+"\" src=\""+source.toHtmlEscaped()+"\" alt=\""+description.toHtmlEscaped()+"\"";
           if(picture.hasMatch() && !picture.captured(3).isEmpty()) {
             const int width=int(number(picture.captured(3))),height=int(number(picture.captured(4)));
             if(width>0 && height>0 && width<=16000 && height<=16000)content+=" width=\""+QString::number(width)+"\" height=\""+QString::number(height)+"\"";
           }
-          content+="/>";
+          content+=" data-koma-fallback=\""+fallback.toHtmlEscaped()+"\"/>";
         }
       }
       else if(token==QStringLiteral("［＃キャプション］") || token==QStringLiteral("［＃ここからキャプション］"))caption=lineCaption=true;
@@ -167,7 +239,7 @@ QString aozoraHtml(const QString &text, const std::function<QString(const QStrin
     const int begin=offset; const auto part=render(line.mid(previous),offset);
     content+="<span data-koma-offset=\""+QString::number(begin)+"\">"+part+"</span>";
     const auto tag=lineHeading ? "h"+QString::number(lineHeading) : QString("div");
-    html+='<'+tag+" data-koma-offset=\""+QString::number(lineStart)+"\" style=\""+((horizontal || lineCaption) ? "writing-mode:horizontal-tb;" : "")+"margin-block:0;padding-inline-start:"+QString::number(lineIndent)+"em\">"+content+"<br/></"+tag+'>';
+    html+='<'+tag+(lineCaption?" class=\"koma-caption\"":"")+" data-koma-offset=\""+QString::number(lineStart)+"\" style=\""+((horizontal || lineCaption) ? "writing-mode:horizontal-tb;" : "")+"margin-block:0;padding-inline-start:"+QString::number(lineIndent)+"em\">"+content+"<br/></"+tag+'>';
     ++offset;
   }
   return "<!doctype html><html lang=\"ja\"><head><meta charset=\"utf-8\"/><style>"
@@ -181,7 +253,7 @@ namespace {
 // <script src="..."/> consumes the rest of the document as script text. Strip
 // scripts using XML tokens (not a regex), and expand empty non-void XHTML tags.
 // Keep publisher CSS, SVG namespaces and all other source text unchanged.
-QString epubHtml(QString html, QString &error) {
+QString epubHtml(QString html, QString &error,const std::function<bool()> &cancel={}) {
   struct Edit {
     qsizetype start, end;
     QString replacement;
@@ -192,6 +264,7 @@ QString epubHtml(QString html, QString &error) {
       "link", "meta", "param", "source", "track", "wbr"};
   QXmlStreamReader xml(html);
   while (!xml.atEnd()) {
+    if(cancel && cancel())return {};
     xml.readNext();
     if (!xml.isStartElement())
       continue;
@@ -217,11 +290,12 @@ QString epubHtml(QString html, QString &error) {
     html.replace(i->start, i->end - i->start, i->replacement);
   return html;
 }
-QString xmlText(const QByteArray &bytes, QHash<QString, int> *anchors) {
+QString xmlText(const QByteArray &bytes, QHash<QString, int> *anchors,const std::function<bool()> &cancel={}) {
   QXmlStreamReader xml(bytes);
   QString text;
   bool pre = false;
   while (!xml.atEnd()) {
+    if(cancel && cancel())return {};
     xml.readNext();
     if (xml.isStartElement()) {
       const auto id = xml.attributes().value("id").toString();
@@ -245,7 +319,8 @@ QString xmlText(const QByteArray &bytes, QHash<QString, int> *anchors) {
   return text;
 }
 bool unpack(const QString &path, Publication &p,
-            const std::function<bool()> &cancel = {}) {
+            const std::function<bool()> &cancel = {}, bool lazy = false) {
+  if(lazy){p.archive=std::make_shared<PublicationArchive>();p.archive->path=path;const QFileInfo f(path);p.archive->size=f.size();p.archive->modified=f.lastModified().toMSecsSinceEpoch();}
   auto *a = archive_read_new();
   archive_read_support_format_zip(a);
   // QFile opens Unicode paths on Windows without a locale-dependent narrow
@@ -257,7 +332,7 @@ bool unpack(const QString &path, Publication &p,
     archive_read_free(a);
     return false;
   }
-  qint64 total = 0;
+  qint64 total = 0, declared=0;
   int count = 0, status = ARCHIVE_OK;
   archive_entry *entry = nullptr;
   while ((status = archive_read_next_header(a, &entry)) == ARCHIVE_OK) {
@@ -272,16 +347,27 @@ bool unpack(const QString &path, Publication &p,
         key.isEmpty() || publicationPath({}, key) != key ||
         archive_entry_size(entry) < 0 ||
         archive_entry_size(entry) > 32 * 1024 * 1024 ||
-        p.resources.contains(key) || archive_entry_is_encrypted(entry) > 0) {
+        (lazy?p.archive->entries.contains(key):p.resources.contains(key)) || archive_entry_is_encrypted(entry) > 0) {
       p.error = QCoreApplication::translate("KomaMimic", "EPUBに未対応・不正な項目、重複パス、または大きすぎる項目があり"
                 "ます。");
       break;
     }
+    declared+=archive_entry_size(entry);
+    if(declared>128*1024*1024){p.error=QCoreApplication::translate("KomaMimic", "EPUBの展開上限（項目32 MiB／合計128 MiB）を超えたか、ZIPが壊れています。");break;}
+    if(lazy) {
+      p.archive->entries.insert(key,archive_entry_size(entry));
+      if(key!="mimetype" && key!="META-INF/container.xml" && key!="META-INF/encryption.xml") {
+        if(archive_read_data_skip(a)<ARCHIVE_WARN){p.error=QCoreApplication::translate("KomaMimic", "EPUBのZIPを読み終えられません。");break;}
+        continue;
+      }
+    }
+    ++PublicationActivity::payloadReads;
     QByteArray bytes;
     char buffer[65536];
     la_ssize_t read;
     while ((read = archive_read_data(a, buffer, sizeof buffer)) > 0) {
       if (cancel && cancel()) { p.error = QCoreApplication::translate("KomaMimic", "EPUBの読み込みを中止しました。"); break; }
+      PublicationActivity::payloadBytes+=read;
       total += read;
       if (total > 128 * 1024 * 1024 || bytes.size() + read > 32 * 1024 * 1024)
         break;
@@ -386,9 +472,10 @@ QString singleImage(const QByteArray &bytes, const QString &base) {
   }
   return xml.hasError() ? QString{} : result;
 }
-QSize resourceImageSize(const Publication &p, const QString &key) {
+QSize resourceImageSize(const Publication &p, const QString &key,const std::function<bool()> &cancel={}) {
+  if(key.isEmpty())return {};
   QBuffer buffer;
-  buffer.setData(p.resources.value(key));
+  buffer.setData(publicationResource(p,key,cancel));
   buffer.open(QIODevice::ReadOnly);
   const auto format = QImageReader::imageFormat(&buffer);
   if (format.isEmpty() || format == "svg" || format == "svgz") return {};
@@ -452,8 +539,9 @@ QString coverResource(Publication &p, const std::function<bool(const QString &)>
     }
   return {};
 }
-void epub(Publication &p, const QString &path) {
-  if (!unpack(path, p))
+void epub(Publication &p, const QString &path,const std::function<bool()> &cancel,bool lazy) {
+  const auto stopped=[&]{if(cancel && cancel()){p.error=QCoreApplication::translate("KomaMimic", "EPUBの読み込みを中止しました。");return true;}return false;};
+  if (!unpack(path, p,cancel,lazy))
     return;
   QXmlStreamReader container(p.resources.value("META-INF/container.xml"));
   QString package;
@@ -465,7 +553,8 @@ void epub(Publication &p, const QString &path) {
       break;
     }
   }
-  if (package.isEmpty() || !p.resources.contains(package)) {
+  if(lazy && !package.isEmpty())p.resources[package]=publicationResource(p,package,cancel,&p.error);
+  if (package.isEmpty() || !p.resources.contains(package) || !p.error.isEmpty()) {
     p.error = QCoreApplication::translate("KomaMimic", "EPUBのpackageが見つかりません。");
     return;
   }
@@ -477,10 +566,11 @@ void epub(Publication &p, const QString &path) {
     QString id, properties;
   };
   QVector<Spine> spine;
-  QString nav, ncx;
+  QString nav, ncx, legacyCover;
   bool fixed = false;
   QXmlStreamReader xml(p.resources.value(package));
   while (!xml.atEnd()) {
+    if(stopped())return;
     xml.readNext();
     if (!xml.isStartElement())
       continue;
@@ -495,12 +585,17 @@ void epub(Publication &p, const QString &path) {
                 a.value("media-type").toString(),
                 a.value("properties").toString()};
       manifest.insert(a.value("id").toString(), item);
+      if(item.properties.split(' ').contains("cover-image"))p.coverImage=item.path;
       if (item.properties.split(' ').contains("nav"))
         nav = item.path;
     } else if (xml.name() == u"spine") {
-      p.rightToLeft = a.value("page-progression-direction") == u"rtl";
+      const auto direction=a.value("page-progression-direction");
+      p.directionSpecified=direction==u"rtl" || direction==u"ltr";
+      p.rightToLeft = direction == u"rtl";
       ncx = a.value("toc").toString();
-    } else if (xml.name() == u"itemref" && a.value("linear") != u"no")
+    } else if(xml.name()==u"meta" && a.value("name")==u"cover")legacyCover=a.value("content").toString();
+    else if(xml.name()==u"reference" && a.value("type")==u"cover")p.coverDocuments.insert(publicationPath(package,a.value("href").toString()));
+    else if (xml.name() == u"itemref" && a.value("linear") != u"no")
       spine.append(
           {a.value("idref").toString(), a.value("properties").toString()});
   }
@@ -508,12 +603,15 @@ void epub(Publication &p, const QString &path) {
     p.error = QCoreApplication::translate("KomaMimic", "EPUBのpackage／spineが不正です。");
     return;
   }
+  if(p.coverImage.isEmpty())p.coverImage=manifest.value(legacyCover).path;
+  if(stopped())return;
   // Font obfuscation is not DRM. Only IDPF's defined font transform is decoded.
   // Unknown font transforms are omitted; encrypted non-font resources fail closed.
   if(p.resources.contains("META-INF/encryption.xml")) {
     QString identifier, uniqueId;
     QXmlStreamReader packageXml(p.resources.value(package));
     while(!packageXml.atEnd()) {
+    if(stopped())return;
       packageXml.readNext();
       if(!packageXml.isStartElement()) continue;
       if(packageXml.name()==u"package") uniqueId=packageXml.attributes().value("unique-identifier").toString();
@@ -525,11 +623,13 @@ void epub(Publication &p, const QString &path) {
     QXmlStreamReader encryption(p.resources.value("META-INF/encryption.xml"));
     int count=0; QSet<QString> encryptedResources;
     while(!encryption.atEnd()) {
+    if(stopped())return;
       encryption.readNext();
       if(!encryption.isStartElement() || encryption.name()!=u"EncryptedData") continue;
       if(++count>10000) {p.error=QCoreApplication::translate("KomaMimic", "暗号化リソースの件数上限を超えています。");return;}
       QString algorithm, uri;
       while(!encryption.atEnd()) {
+    if(stopped())return;
         encryption.readNext();
         if(encryption.isEndElement() && encryption.name()==u"EncryptedData") break;
         if(!encryption.isStartElement()) continue;
@@ -543,11 +643,12 @@ void epub(Publication &p, const QString &path) {
       for(const auto &item:manifest) if(item.path==resource &&
           (item.type.startsWith("font/") || item.type=="application/vnd.ms-opentype" || item.type=="application/font-sfnt" || item.type=="application/font-woff")) font=true;
       if(resource.isEmpty() || !font) {p.error=QCoreApplication::translate("KomaMimic", "暗号化された本文・画像など、未対応の保護リソースを含むEPUBです。");return;}
-      if(algorithm=="http://www.idpf.org/2008/embedding" && !identifier.isEmpty() && p.resources.contains(resource)) {
+      if(algorithm=="http://www.idpf.org/2008/embedding" && !identifier.isEmpty() && (p.resources.contains(resource) || (p.archive && p.archive->entries.contains(resource)))) {
+        if(lazy){p.fontKeys[resource]=key;continue;}
         auto &bytes=p.resources[resource];
         for(int i=0;i<std::min<qsizetype>(1040,bytes.size());++i) bytes[i]=char(uchar(bytes[i]) ^ uchar(key[i%key.size()]));
       } else {
-        p.resources.remove(resource); p.warnings.append(QCoreApplication::translate("KomaMimic", "難読化フォントを代替フォントで表示：")+resource);
+        p.resources.remove(resource);p.blockedResources.insert(resource); p.warnings.append(QCoreApplication::translate("KomaMimic", "難読化フォントを代替フォントで表示：")+resource);
       }
     }
     if(encryption.hasError()) {p.error=QCoreApplication::translate("KomaMimic", "EPUBのencryption.xmlが不正です。");return;}
@@ -560,8 +661,9 @@ void epub(Publication &p, const QString &path) {
     spine.append({id,"koma:auxiliary"});
   if(spine.size()>2000) {p.error=QCoreApplication::translate("KomaMimic", "EPUB本文・注釈の件数上限を超えています。");return;}
   for (const auto &ref : spine) {
+    if(stopped())return;
     const auto item = manifest.value(ref.id);
-    if (item.path.isEmpty() || !p.resources.contains(item.path) ||
+    if (item.path.isEmpty() || (!p.resources.contains(item.path) && (!p.archive || !p.archive->entries.contains(item.path))) ||
         (item.type != "application/xhtml+xml" &&
          item.type != "image/svg+xml")) {
       p.error = QCoreApplication::translate("KomaMimic", "EPUBのspineに未対応または存在しない本文があります。");
@@ -578,63 +680,28 @@ void epub(Publication &p, const QString &path) {
     s.fixed =
         ref.properties.contains("rendition:layout-pre-paginated") ||
         (fixed && !ref.properties.contains("rendition:layout-reflowable"));
-    const auto bytes = p.resources.value(item.path);
-    QStringDecoder decoder(QStringDecoder::encodingForData(bytes).value_or(
-        QStringConverter::Utf8));
-    s.html = decoder(bytes);
-    if (decoder.hasError()) {
-      p.error = QCoreApplication::translate("KomaMimic", "EPUB本文の文字コードがUTF-8 / UTF-16として解釈できません。");
-      return;
-    }
-    s.html = epubHtml(s.html, p.error);
-    if (!p.error.isEmpty())
-      return;
-    s.plain = xmlText(bytes, &s.anchors);
-    QXmlStreamReader markup(bytes);
-    while (!markup.atEnd()) {
-      markup.readNext();
-      if (!markup.isStartElement())
-        continue;
-      const auto a = markup.attributes();
-      if (markup.name() == u"meta" && a.value("name") == u"viewport") {
-        const auto content = a.value("content").toString();
-        QRegularExpression width("width\\s*=\\s*(\\d+)"),
-            height("height\\s*=\\s*(\\d+)");
-        s.viewport = {width.match(content).captured(1).toInt(),
-                      height.match(content).captured(1).toInt()};
-      }
-      if (item.type == "image/svg+xml" && markup.name() == u"svg") {
-        const auto box = a.value("viewBox").toString().split(
-            QRegularExpression("[,\\s]+"), Qt::SkipEmptyParts);
-        if (box.size() == 4)
-          s.viewport = {int(box[2].toDouble()), int(box[3].toDouble())};
-        else
-          s.viewport = {a.value("width").toInt(), a.value("height").toInt()};
-      }
-    }
-    if (item.type == "image/svg+xml") {
-      s.fixed = true;
-      s.html.remove(QRegularExpression("<\\?xml[^>]*>"));
-      s.html = "<html><head></head><body style=\"margin:0\">" + s.html +
-               "</body></html>";
-    }
-    s.imagePath = singleImage(bytes, item.path);
-    s.imageSize = resourceImageSize(p, s.imagePath);
-    s.wide = !s.imagePath.isEmpty() && s.imageSize.width() > s.imageSize.height()
-             && s.imageSize.width() >= 512 && s.imageSize.height() >= 256;
+    s.svg=item.type=="image/svg+xml";s.cover=p.coverDocuments.contains(s.path);
     p.sections.append(s);
+    if(!lazy) {
+      auto loaded=loadPublicationSection(p,p.sections.size()-1,cancel);
+      if(!loaded.error.isEmpty()){p.error=loaded.error;return;}
+      p.sections.last()=std::move(loaded);
+    }
   }
   // EPUB 3 navigation, then EPUB 2 NCX. Only spine destinations are exposed.
   const bool isNcx = nav.isEmpty();
   if (isNcx)
     nav = manifest.value(ncx).path;
-  QXmlStreamReader navigation(p.resources.value(nav));
+  QXmlStreamReader navigation(publicationResource(p,nav,cancel,&p.error));
   bool inToc = false;
   int navDepth = 0;
   QString label;
   while (!navigation.atEnd()) {
     navigation.readNext();
+    if(stopped())return;
     if (navigation.isStartElement()) {
+      if(navigation.name()==u"a" && navigation.attributes().value("http://www.idpf.org/2007/ops","type").toString().split(' ').contains("cover"))
+        p.coverDocuments.insert(publicationPath(nav,navigation.attributes().value("href").toString()));
       if (!isNcx && navigation.name() == u"nav") {
         ++navDepth;
         for (const auto &a : navigation.attributes())
@@ -668,6 +735,69 @@ void epub(Publication &p, const QString &path) {
       if(!s.auxiliary) p.toc.append({s.title, s.path, {}, 0});
 }
 } // namespace
+PublicationSection loadPublicationSection(const Publication &p,int index,const std::function<bool()> &cancel) {
+    if(index<0 || index>=p.sections.size())return {};
+    auto s=p.sections[index];
+    if(!p.epub || !s.html.isEmpty())return s;
+    if(cancel && cancel()){s.error=QCoreApplication::translate("KomaMimic", "EPUBの読み込みを中止しました。");return s;}
+    if(p.archive) {
+      const QFileInfo current(p.archive->path);
+      if(current.size()!=p.archive->size || current.lastModified().toMSecsSinceEpoch()!=p.archive->modified){s.error=QCoreApplication::translate("KomaMimic", "画像・書庫が変更されています。開き直してください。");return s;}
+      QMutexLocker lock(&p.archive->mutex);if(const auto *hit=p.archive->sections.object(s.path))return *hit;
+    }
+    ++PublicationActivity::sectionLoads;
+    const auto bytes = publicationResource(p,s.path,cancel,&s.error);
+    if(!s.error.isEmpty())return s;
+    QStringDecoder decoder(QStringDecoder::encodingForData(bytes).value_or(
+        QStringConverter::Utf8));
+    s.html = decoder(bytes);
+    if (decoder.hasError()) {
+      s.error = QCoreApplication::translate("KomaMimic", "EPUB本文の文字コードがUTF-8 / UTF-16として解釈できません。");
+      return s;
+    }
+    s.html = epubHtml(s.html, s.error,cancel);
+    if (!s.error.isEmpty())
+      return s;
+    s.plain = xmlText(bytes, &s.anchors,cancel);
+    QXmlStreamReader markup(bytes);
+    while (!markup.atEnd()) {
+      if(cancel && cancel()){s.error=QCoreApplication::translate("KomaMimic", "EPUBの読み込みを中止しました。");return s;}
+      markup.readNext();
+      if (!markup.isStartElement())
+        continue;
+      const auto a = markup.attributes();
+      if (markup.name() == u"meta" && a.value("name") == u"viewport") {
+        const auto content = a.value("content").toString();
+        QRegularExpression width("width\\s*=\\s*(\\d+)"),
+            height("height\\s*=\\s*(\\d+)");
+        s.viewport = {width.match(content).captured(1).toInt(),
+                      height.match(content).captured(1).toInt()};
+      }
+      if (s.svg && markup.name() == u"svg") {
+        const auto box = a.value("viewBox").toString().split(
+            QRegularExpression("[,\\s]+"), Qt::SkipEmptyParts);
+        if (box.size() == 4)
+          s.viewport = {int(box[2].toDouble()), int(box[3].toDouble())};
+        else
+          s.viewport = {a.value("width").toInt(), a.value("height").toInt()};
+      }
+    }
+    if (s.svg) {
+      s.fixed = true;
+      s.html.remove(QRegularExpression("<\\?xml[^>]*>"));
+      s.html = "<html><head></head><body style=\"margin:0\">" + s.html +
+               "</body></html>";
+    }
+    s.imagePath = singleImage(bytes, s.path);
+    if(!p.archive)s.imageSize = resourceImageSize(p, s.imagePath,cancel);
+    s.wide = !s.imagePath.isEmpty() && s.imageSize.width() > s.imageSize.height()
+             && s.imageSize.width() >= 512 && s.imageSize.height() >= 256;
+    s.cover=p.coverDocuments.contains(s.path) || (!s.imagePath.isEmpty() &&
+        (s.imagePath==p.coverImage || (index==0 && p.coverImage.isEmpty() && p.coverDocuments.isEmpty())));
+    if(cancel && cancel()){s.error=QCoreApplication::translate("KomaMimic", "EPUBの読み込みを中止しました。");return s;}
+    if(p.archive){QMutexLocker lock(&p.archive->mutex);p.archive->sections.insert(s.path,new PublicationSection(s),int((2*(s.html.size()+s.plain.size())+1023)/1024));}
+    return s;
+}
 ImageResult epubCover(const QString &path, QSize thumbnail,
                        const std::function<bool()> &cancel) {
   Publication p;
@@ -702,12 +832,13 @@ QString markdownReaderStyle() {
          "h1 span,h2 span,h3 span,h4 span,h5 span,h6 span{font-size:inherit!important;line-height:inherit!important}";
 }
 std::shared_ptr<const Publication> readPublication(const QString &path,
-                                                   const TextOptions &options) {
+                                                   const TextOptions &options,const std::function<bool()> &cancel,bool lazy) {
   auto p = std::make_shared<Publication>();
+  if(cancel && cancel()){p->error=QCoreApplication::translate("KomaMimic", "EPUBの読み込みを中止しました。");return p;}
   p->title = QFileInfo(path).completeBaseName();
   if (QFileInfo(path).suffix().compare("epub", Qt::CaseInsensitive) == 0) {
     p->epub = true;
-    epub(*p, path);
+    epub(*p, path,cancel,lazy);
     return p;
   }
   QString error;
@@ -716,23 +847,76 @@ std::shared_ptr<const Publication> readPublication(const QString &path,
     p->error = error;
     return p;
   }
-  return readTextPublication(text, QFileInfo(path).fileName(), options, {}, QFileInfo(path).absolutePath());
+  return readTextPublication(text, QFileInfo(path).fileName(), options, {}, QFileInfo(path).absolutePath(),cancel,lazy);
+}
+namespace {
+void splitImageSections(Publication &p) {
+  const auto original=p.sections.first();
+  const auto body=QRegularExpression("<body[^>]*>").match(original.html);
+  const int end=original.html.lastIndexOf("</body>");
+  if(!body.hasMatch() || end<body.capturedEnd())return;
+  const auto head=original.html.left(body.capturedEnd());
+  const QRegularExpression blocks("<(div|p)\\b[^>]*>.*?</\\1>",QRegularExpression::DotMatchesEverythingOption);
+  auto matches=blocks.globalMatch(original.html,body.capturedEnd());
+  struct Part {int start,end,offset;QString image,caption;};QVector<Part> pictures;
+  while(matches.hasNext()) {
+    const auto m=matches.next();if(m.capturedStart()>=end)break;
+    auto plain=m.captured();const auto img=QRegularExpression("<img[^>]*src=\"([^\"]+)\"[^>]*>").match(plain);
+    if(!img.hasMatch() || plain.count(QRegularExpression("<img\\b"))!=1)continue;
+    plain.remove(QRegularExpression("<img[^>]*>"));plain.remove(QRegularExpression("<[^>]*>"));
+    plain.replace("&nbsp;"," ");if(!plain.trimmed().isEmpty())continue;
+    const auto offset=QRegularExpression("data-koma-offset=\"([0-9]+)\"").match(m.captured());
+    if(!offset.hasMatch())continue;
+    int pictureEnd=int(m.capturedEnd());QString caption;
+    const QRegularExpression captions("\\s*<(div|p)\\b[^>]*class=\"koma-caption\"[^>]*>.*?</\\1>",QRegularExpression::DotMatchesEverythingOption);
+    while(true){const auto c=captions.match(original.html,pictureEnd,QRegularExpression::NormalMatch,QRegularExpression::AnchorAtOffsetMatchOption);if(!c.hasMatch())break;caption+=c.captured();pictureEnd=int(c.capturedEnd());}
+    pictures.append({int(m.capturedStart()),pictureEnd,offset.captured(1).toInt(),img.captured(1),caption});
+  }
+  if(pictures.isEmpty())return;
+  QVector<PublicationSection> parts;int cursor=body.capturedEnd(),base=0;
+  const auto appendText=[&](int until,int nextOffset) {
+    auto fragment=original.html.mid(cursor,until-cursor);
+    auto visible=fragment;visible.remove(QRegularExpression("<[^>]*>"));visible.replace("&nbsp;"," ");
+    if(!visible.trimmed().isEmpty()) {
+      auto s=original;s.path=parts.isEmpty()?original.path:QString("__text_%1.html").arg(base);s.locationPath=original.path;
+      s.baseOffset=base;s.html=head+fragment+"</body></html>";s.plain=original.plain.mid(base,std::max(0,nextOffset-base));parts.append(s);
+    }
+  };
+  for(int n=0;n<pictures.size();++n) {
+    const auto &picture=pictures[n];appendText(picture.start,picture.offset);
+    auto s=original;s.path=QString("__picture_%1.html").arg(picture.offset);s.locationPath=original.path;s.baseOffset=picture.offset;
+    const int nextOffset=n+1<pictures.size()?pictures[n+1].offset:original.plain.size();
+    // Keep the picture's original offset; subsequent text starts at its next block.
+    const auto next=QRegularExpression("<(?:div|p)\\b[^>]*data-koma-offset=\"([0-9]+)\"").match(original.html,picture.end);
+    const int after=next.hasMatch()?next.captured(1).toInt():nextOffset;
+    s.plain=original.plain.mid(picture.offset,std::max(0,after-picture.offset));
+    s.html=head+original.html.mid(picture.start,picture.end-picture.start)+"</body></html>";
+    s.imagePath=picture.image;s.caption=picture.caption;s.fixed=true;
+    const auto dimensions=QRegularExpression("width=\"([0-9]+)\" height=\"([0-9]+)\"").match(s.html);
+    s.imageSize={dimensions.captured(1).toInt(),dimensions.captured(2).toInt()};
+    s.wide=s.imageSize.width()>s.imageSize.height() && s.imageSize.width()>=512 && s.imageSize.height()>=256;
+    s.viewport={1200,1600};parts.append(s);cursor=picture.end;base=after;
+  }
+  appendText(end,original.plain.size());
+  if(!parts.isEmpty())p.sections=std::move(parts);
+}
 }
 std::shared_ptr<const Publication> readTextPublication(const QString &text, const QString &name,
-    const TextOptions &options, const DocumentResourceLoader &resources, const QString &localRoot) {
+    const TextOptions &options, const DocumentResourceLoader &resources, const QString &localRoot,const std::function<bool()> &cancel,bool lazy,const std::function<QVariant(const QUrl &,const std::function<bool()> &)> &imageReader) {
   auto p = std::make_shared<Publication>();
   p->title = QFileInfo(name).completeBaseName(); p->localRoot = localRoot;
+  if(lazy){p->imageLoader=resources;p->imageReader=imageReader;p->images=std::make_shared<PublicationImages>();}
   PublicationSection section;
   section.path = "text.html";
   section.title = p->title;
   section.plain = text;
   if (isMarkdownDocument(name, options)) {
     p->markdown = true;
-    const DocumentResourceLoader safeResources = resources ? resources : localRoot.isEmpty()
+    const DocumentResourceLoader safeResources = lazy ? DocumentResourceLoader([](const QUrl &){return QVariant{};}) : resources ? resources : localRoot.isEmpty()
       ? DocumentResourceLoader([](const QUrl &) { return QVariant{}; }) : DocumentResourceLoader{};
     LocalTextDocument doc(p->localRoot, safeResources);
     doc.setMarkdown(text, documentMarkdownFeatures(options));
-    if (resources) {
+    if (resources || lazy) {
       QVector<QPair<int, QTextImageFormat>> images;
       for (auto block = doc.begin(); block.isValid(); block = block.next())
         for (auto item = block.begin(); !item.atEnd(); ++item) {
@@ -742,8 +926,15 @@ std::shared_ptr<const Publication> readTextPublication(const QString &text, cons
         }
       QHash<QString, QString> mappedImages; qint64 bytes = 0;
       for (const auto &[position, original] : images) {
+        if(cancel && cancel()){p->error=QCoreApplication::translate("KomaMimic", "読み込みを取り消しました。");return p;}
         auto key = mappedImages.value(original.name());
         if (key.isEmpty() && mappedImages.size() < 256) {
+          if(lazy) {
+            const QUrl url(original.name());const auto target=publicationPath({},url.toString(QUrl::FullyEncoded));
+            if(!target.isEmpty()){key="__archive_images__/"+QString::number(mappedImages.size())+".png";p->imageSources[key]=target;}
+            else key="__missing_archive_image__";
+            mappedImages[original.name()]=key;
+          } else {
           const auto image = doc.resource(QTextDocument::ImageResource, QUrl(original.name())).value<QImage>();
           QByteArray encoded; QBuffer buffer(&encoded); buffer.open(QIODevice::WriteOnly);
           if (!image.isNull() && image.save(&buffer, "PNG") && bytes + encoded.size() <= 64 * 1024 * 1024) {
@@ -752,6 +943,7 @@ std::shared_ptr<const Publication> readTextPublication(const QString &text, cons
             doc.addResource(QTextDocument::ImageResource, QUrl(key), image);
           } else key = "__missing_archive_image__";
           mappedImages[original.name()] = key;
+          }
         }
         if (key.isEmpty()) key = "__missing_archive_image__";
         auto format = original; format.setName(key);
@@ -786,8 +978,13 @@ std::shared_ptr<const Publication> readTextPublication(const QString &text, cons
   } else {
     QHash<QString,QString> mappedImages; qint64 imageBytes=0;
     section.html = aozoraHtml(text,[&](const QString &reference) {
+      if(cancel && cancel())return QString{};
       if(mappedImages.contains(reference))return mappedImages.value(reference);
       if(mappedImages.size()>=256)return QString{};
+      if(lazy) {
+        const auto key="__aozora_images__/"+QString::number(mappedImages.size())+".png";
+        mappedImages[reference]=key;p->imageSources[key]=reference;return key;
+      }
       QUrl url;url.setPath(reference);
       const auto image=(resources ? resources(url) : localRoot.isEmpty() ? QVariant{} : documentResource(localRoot,url)).value<QImage>();
       QString key;
@@ -799,7 +996,7 @@ std::shared_ptr<const Publication> readTextPublication(const QString &text, cons
         }
       }
       mappedImages.insert(reference,key);return key;
-    });
+    },cancel);
     // Positions exclude readings, identically to the standard renderer.
     auto plain = text;
     plain.replace(QRegularExpression(QStringLiteral(
@@ -813,6 +1010,8 @@ std::shared_ptr<const Publication> readTextPublication(const QString &text, cons
       if(!title.isEmpty())p->toc.append({title,section.path,{},match.captured(1).toInt()});
     }
   }
+  if(cancel && cancel()){p->error=QCoreApplication::translate("KomaMimic", "読み込みを取り消しました。");return p;}
   p->sections.append(section);
+  if(lazy)splitImageSections(*p);
   return p;
 }

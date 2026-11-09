@@ -28,7 +28,8 @@
     "tests": [
       ".cpp",
       ".h",
-      ".py"
+      ".py",
+      ".js"
     ],
     "cmake": [
       ".cmake",

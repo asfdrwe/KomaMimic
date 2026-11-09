@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "mainwindow.h"
+#include "pageview.h"
+#include "documentview.h"
 #include "displayjobs.h"
 #include "archivepath.h"
 #include <QCoreApplication>
+#include <limits>
 #include <QJsonDocument>
 #include "foldertree.h"
-#include "pageview.h"
 #include "shortcuts.h"
 #include "readerfeatures.h"
 #include "documentsettings.h"
 #include <QMessageBox>
-#include "documentview.h"
 #include <QAction>
 #include <QActionGroup>
 #include <QApplication>
@@ -78,12 +79,19 @@ void MainWindow::setMode(ViewMode mode) {
         if(mode!=ViewMode::Reader) {m_displayJobs->retain("render");m_renderToken->store(++m_renderGeneration);m_renderDirty=true;}
     }
     if(mode!=ViewMode::Reader && m_book)m_book->setReaderCacheBudget(0);
+    if(mode!=ViewMode::Reader){m_displayJobs->retain("document-preview");disconnect(m_documentPreviewPaint);}
+    if(previous!=mode && m_documentView){
+        if(mode==ViewMode::Reader)m_documentView->resume();
+        else if(m_documentView->ready())m_documentView->suspend();
+        else {m_pendingDocumentLocation=m_documentView->location();m_restoreDocumentLocation=!m_pendingDocumentLocation.section.isEmpty();clearDocumentView();}
+    }
     m_mode = mode; m_stack->setCurrentIndex(mode == ViewMode::Covers ? 0 : mode == ViewMode::Pages ? 1 : 2);
     if (mode == ViewMode::Reader && documentViewActive() && m_documentView) m_stack->setCurrentWidget(m_documentView);
+    if(mode==ViewMode::Reader && documentViewActive() && !m_documentView && !m_loading)openDocumentView();
     if(mode==ViewMode::Pages && m_pagesDirty)populatePages();
     requestThumbnails(m_library);requestThumbnails(m_pages);
     if (mode != ViewMode::Reader) activeGrid()->requestVisible();
-    else if(previous!=mode && m_renderDirty && m_book && !m_loading)render();
+    else if(previous!=mode && m_renderDirty && m_book && !m_loading && !documentViewActive())render();
     if(mode==ViewMode::Covers && m_directoryDirty && !m_directoryLoading && !m_directory.isEmpty())populateDirectory(m_directory,false,false,false);
     focusCurrentView(); refreshState();
 }
@@ -449,11 +457,14 @@ void MainWindow::historyFolder(int delta) {
     m_historyIndex = target; populateDirectory(m_history[target], true, false);
 }
 void MainWindow::loadBook(const QString &path, ViewMode mode, bool startAtLastPage) {
+    disconnect(m_documentPreviewPaint);
+    for(const auto &scope:{"document-preview","render","open","navigation","prefetch","preload","command-image","directory-siblings"})m_displayJobs->retain(scope);
+    if(restoreRetainedDocument(path,mode))return;
     m_displayJobs->retain("directory-siblings");
     m_displayJobs->retain("command-image");m_displayJobs->retain("navigation");m_displayJobs->visible("covers");m_displayJobs->visible("pages");
     m_displayJobs->retain("open");m_displayJobs->retain("prefetch");m_displayJobs->retain("preload");
     saveDocumentLocation();
-    clearDocumentView();
+    if(QFileInfo(path).absoluteFilePath()!=m_currentPath)retainDocumentView();else clearDocumentView();
     if(QFileInfo(path).absoluteFilePath()!=m_currentPath)m_restoreDocumentLocation=false;
     if (m_features){m_features->prepareOpen(path);m_features->closingBook();}
     const QFileInfo info(path);
@@ -503,14 +514,40 @@ void MainWindow::loadBook(const QString &path, ViewMode mode, bool startAtLastPa
         m_book = result.book; m_anchor = startAtLastPage ? pageCount() - 1 : m_book->initialPage;
         if(m_book->archiveParent)m_archiveDirectory=m_book->archiveParent;
         if (m_features) {m_features->openedBook();m_features->applySavedSort(true);}
-        if(startAtLastPage)m_anchor=pageCount()-1;
+        if(startAtLastPage){m_anchor=pageCount()-1;if(documentViewActive()){m_pendingDocumentLocation=currentDocumentLocation();m_pendingDocumentLocation.offset=std::numeric_limits<int>::max();m_restoreDocumentLocation=true;}}
         if (m_restoreDocumentLocation && !documentViewActive()) {
             m_anchor=resolveDocumentLocation(m_pendingDocumentLocation);m_restoreDocumentLocation=false;
         }
         if (documentViewActive() && m_mode == ViewMode::Pages) setMode(ViewMode::Reader);
         m_loading=false;
         populatePages();
-        if (documentViewActive()) openDocumentView(); else render();
+        if(documentViewActive()) {
+            if(m_mode!=ViewMode::Reader){m_renderDirty=true;refreshState();return;}
+            const auto first=m_book->publication->sections.isEmpty()?QString{}:m_book->publication->sections.first().path;
+            const auto location=m_restoreDocumentLocation?m_pendingDocumentLocation:currentDocumentLocation();
+            if(m_book->publication->epub && m_mode==ViewMode::Reader && !startAtLastPage &&
+                (location.section.isEmpty() || location.section==first) && location.offset==0) {
+                const auto book=m_book;const auto path=m_currentPath;const auto policy=namePolicyFor(path);const auto cache=m_thumbnailDiskCache;
+                m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Render,"document-preview","document-preview",
+                    [book,path,policy,cache](const DisplayJobs::Cancel &cancel) {
+                        const auto &p=*book->publication;const auto section=loadPublicationSection(p,0,cancel);
+                        if(!section.cover || section.imagePath.isEmpty() || cancel())return ImageResult{};
+                        auto saved=cachedCover(path,policy,cache,cancel,false,0,true);if(!saved.image.isNull())return saved;
+                        const auto bytes=publicationResource(p,section.imagePath,cancel);if(cancel())return ImageResult{};
+                        return decodeImage(bytes,section.imagePath,{1200,1600},0,{},cancel);
+                    },[this,book,generation](ImageResult preview,bool cancelled) {
+                        if(cancelled || generation!=m_bookGeneration || book!=m_book || m_mode!=ViewMode::Reader)return;
+                        if(preview.image.isNull()){openDocumentView();return;}
+                        m_documentPreviewPaint=connect(m_view,&PageView::imagePresented,this,[this,book,generation,preview]{
+                            disconnect(m_documentPreviewPaint);
+                            if(generation==m_bookGeneration && book==m_book)openDocumentView(preview.image);
+                        });
+                        m_view->setLeadingBlank(false);m_view->setMedia({preview},false,{});m_stack->setCurrentWidget(m_view);
+                    });
+                return;
+            }
+            openDocumentView();
+        } else render();
     };
     const auto policy = namePolicyFor(path);
     const auto options = m_features ? m_features->openOptions() : OpenOptions{};

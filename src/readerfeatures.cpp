@@ -184,7 +184,7 @@ void ReaderFeatures::message(const QString &text) {
   w->statusBar()->showMessage(text, 10000);
 }
 OpenOptions ReaderFeatures::openOptions() const {
-  OpenOptions result;
+  OpenOptions result;result.deferDocuments=true;
   auto &s = *w->m_settings;
   result.fileCacheMiB = s.value("cache/fileMegabytes", 32).toInt();
   result.recursive = s.value("source/recursive", false).toBool();
@@ -1055,7 +1055,7 @@ void ReaderFeatures::rendered(const QVector<int> &indices,
   prefetch();
 }
 void ReaderFeatures::prefetch() {
-  if(!w->m_book || w->viewMode()!=MainWindow::ViewMode::Reader ||
+  if(!w->m_book || w->documentViewActive() || w->viewMode()!=MainWindow::ViewMode::Reader ||
      !w->renderReady() || !w->m_readerPresented || w->m_backgroundCancel->load() || w->m_displayJobs->contains("prefetch"))return;
   QVector<int> wanted;
   for (int sign : {m_lastDirection, -m_lastDirection}) {
@@ -1133,7 +1133,7 @@ void ReaderFeatures::saveState() {
   if (isTextDocumentPath(w->bookPath())) { state["documentLocation"] = w->currentDocumentLocation().json(); w->saveDocumentLocation(); }
   state["name"] = w->currentPageName();
   state["toc"] = m_tocEntries;
-  state["total"] = w->pageCount();
+  state["total"] = w->documentViewActive() && w->m_documentView && !w->m_documentView->complete()?0:w->pageCount();
   state["panX"] = w->m_view->pan().x();
   state["panY"] = w->m_view->pan().y();
   state["rtl"] = w->m_options.rightToLeft;
@@ -1580,7 +1580,7 @@ int ReaderFeatures::advance(int direction, bool onePage) const {
     return 0;
   if (w->documentViewActive())
     return advanceDocumentPage(w->pageCount(), w->m_anchor, direction,
-                                w->m_book->openOptions.text.pageLayout, onePage, w->m_documentWidePages,w->m_documentSides,w->m_documentSoloPages,w->m_book->publication->rightToLeft);
+                                w->m_book->openOptions.text.pageLayout, onePage, w->m_documentWidePages,w->m_documentSides,w->m_documentSoloPages,w->m_documentRtlPages.contains(w->m_anchor));
   if (onePage)
     return std::clamp(w->m_anchor + direction, 0, w->pageCount() - 1);
   if (autoSpread() && w->m_options.spread && direction > 0 &&
@@ -1898,9 +1898,10 @@ bool ReaderFeatures::usesPlaylist() const {
 }
 
 QVector<int> ReaderFeatures::visiblePagesForView() const {
+  if(w->documentViewActive() && w->m_documentView && w->m_documentView->ready() && w->m_documentView->currentIndex()==w->m_anchor)return w->m_documentView->visiblePages();
   if (w->documentViewActive())
     return documentVisiblePages(w->pageCount(), w->m_anchor,
-                                  w->m_book->openOptions.text.pageLayout, w->m_documentWidePages,w->m_documentSides,w->m_documentSoloPages,w->m_book->publication->rightToLeft);
+                                  w->m_book->openOptions.text.pageLayout, w->m_documentWidePages,w->m_documentSides,w->m_documentSoloPages,w->m_documentRtlPages.contains(w->m_anchor));
   if (w->renderReady() && !m_visibleIndices.isEmpty() &&
       m_visibleIndices.first() == w->m_anchor)
     return m_visibleIndices;

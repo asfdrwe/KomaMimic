@@ -42,3 +42,21 @@ DRM-encrypted text/images cannot be read. Book JavaScript is not executed, and
 external sites or images outside the document's scope are not fetched automatically.
 Document page thumbnails, image processing, page editing, raster export, and
 printing are not supported.
+
+## Document loading and page order
+
+For reflowable text, an explicit vertical-writing choice also changes spread order
+from right to left; horizontal writing uses left to right. Publication defaults
+preserve the EPUB's explicit progression direction, otherwise the text flow determines
+it. Fixed layouts retain their authored writing mode.
+
+“Show the EPUB cover on a single page” is enabled by default. A cover in the reading
+sequence uses a centered single-page pane while the body keeps its spread setting.
+A cover absent from the reading sequence is not inserted. TXT, Aozora and Markdown
+first pages are not automatically treated as covers.
+
+The reader prepares the current EPUB section first and loads unread sections on
+navigation. The total shows “…” until all reading pages are known. A cover can be
+shown before the body is ready. Book navigation remains available during loading;
+the previous document view is retained for one book and reused when its source and
+settings have not changed.

@@ -81,7 +81,7 @@ private:
 
 DocumentResourceLoader archiveTextResources(const ArchiveTextSource &source,
                                             const std::function<bool()> &cancel) {
-    return [&source, cancel](const QUrl &url) -> QVariant {
+    return [source, cancel](const QUrl &url) -> QVariant {
         if (cancel && cancel()) return {};
         const auto target = publicationPath(source.book->pages[source.index].name, url.toString(QUrl::FullyEncoded));
         const auto found = source.images.constFind(target);
@@ -236,7 +236,7 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
             return {book,{}};
         }
         if (isTextDocumentPath(path)) {
-            book->publication = readPublication(path, options.text);
+            book->publication = readPublication(path, options.text,options.cancel,options.deferDocuments);
             book->documentContent = book->publication;
             book->warnings += book->publication->warnings;
             if (!book->publication->error.isEmpty()) return {{}, book->publication->error};
@@ -244,7 +244,7 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
             for (const auto &section : book->publication->sections) {
                 if(section.auxiliary) continue;
                 BookPage page; page.name = section.title; page.filePath = info.absoluteFilePath();
-                page.document = true; page.documentSection = section.path; page.documentOffset = 0;
+                page.document = true; page.documentSection = section.locationPath.isEmpty()?section.path:section.locationPath; page.documentOffset = section.baseOffset;
                 page.identity = "text:" + section.path + ":0"; book->pages.append(page);
             }
             return {book, {}};
@@ -840,7 +840,7 @@ Book::OpenResult Book::openArchiveEntry(const QString &path, const NamePolicy &p
         if (source->images.contains(key)) { source->images.remove(key); ambiguous.insert(key); }
         else source->images[key] = i;
     }
-    const auto publication = readTextPublication(text, entry.name, options.text, archiveTextResources(*source, options.cancel));
+    const auto publication = readTextPublication(text, entry.name, options.text, archiveTextResources(*source, options.deferDocuments?std::function<bool()>{}:options.cancel),{},options.cancel,options.deferDocuments,[source](const QUrl &url,const std::function<bool()> &cancel){return archiveTextResources(*source,cancel)(url);});
     if (!publication->error.isEmpty()) return {{}, publication->error};
     if (options.cancel && options.cancel()) return {{}, QCoreApplication::translate("KomaMimic", "読み込みを取り消しました。")};
     auto book = std::shared_ptr<Book>(new Book); book->path = QFileInfo(path).absoluteFilePath();
