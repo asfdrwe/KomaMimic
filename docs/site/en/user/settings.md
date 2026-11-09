@@ -157,6 +157,11 @@ Explicit cache deletion, confirmed source changes or removal, and corruption fou
 
 v1.5.0 retains the `thumbnails-v2` location and format. Updating does not require clearing existing v2 images or regenerating the entire cache. Completed **cover previews for TXT, Markdown, and archives containing text are also saved**. Their bodies use document reading, separate from image-page thumbnails.
 
+Decoded thumbnails also share a 32 MiB memory cache. While an image remains there,
+revisiting folders or switching views avoids reading and decoding its saved PNG.
+Evicted images and images after a restart are loaded from saved PNGs.
+This cache is separate from the retention limit for full-list thumbnail preloading.
+
 `thumbnails-v1` is not read, migrated, or automatically deleted. To reclaim its space, use Preferences → Cache in an older version that uses that format. Current cache clearing normally affects only v2 and does not remove source images, archives, bookshelves, or reading history.
 
 Incomplete temporary files left by an abnormal exit are not read as committed PNGs. Qt checks lock ownership and other stale-lock conditions before reclaiming a leftover lock.

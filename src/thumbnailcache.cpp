@@ -57,16 +57,18 @@ void ThumbnailDiskCache::configure(bool enabled,int megabytes) {
     m_enabled.store(enabled);
     m_limit.store(qint64(std::clamp(megabytes,16,16384))*1024*1024);
 }
-QImage ThumbnailDiskCache::recentImage(const QByteArray &key) {
+ImageResult ThumbnailDiskCache::recentImage(const QByteArray &key) {
     QMutexLocker guard(&m_recentMutex);
-    const auto *image=m_recentImages.object(key);return image?*image:QImage{};
+    const auto *image=m_recentImages.object(QCryptographicHash::hash(key,QCryptographicHash::Sha256).toHex());return image?image->result:ImageResult{};
 }
-void ThumbnailDiskCache::rememberRecent(const QByteArray &key,const QImage &image,int cost) {
-    QMutexLocker guard(&m_recentMutex);m_recentImages.insert(key,new QImage(image),cost);
+void ThumbnailDiskCache::rememberRecent(const QByteArray &key,const ImageResult &image,bool pending,const quint64 *revision) {
+    QMutexLocker guard(&m_recentMutex);
+    if(revision && *revision!=m_recentRevision.load())return;
+    m_recentImages.insert(QCryptographicHash::hash(key,QCryptographicHash::Sha256).toHex(),new RecentImage{image,pending},int((image.image.sizeInBytes()+1023)/1024));
 }
 void ThumbnailDiskCache::forgetRecent(const QByteArray &key) {
-    QMutexLocker guard(&m_recentMutex);
-    if(key.isEmpty())m_recentImages.clear();else m_recentImages.remove(key);
+    QMutexLocker guard(&m_recentMutex);++m_recentRevision;
+    if(key.isEmpty())m_recentImages.clear();else m_recentImages.remove(QCryptographicHash::hash(key,QCryptographicHash::Sha256).toHex());
 }
 QString ThumbnailDiskCache::failedGeneration(const QByteArray &identity) {
     QMutexLocker guard(&m_recentMutex);return m_failures.value(identity);
@@ -154,7 +156,7 @@ bool ThumbnailDiskCache::enqueue(Pending pending,bool retry) {
         m_pendingBytes-=old->image.sizeInBytes();forgetRecent(old->key);old->image={};
     }
     if(pixels && !retry)m_versions[pending.key]=pending.version;
-    if(!pending.image.isNull())rememberRecent(pending.key,pending.image,int((cost+1023)/1024));
+    if(!pending.image.isNull())rememberRecent(pending.key,ImageResult{pending.image,{}},true);
     m_pendingBytes+=cost;m_pending.append(std::move(pending));return true;
 }
 bool ThumbnailDiskCache::hasPendingWrites() const {
@@ -164,9 +166,14 @@ bool ThumbnailDiskCache::hasPendingWrites() const {
 }
 ImageResult ThumbnailDiskCache::lookup(const QByteArray &key,const std::function<bool()> &cancel) {
     const auto epoch=m_generation.load();
+    const auto memoryRevision=m_recentRevision.load();
     if(!m_enabled.load() || key.isEmpty() || (cancel && cancel()) || m_directory.isEmpty() || QFileInfo(m_directory).isSymLink())return {};
     const auto recent=recentImage(key);
-    if(!recent.isNull() && epoch==m_generation.load() && !(cancel && cancel()))return {recent,{}};
+    if(!recent.image.isNull() && epoch==m_generation.load() && !(cancel && cancel())){++m_memoryHits;return recent;}
+    // PNG lookup never waits for staging or persistence locks. Version checks
+    // only control optional RAM promotion, not delivery of a saved thumbnail.
+    quint64 version=0;const bool tracked=m_pendingMutex.tryLock();
+    if(tracked){version=m_versions.value(key);m_pendingMutex.unlock();}
     const auto name=QString::fromLatin1(QCryptographicHash::hash(key,QCryptographicHash::Sha256).toHex())+".png";
     const auto staged=QDir(m_directory).filePath("pending/"+name),committed=QDir(m_directory).filePath(name);
     QString error;
@@ -176,11 +183,22 @@ ImageResult ThumbnailDiskCache::lookup(const QByteArray &key,const std::function
     if(!error.isEmpty())return {{},error};
     if((cancel && cancel()) || epoch!=m_generation.load())return {};
     if(image.isNull())return {};
+    ++m_pngDecodes;
     // Reads never alter cache creation order.
     qCDebug(thumbnailCacheLog)<<"hit"<<name<<"display-lookup";
-    ImageResult result{image,{}};result.cacheCreatedMs=created;return result;
+    ImageResult result{image,{}};result.cacheCreatedMs=created;
+    if(tracked && m_pendingMutex.tryLock()) {
+        const auto unlock=qScopeGuard([this]{m_pendingMutex.unlock();});
+        if(epoch==m_generation.load() && version==m_versions.value(key) && !m_activeStores.contains(key) &&
+           std::none_of(m_pending.cbegin(),m_pending.cend(),[&key](const Pending &pending){return pending.key==key;})) {
+            const auto newer=recentImage(key);
+            if(!newer.image.isNull())return newer;
+            rememberRecent(key,result,false,&memoryRevision);
+        }
+    }
+    return result;
 }
-ThumbnailDiskCache::StoreResult ThumbnailDiskCache::store(const Pending &pending,const std::function<bool()> &cancel) {
+ThumbnailDiskCache::StoreResult ThumbnailDiskCache::store(const Pending &pending,const std::function<bool()> &cancel,qint64 *created) {
     const auto stale=[&]{
         QMutexLocker guard(&m_pendingMutex);
         return pending.epoch!=m_generation.load() || pending.version!=m_versions.value(pending.key);
@@ -217,7 +235,8 @@ ThumbnailDiskCache::StoreResult ThumbnailDiskCache::store(const Pending &pending
     QSaveFile file(destination);
     if(file.open(QIODevice::WriteOnly) && file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner) && file.write(bytes)==bytes.size() &&
        !stale() && !(cancel && cancel()) && file.commit()) {
-        const auto now=QDateTime::currentMSecsSinceEpoch();m_bytes+=bytes.size()-existing;m_entries[name]={bytes.size(),now};
+        const auto now=QFileInfo(destination).lastModified().toMSecsSinceEpoch();m_bytes+=bytes.size()-existing;m_entries[name]={bytes.size(),now};
+        if(created)*created=now;
         // Delete only after the replacement is durable.  Do not cancel cleanup
         // after commit: an interrupted flush must not leave the cache oversized.
         trim(m_limit.load(),{},name);
@@ -234,9 +253,10 @@ bool ThumbnailDiskCache::flushPending(const std::function<bool()> &cancel) {
     {QMutexLocker guard(&m_pendingMutex);if(m_pending.isEmpty())return false;
         auto next=std::find_if(m_pending.begin(),m_pending.end(),[](const Pending &item){return !item.image.isNull() || !item.staged.isEmpty();});
         if(next==m_pending.end())next=m_pending.begin();
-        pending=std::move(*next);m_pending.erase(next);pending.reserved=!pending.image.isNull();}
+        pending=std::move(*next);m_pending.erase(next);pending.reserved=!pending.image.isNull();++m_activeStores[pending.key];}
+    const auto active=qScopeGuard([this,key=pending.key]{QMutexLocker guard(&m_pendingMutex);if(--m_activeStores[key]==0)m_activeStores.remove(key);});
     if(pending.image.isNull() && !pending.staged.isEmpty())pending.image=committedImage(pending.staged);
-    const auto result=store(pending,cancel);
+    qint64 created=0;const auto result=store(pending,cancel,&created);
     const bool complete=result==StoreResult::Stored || result==StoreResult::Obsolete;
     if(!complete) {
         if(result==StoreResult::Error)qCWarning(thumbnailCacheLog)<<"store-retry"<<m_directory;
@@ -245,10 +265,11 @@ bool ThumbnailDiskCache::flushPending(const std::function<bool()> &cancel) {
     } else {
         QMutexLocker guard(&m_pendingMutex);
         if(pending.reserved && pending.epoch==m_generation.load())m_pendingBytes-=pending.image.sizeInBytes();
-        if(m_versions.value(pending.key)==pending.version) {
+        if(pending.epoch==m_generation.load() && m_versions.value(pending.key)==pending.version) {
             const auto staged=pending.staged.isEmpty()?m_directory+"/pending/"+QString::fromLatin1(QCryptographicHash::hash(pending.key,QCryptographicHash::Sha256).toHex())+".png":pending.staged;
             if(!QFileInfo(staged).isSymLink())QFile::remove(staged);
-            forgetRecent(pending.key);
+            if(result==StoreResult::Stored){ImageResult image{pending.image,{}};image.cacheCreatedMs=created;rememberRecent(pending.key,image);}
+            else forgetRecent(pending.key);
         }
     }
     return complete;
@@ -311,6 +332,10 @@ void ThumbnailDiskCache::changed() {
 bool ThumbnailDiskCache::remove(const QString &name) {
     const auto path=QDir(m_directory).filePath(name);
     if(QFileInfo::exists(path) && !QFile::remove(path)) return false;
+    {QMutexLocker guard(&m_recentMutex);++m_recentRevision;
+        const auto key=name.toLatin1().chopped(4);const auto *image=m_recentImages.object(key);
+        // Evict committed pixels, preserving a newer pending replacement.
+        if(image && !image->pending)m_recentImages.remove(key);}
     const auto found=m_entries.find(name);
     if(found!=m_entries.end()) {m_bytes-=found->bytes;m_entries.erase(found);}
     return true;

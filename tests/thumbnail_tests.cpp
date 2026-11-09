@@ -445,6 +445,7 @@ private slots:
         QCOMPARE(cachedCover(folder,{},cache,{},true).image.pixelColor(0,0),QColor(Qt::red));
         QCOMPARE(cache->stats().entries,2);
         QVERIFY(TestData::write(folderPng,"incomplete PNG"));
+        cache=std::make_shared<ThumbnailDiskCache>(root);
         QVERIFY(cachedCover(folder,{},cache,{},false,0,true).image.isNull());
         QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::red));
         QCOMPARE(cachedCover(folder,{},cache,{},false,0,true).image.pixelColor(0,0),QColor(Qt::red));
@@ -525,6 +526,53 @@ private slots:
             QVERIFY(!cachedCover(folder,{},restart).image.isNull());
             QCOMPARE(BookActivity::opens.load(),reads);QCOMPARE(ThumbnailActivity::metadataChecks.load(),checks);
         }
+    }
+    void documentFolderRoundTripsReuseDecodedThumbnails_data() {
+        QTest::addColumn<bool>("preload");QTest::addColumn<bool>("documentLoaded");
+        for(bool preload:{false,true})for(bool document:{false,true})
+            QTest::newRow(qPrintable(QString("%1-%2").arg(preload?"preload":"visible",document?"after-document":"without-document")))<<preload<<document;
+    }
+    void documentFolderRoundTripsReuseDecodedThumbnails() {
+        QFETCH(bool,preload);QFETCH(bool,documentLoaded);
+        QTemporaryDir d;const auto imageFolder=d.filePath("images"),textFolder=d.filePath("text"),epubFolder=d.filePath("epub"),cachePath=d.filePath("cache");
+        for(const auto &folder:{imageFolder,textFolder,epubFolder})QVERIFY(QDir().mkpath(folder));
+        const auto png=TestData::png(TestData::solid(Qt::blue,{240,320}));QString imageZip,textZip;
+        const auto epub=TestData::zip({{"mimetype","application/epub+zip"},{"META-INF/container.xml","<container><rootfiles><rootfile full-path=\"book.opf\"/></rootfiles></container>"},
+            {"book.opf","<package><metadata><meta name=\"cover\" content=\"image\"/></metadata><manifest><item id=\"image\" href=\"cover.png\" media-type=\"image/png\"/><item id=\"body\" href=\"body.xhtml\" media-type=\"application/xhtml+xml\"/></manifest><spine><itemref idref=\"body\"/></spine></package>"},
+            {"cover.png",png},{"body.xhtml","<html><head></head><body>Generic text</body></html>"}});
+        auto writer=std::make_shared<ThumbnailDiskCache>(cachePath);
+        for(int i=0;i<3;++i)for(const auto &folder:{imageFolder,textFolder,epubFolder}) {
+            const auto path=folder+QString("/%1.%2").arg(i).arg(folder==epubFolder?"epub":"zip");
+            QByteArray bytes=epub;
+            if(folder==imageFolder)bytes=TestData::zip({{"1.png",png},{"2.png",png}});
+            else if(folder==textFolder)bytes=TestData::zip({{"text.txt","Generic preview text\n"}});
+            QVERIFY(TestData::write(path,bytes));QVERIFY(!cachedCover(path,{},writer).image.isNull());
+            if(i==0 && folder==imageFolder)imageZip=path;
+            if(i==0 && folder==textFolder)textZip=path;
+        }
+        const auto imageBook=Book::open(imageZip).book;QVERIFY(imageBook);
+        for(int i=0;i<2;++i)QVERIFY(!cachedPageThumbnail(imageBook,i,writer).image.isNull());
+        writer.reset();auto cache=std::make_shared<ThumbnailDiskCache>(cachePath);
+        const auto ini=d.filePath("settings.ini");{QSettings settings(ini,QSettings::IniFormat);settings.setValue("thumbnails/preloadAll",preload);settings.setValue("thumbnails/mouseSelection",false);}
+        MainWindow w(ini);w.m_thumbnailDiskCache=cache;cache->setDeferredWrites(true);w.resize(900,600);w.show();
+        if(documentLoaded) {
+            const auto listing=Book::open(textZip).book;QVERIFY(listing);w.m_book=Book::open(listing->entryPath(0)).book;QVERIFY(w.m_book && w.m_book->publication);
+            w.m_currentPath=w.m_book->path;w.m_mode=MainWindow::ViewMode::Reader;
+        }
+        const auto ready=[&](ThumbnailGrid *grid){const auto rows=grid->visibleRows();if(rows.isEmpty())return false;for(int row:rows)if(!grid->item(row)->data(ThumbnailRoleReady).toBool())return false;return true;};
+        w.openDirectory(imageFolder);QTRY_VERIFY(w.directoryReady() && w.m_library->count()==3 && ready(w.m_library));
+        const auto gens=ThumbnailActivity::generations.load(),opens=BookActivity::opens.load();
+        for(const auto &folder:{textFolder,epubFolder}) {
+            w.openDirectory(folder);QTRY_VERIFY(w.directoryReady() && w.m_library->count()==3 && ready(w.m_library));
+            const auto before=cache->lookupActivity();
+            w.openDirectory(imageFolder);QTRY_VERIFY(w.directoryReady() && w.m_library->count()==3 && ready(w.m_library));
+            QCOMPARE(cache->lookupActivity().pngDecodes,before.pngDecodes);
+        }
+        QCOMPARE(ThumbnailActivity::generations.load(),gens);QCOMPARE(BookActivity::opens.load(),opens);
+        w.loadBook(imageZip,MainWindow::ViewMode::Pages);QTRY_VERIFY(!w.isLoading() && w.m_pages->count()==2 && ready(w.m_pages));
+        const auto pageReads=cache->lookupActivity().pngDecodes;
+        w.setMode(MainWindow::ViewMode::Covers);QTRY_VERIFY(ready(w.m_library));w.setMode(MainWindow::ViewMode::Pages);QTRY_VERIFY(ready(w.m_pages));
+        QCOMPARE(cache->lookupActivity().pngDecodes,pageReads);
     }
     void folderCacheUpdatesAfterChangeNotice() {
         QTemporaryDir d;QVERIFY(d.isValid());const auto books=d.filePath("books"),folder=books+"/folder",source=folder+"/book.zip";

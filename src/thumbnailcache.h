@@ -15,6 +15,8 @@ Q_DECLARE_LOGGING_CATEGORY(thumbnailCacheLog)
 class ThumbnailDiskCache {
 public:
     struct Stats { qint64 bytes=0; int entries=0; QString error; };
+    struct LookupActivity { quint64 memoryHits=0,pngDecodes=0; };
+    LookupActivity lookupActivity() const {return {m_memoryHits.load(),m_pngDecodes.load()};}
     explicit ThumbnailDiskCache(QString directory = defaultDirectory());
     static QString defaultDirectory();
     QString directory() const { return m_directory; }
@@ -55,15 +57,19 @@ private:
     enum class StoreResult { Stored, Obsolete, Retry, Error };
     bool enqueue(Pending pending,bool retry=false);
     bool stage(Pending &pending);
-    StoreResult store(const Pending &,const std::function<bool()> &cancel);
+    StoreResult store(const Pending &,const std::function<bool()> &cancel,qint64 *created=nullptr);
     mutable QMutex m_pendingMutex;
     QMutex m_recentMutex;
     QHash<QByteArray,QString> m_failures;
-    QImage recentImage(const QByteArray &key);
-    void rememberRecent(const QByteArray &key,const QImage &image,int cost);
+    ImageResult recentImage(const QByteArray &key);
+    void rememberRecent(const QByteArray &key,const ImageResult &image,bool pending=false,const quint64 *revision=nullptr);
     void forgetRecent(const QByteArray &key={});
     QList<Pending> m_pending;
-    QCache<QByteArray,QImage> m_recentImages{32*1024};
+    struct RecentImage {ImageResult result;bool pending=false;};
+    QCache<QByteArray,RecentImage> m_recentImages{32*1024};
+    std::atomic<quint64> m_recentRevision{0};
+    std::atomic<quint64> m_memoryHits{0},m_pngDecodes{0};
+    QHash<QByteArray,int> m_activeStores; // Protected by m_pendingMutex.
     qint64 m_pendingBytes=0;
     QHash<QByteArray,quint64> m_versions;
     quint64 m_nextVersion=0; // Request order; m_versions contains only completed replacements.

@@ -5,6 +5,8 @@
 #include "publication.h"
 #include "displayjobs.h"
 #include "readerfeatures.h"
+#include "thumbnailsource.h"
+#include <QTimer>
 #include <QAction>
 #include <QJSEngine>
 #include <QJsonArray>
@@ -127,6 +129,29 @@ private slots:
         QVERIFY(!w.findChild<QWidget *>("documentCoverPreview"));
         w.resize(800,1200);w.show();QTRY_VERIFY_WITH_TIMEOUT(w.renderReady(),40000);
         QCOMPARE(w.m_documentView->visiblePages().size(),1);
+    }
+    void nativeThumbnailsAfterDocumentExit_data() {
+        QTest::addColumn<bool>("epubDocument");QTest::newRow("txt")<<false;QTest::newRow("epub")<<true;
+    }
+    void nativeThumbnailsAfterDocumentExit() {
+        if(!TestData::webEngineIpcAvailable())QSKIP("WebEngine IPC is unavailable in this execution environment.");
+        QFETCH(bool,epubDocument);QTemporaryDir d;const auto images=d.filePath("images");QVERIFY(QDir().mkpath(images));
+        const auto imageZip=images+"/sample.zip",document=d.filePath(epubDocument?"sample.epub":"sample.txt");
+        const auto png=TestData::png(TestData::solid(Qt::blue,{240,320}));
+        QVERIFY(TestData::write(imageZip,TestData::zip({{"1.png",png},{"2.png",png}})));
+        QVERIFY(TestData::write(document,epubDocument?epub():QByteArray("Generic text\n")));
+        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));QVERIFY(!cachedCover(imageZip,{},cache).image.isNull());
+        const auto book=Book::open(imageZip).book;QVERIFY(book);for(int i=0;i<2;++i)QVERIFY(!cachedPageThumbnail(book,i,cache).image.isNull());
+        MainWindow w(d.filePath("settings.ini"));w.m_thumbnailDiskCache=cache;w.resize(900,600);w.show();w.openDirectory(images);
+        const auto ready=[](ThumbnailGrid *grid){const auto rows=grid->visibleRows();if(rows.isEmpty())return false;for(int row:rows)if(!grid->item(row)->data(ThumbnailRoleReady).toBool())return false;return true;};
+        QTRY_VERIFY(w.directoryReady() && ready(w.m_library));const auto before=cache->lookupActivity().pngDecodes;
+        w.openBook(document);QTRY_VERIFY_WITH_TIMEOUT(w.renderReady(),40000);auto *view=w.m_documentView;QVERIFY(view);
+        w.openDirectory(images);QTRY_VERIFY(w.directoryReady() && ready(w.m_library));QCOMPARE(cache->lookupActivity().pngDecodes,before);
+        for(auto *timer:view->findChildren<QTimer *>(QString(),Qt::FindDirectChildrenOnly))QVERIFY(!timer->isActive());
+        w.loadBook(imageZip,MainWindow::ViewMode::Pages);QTRY_VERIFY(!w.isLoading() && ready(w.m_pages));
+        QCOMPARE(w.viewMode(),MainWindow::ViewMode::Pages);QVERIFY(!w.m_documentView);QCOMPARE(cache->lookupActivity().pngDecodes,before);
+        w.setMode(MainWindow::ViewMode::Covers);QTRY_VERIFY(ready(w.m_library));w.setMode(MainWindow::ViewMode::Pages);QTRY_VERIFY(ready(w.m_pages));
+        QCOMPARE(cache->lookupActivity().pngDecodes,before);
     }
     void nativeEvictedSpreadAndRapidNavigation_data() {
         QTest::addColumn<bool>("rtl");QTest::newRow("ltr")<<false;QTest::newRow("rtl")<<true;

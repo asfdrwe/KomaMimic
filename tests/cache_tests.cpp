@@ -362,6 +362,8 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         auto incorrect=TestData::solid(Qt::blue);
         incorrect.setText(QStringLiteral("komamimic-cover-stamp"),stamp);
         QVERIFY(TestData::write(QDir(cache->directory()).filePath(files.first()),TestData::png(incorrect)));
+        // Load the edited disk fixture without reusing the original red RAM image.
+        cache=std::make_shared<ThumbnailDiskCache>(cache->directory());
         QCOMPARE(cachedCover(source,{},cache,{},false,0,true).image.pixelColor(0,0),QColor(Qt::blue));
         // A normal validation sees the same source stamp and leaves the image unchanged.
         QCOMPARE(cachedCover(source,{},cache).image.pixelColor(0,0),QColor(Qt::blue));
@@ -435,6 +437,7 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         const auto file=QDir(cache->directory()).filePath(pngs.first());
         auto marker=TestData::solid(Qt::blue);marker.setText("komamimic-cover-stamp",QImage(file).text("komamimic-cover-stamp"));
         QVERIFY(TestData::write(file,TestData::png(marker)));
+        cache=std::make_shared<ThumbnailDiskCache>(cache->directory());
         OpenOptions options;
         options.scriptSettings.insert("unrelated-reader-option",42);
         const auto reopened=Book::open(source,{},options).book;
@@ -491,8 +494,9 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         const auto generate=[&] {++calls;return ImageResult{TestData::solid(),{}};};
         cache.image("one",generate);
         const auto path=d.filePath(QString::fromLatin1(QCryptographicHash::hash("one",QCryptographicHash::Sha256).toHex())+".png");
-        QVERIFY(TestData::write(path,"broken"));cache.image("one",generate);QCOMPARE(calls,2);
-        QCOMPARE(cache.stats().entries,1);
+        QVERIFY(TestData::write(path,"broken"));
+        ThumbnailDiskCache restarted(d.path());restarted.image("one",generate);QCOMPARE(calls,2);
+        QCOMPARE(restarted.stats().entries,1);
         const auto file=d.filePath("not-a-directory");QVERIFY(TestData::write(file,"keep"));
         ThumbnailDiskCache unavailable(file);QVERIFY(!unavailable.image("one",generate).image.isNull());
         QVERIFY(!unavailable.stats().error.isEmpty());QFile original(file);QVERIFY(original.open(QIODevice::ReadOnly));QCOMPARE(original.readAll(),QByteArray("keep"));
@@ -688,6 +692,57 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         // Cancellation and explicit refresh must still bypass a warm hit.
         QVERIFY(cache.image(key,[&]{++calls;return ImageResult{TestData::solid(Qt::red),{}};},[]{return true;}).image.isNull());QCOMPARE(calls,0);
         QCOMPARE(cache.image(key,[&]{++calls;return ImageResult{TestData::solid(Qt::green),{}};},{},true).image.pixelColor(0,0),QColor(Qt::green));QCOMPARE(calls,1);
+    }
+    void repeatedSavedLookupReusesDecodedPixels() {
+        QTemporaryDir dir;const auto path=dir.filePath("cache");
+        {ThumbnailDiskCache writer(path);QVERIFY(!writer.image("cover",[]{return ImageResult{TestData::solid(Qt::blue),{}};}).image.isNull());}
+        ThumbnailDiskCache reader(path);const auto first=reader.lookup("cover");QVERIFY(!first.image.isNull());QVERIFY(first.cacheCreatedMs>0);
+        const auto before=reader.lookupActivity();QCOMPARE(before.pngDecodes,1);
+        const auto second=reader.lookup("cover");QCOMPARE(second.image,first.image);QCOMPARE(second.cacheCreatedMs,first.cacheCreatedMs);
+        QCOMPARE(reader.lookupActivity().pngDecodes,before.pngDecodes);QCOMPARE(reader.lookupActivity().memoryHits,before.memoryHits+1);
+    }
+    void completedStoreKeepsDecodedPixels() {
+        QTemporaryDir dir;ThumbnailDiskCache cache(dir.path());cache.setDeferredWrites(true);
+        QVERIFY(!cache.image("cover",[]{return ImageResult{TestData::solid(Qt::blue),{}};}).image.isNull());
+        QVERIFY(cache.flushPending());QVERIFY(!cache.hasPendingWrites());
+        const auto hit=cache.lookup("cover");QCOMPARE(hit.image.pixelColor(0,0),QColor(Qt::blue));QVERIFY(hit.cacheCreatedMs>0);
+        QCOMPARE(cache.lookupActivity().pngDecodes,0);QCOMPARE(cache.lookupActivity().memoryHits,1);
+        ThumbnailDiskCache disk(dir.path());QCOMPARE(disk.lookup("cover").cacheCreatedMs,hit.cacheCreatedMs);
+    }
+    void unrelatedPendingStoreDoesNotPreventRamReuse() {
+        QTemporaryDir dir;
+        {ThumbnailDiskCache writer(dir.path());QVERIFY(!writer.image("cover",[]{return ImageResult{TestData::solid(Qt::blue),{}};}).image.isNull());}
+        ThumbnailDiskCache reader(dir.path());reader.setDeferredWrites(true);
+        QVERIFY(!reader.image("other",[]{return ImageResult{TestData::solid(Qt::green),{}};}).image.isNull());QVERIFY(reader.hasPendingWrites());
+        const auto first=reader.lookup("cover");QVERIFY(!first.image.isNull());const auto reads=reader.lookupActivity().pngDecodes;
+        QCOMPARE(reader.lookup("cover").image,first.image);QCOMPARE(reader.lookupActivity().pngDecodes,reads);
+    }
+    void decodedSavedImagesRemainBoundedAndInvalidatable() {
+        QTemporaryDir dir;
+        {ThumbnailDiskCache writer(dir.path());for(int i=0;i<20;++i)QVERIFY(!writer.image(QByteArray::number(i),[]{return ImageResult{TestData::solid(Qt::blue,{768,768}),{}};}).image.isNull());}
+        ThumbnailDiskCache reader(dir.path());
+        for(int i=0;i<20;++i)QVERIFY(!reader.lookup(QByteArray::number(i)).image.isNull());
+        QCOMPARE(reader.lookupActivity().pngDecodes,20);
+        QVERIFY(!reader.lookup("19").image.isNull());QCOMPARE(reader.lookupActivity().pngDecodes,20);
+        QVERIFY(!reader.lookup("0").image.isNull());QCOMPARE(reader.lookupActivity().pngDecodes,21);
+        QVERIFY(reader.invalidate("19"));QVERIFY(reader.lookup("19").image.isNull());
+        QVERIFY(reader.clear().isEmpty());QVERIFY(reader.lookup("0").image.isNull());
+    }
+    void diskEvictionPreservesPendingReplacementPixels() {
+        QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.configure(true,16);
+        QImage noise(768,768,QImage::Format_RGB32);quint32 state=104729;
+        for(int y=0;y<noise.height();++y){auto *row=reinterpret_cast<QRgb *>(noise.scanLine(y));for(int x=0;x<noise.width();++x){state^=state<<13;state^=state>>17;state^=state<<5;row[x]=state|0xff000000;}}
+        QVERIFY(!cache.image("0",[&]{return ImageResult{noise,{}};}).image.isNull());
+        const auto path=d.filePath(QString::fromLatin1(QCryptographicHash::hash("0",QCryptographicHash::Sha256).toHex())+".png");QVERIFY(QFileInfo::exists(path));
+        const auto bytes=QFileInfo(path).size();QVERIFY(bytes>0);const int count=int((16LL*1024*1024)/bytes);QVERIFY(count>1 && count<32);
+        for(int i=1;i<count;++i)QVERIFY(!cache.image(QByteArray::number(i),[&]{return ImageResult{noise,{}};}).image.isNull());
+        QFile oldest(path);QVERIFY(oldest.open(QIODevice::ReadWrite));QVERIFY(oldest.setFileTime(QDateTime::currentDateTime().addSecs(-120),QFileDevice::FileModificationTime));oldest.close();
+        QCOMPARE(cache.stats().entries,count);
+        cache.setDeferredWrites(true);cache.image("new",[&]{return ImageResult{noise,{}};});
+        cache.image("0",[]{return ImageResult{TestData::solid(Qt::green,{768,768}),{}};},{},true);
+        QVERIFY(cache.flushPending());QVERIFY(!QFileInfo::exists(path));QVERIFY(cache.hasPendingWrites());
+        QCOMPARE(cache.lookup("0").image.pixelColor(0,0),QColor(Qt::green));QVERIFY(cache.flushPending());
+        QCOMPARE(ThumbnailDiskCache(d.path()).lookup("0").image.pixelColor(0,0),QColor(Qt::green));
     }
     void contendedDiskWriteStillReturnsImage() {
         QTemporaryDir d;ThumbnailDiskCache cache(d.path());
