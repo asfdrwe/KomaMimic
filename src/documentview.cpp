@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "documentview.h"
+#include "documentsurface.h"
 #include <QCoreApplication>
 #include <QApplication>
 #include <QBuffer>
@@ -149,6 +150,8 @@ void DocumentView::registerScheme() {
 DocumentView::DocumentView(QWidget *parent) : QWidget(parent) {
   Q_INIT_RESOURCE(documents);
   setObjectName("documentView");
+  // Establish the native boundary before WebEngine creates its Quick widget.
+  auto *surface = new DocumentSurface(this);
   m_profile =
       new QWebEngineProfile(this); // Off-the-record; no shared browser data.
   m_handler = new Handler(m_profile);
@@ -167,14 +170,17 @@ DocumentView::DocumentView(QWidget *parent) : QWidget(parent) {
                          false);
   settings->setAttribute(QWebEngineSettings::PluginsEnabled, false);
   settings->setAttribute(QWebEngineSettings::FullScreenSupportEnabled, false);
-  m_web = new QWebEngineView(this);
+  m_web = new QWebEngineView(surface);
   m_web->setPage(page);
   setFocusProxy(m_web);
   m_web->setContextMenuPolicy(Qt::NoContextMenu);
   qApp->installEventFilter(this);
   auto *layout = new QVBoxLayout(this);
   layout->setContentsMargins(0, 0, 0, 0);
-  layout->addWidget(m_web);
+  layout->addWidget(surface);
+  auto *surfaceLayout = new QVBoxLayout(surface);
+  surfaceLayout->setContentsMargins(0, 0, 0, 0);
+  surfaceLayout->addWidget(m_web);
   m_timer = new QTimer(this);
   m_timer->setInterval(150);
   connect(m_timer, &QTimer::timeout, this, &DocumentView::poll);

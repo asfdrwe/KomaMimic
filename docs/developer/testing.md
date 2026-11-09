@@ -38,12 +38,12 @@ Rerun timed-out suites individually to distinguish contention from a genuine han
 
 ## Test scopes
 
-`full` registers 24 CTest entries (25 when Node.js is available): 21 Qt suites (compatibility, reader, UI,
+`full` registers 25 CTest entries (26 when Node.js is available): 22 Qt suites (compatibility, reader, UI,
 feature, format, PDF, CLI, script, PIC, document, power, evolution, cache, i18n,
-archive_text, legacy_settings, thumbnail, thumbnail_scroll, thumbnail_preload, reader_startup and document_behavior), the C-locale format check, and the Python
+archive_text, legacy_settings, thumbnail, thumbnail_scroll, thumbnail_preload, reader_startup, document_behavior and document_surface), the C-locale format check, and the Python
 single-instance IPC and distribution checks.
-`platform` registers 17 CTest entries (18 when Node.js is available): compatibility, CLI, UI, PDF, script,
-document, power, cache, i18n, legacy_settings, thumbnail, thumbnail_scroll, thumbnail_preload, reader_startup, document_behavior, single-instance IPC, and
+`platform` registers 18 CTest entries (19 when Node.js is available): compatibility, CLI, UI, PDF, script,
+document, power, cache, i18n, legacy_settings, thumbnail, thumbnail_scroll, thumbnail_preload, reader_startup, document_behavior, document_surface, single-instance IPC, and
 distribution. Some Qt suites run only selected platform integration functions.
 This is the Windows-fast CI default. Its cache suite selects cancellation,
 disk-persistence and worker-scheduling regressions; it is not the full cache suite.
@@ -173,6 +173,10 @@ build. Native manual checks have a [separate procedure](platform-validation.md).
 legacy relative illustration paths, caption/location preservation, and book navigation
 without cover-list items. Its native cases verify writing-mode overrides, cover sizing,
 landscape Aozora pages and retained-view restoration; they require working WebEngine IPC.
+`document_surface_tests`はChromiumを起動せず、RHIを明示した独立プロセスで
+通常のQuick子では親の描画面が変わることと、文書専用surfaceでは親と一覧の
+描画面を維持することを比較する。初回生成・モード切替・保持文書・破棄を含む。
+Quick部品は非表示のため、GPU描画や実WebEngineの復帰を確認する試験とは別である。
 When Node.js is available, `document_layout_tests` also executes the production reader
 controller against a deterministic DOM adapter to test lazy scheduling, spread order,
 resume offsets, request replacement and recovery from a later chapter error. This

@@ -24,6 +24,11 @@ document. Images are decoded by native codecs, the PDF backend, or a script work
 then passed to display processing and caching. TXT/Markdown/EPUB use Publication and
 document settings to render in WebEngine.
 
+文書ビュー内の`DocumentSurface`は専用のnative子ウィンドウを持ち、WebEngineの
+RHI合成をその領域に収める。外側のDocumentViewとモード切替領域は通常のwidgetを
+維持し、表紙・ページ一覧と画像読書ビューの描画面を変更しない。現在の文書と
+直前の保持文書の両方に同じ境界を設ける。Qt 6.8以降を必要とする。
+
 Asynchronous work checks generation numbers and cancellation so results for an old
 book cannot update the current display. Thumbnails share identification with core
 image processing and EPUB cover extraction. 保存済みサムネイルは原則そのまま有効とし、利用ごとの元データ検証は行わない。

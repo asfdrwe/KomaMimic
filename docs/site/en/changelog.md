@@ -4,6 +4,7 @@
 
 ## Unreleased
 
+- Isolate document rendering so WebEngine does not switch the cover and page galleries to RHI composition. Building now requires Qt 6.8 or later.
 - Reuse decoded cover and page thumbnails in memory to reduce saved-PNG reads when revisiting folders or switching views.
 - Added optional full-list thumbnail preloading, off by default. Visible covers and pages take priority; remaining images are loaded progressively and retained within an offscreen memory limit, with interruption and cancellation on navigation.
 - Synchronize reflow writing mode and spread order. Center EPUB covers on a single page, prepare current sections/resources first, cancel obsolete loads, and reuse the previous document view.

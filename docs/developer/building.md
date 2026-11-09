@@ -2,7 +2,7 @@
 
 Use the OS-specific [README](../../README.md) instructions for an application-only
 CMake build. This page adds details about dependency discovery and development
-output directories. Use C++20, CMake 3.22+, and Qt 6.5+. Qt Qml and WebEngineWidgets
+output directories. Use C++20, CMake 3.22+, and Qt 6.8+. Qt Qml and WebEngineWidgets
 are required; there is no separate image-only build.
 
 ## Output directories

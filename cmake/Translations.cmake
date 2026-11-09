@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 # Add a komamimic_<locale>.ts catalog; registration and embedding are automatic.
-find_package(Qt6 6.5 REQUIRED COMPONENTS LinguistTools)
+find_package(Qt6 6.8 REQUIRED COMPONENTS LinguistTools)
 file(GLOB KOMAMIMIC_TRANSLATION_SOURCES CONFIGURE_DEPENDS "${PROJECT_SOURCE_DIR}/translations/komamimic_*.ts")
 set(KOMAMIMIC_LANGUAGES "[\"ja\"")
 foreach(catalog IN LISTS KOMAMIMIC_TRANSLATION_SOURCES)

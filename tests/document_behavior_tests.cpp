@@ -7,12 +7,14 @@
 #include "readerfeatures.h"
 #include "thumbnailsource.h"
 #include <QTimer>
+#include <QStackedWidget>
 #include <QAction>
 #include <QJSEngine>
 #include <QJsonArray>
 #include <QWebEngineView>
 #include <QWebEnginePage>
 #include <QWebEngineScript>
+#include <QWindow>
 
 namespace {
 QByteArray epub(bool rtl=false,const QByteArray &coverProperties="",const QByteArray &extra={}) {
@@ -143,13 +145,28 @@ private slots:
         auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));QVERIFY(!cachedCover(imageZip,{},cache).image.isNull());
         const auto book=Book::open(imageZip).book;QVERIFY(book);for(int i=0;i<2;++i)QVERIFY(!cachedPageThumbnail(book,i,cache).image.isNull());
         MainWindow w(d.filePath("settings.ini"));w.m_thumbnailDiskCache=cache;w.resize(900,600);w.show();w.openDirectory(images);
+        const auto gallerySurface=w.windowHandle()->surfaceType();
         const auto ready=[](ThumbnailGrid *grid){const auto rows=grid->visibleRows();if(rows.isEmpty())return false;for(int row:rows)if(!grid->item(row)->data(ThumbnailRoleReady).toBool())return false;return true;};
         QTRY_VERIFY(w.directoryReady() && ready(w.m_library));const auto before=cache->lookupActivity().pngDecodes;
         w.openBook(document);QTRY_VERIFY_WITH_TIMEOUT(w.renderReady(),40000);auto *view=w.m_documentView;QVERIFY(view);
+        auto *web=view->findChild<QWebEngineView *>();QVERIFY(web);
+        auto *surface=web->nativeParentWidget();QVERIFY(surface);
+        QCOMPARE(surface->objectName(),QString("documentSurface"));
+        QVERIFY(!web->testAttribute(Qt::WA_NativeWindow));
+        QVERIFY(!view->testAttribute(Qt::WA_NativeWindow));
+        QVERIFY(!w.m_stack->testAttribute(Qt::WA_NativeWindow));
+        QCOMPARE(w.windowHandle()->surfaceType(),gallerySurface);
         w.openDirectory(images);QTRY_VERIFY(w.directoryReady() && ready(w.m_library));QCOMPARE(cache->lookupActivity().pngDecodes,before);
+        QCOMPARE(w.windowHandle()->surfaceType(),gallerySurface);
+        w.setMode(MainWindow::ViewMode::Reader);QTRY_VERIFY_WITH_TIMEOUT(w.renderReady(),10000);
+        QCOMPARE(w.m_documentView,view);QVERIFY(web->isVisible());
+        QCOMPARE(web->nativeParentWidget(),surface);
+        QCOMPARE(w.windowHandle()->surfaceType(),gallerySurface);
+        w.setMode(MainWindow::ViewMode::Covers);
         for(auto *timer:view->findChildren<QTimer *>(QString(),Qt::FindDirectChildrenOnly))QVERIFY(!timer->isActive());
         w.loadBook(imageZip,MainWindow::ViewMode::Pages);QTRY_VERIFY(!w.isLoading() && ready(w.m_pages));
         QCOMPARE(w.viewMode(),MainWindow::ViewMode::Pages);QVERIFY(!w.m_documentView);QCOMPARE(cache->lookupActivity().pngDecodes,before);
+        QCOMPARE(w.windowHandle()->surfaceType(),gallerySurface);
         w.setMode(MainWindow::ViewMode::Covers);QTRY_VERIFY(ready(w.m_library));w.setMode(MainWindow::ViewMode::Pages);QTRY_VERIFY(ready(w.m_pages));
         QCOMPARE(cache->lookupActivity().pngDecodes,before);
     }

@@ -48,7 +48,7 @@ links between matching pages. Core developer documentation is maintained in Engl
 ## Build from source
 
 Run the commands from the repository root. KomaMimic requires C++20, CMake 3.22+,
-Qt 6.5+ with Qml and WebEngine Widgets, libarchive, ICU, zlib, SDL2 2.0.14+,
+Qt 6.8+ with Qml and WebEngine Widgets, libarchive, ICU, zlib, SDL2 2.0.14+,
 Poppler GLib 22.0+, Cairo, and pkg-config. A compatible Qt Image Formats installation
 provides additional image formats. Keep the Qt modules and toolchain compatible.
 
