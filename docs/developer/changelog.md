@@ -2,6 +2,12 @@
 
 ## 未リリース
 
+- Readerのページ項目・サムネイルsnapshot整形を遅延し、Coversの走査・分割配送もモード寿命へ合わせた。位置・編集・ソート復元中のrenderを抑制し、確定した対象を1回だけ要求。
+- 一括ロードは`cache/bundleLoad`の保存オプションへ変更。`Config/BundleLoad`を取り込み、読書中の最初の描画・通常先読み後にrawファイルを1件ずつ保持。旧一括画素復号・末尾一括配送とeagerなサムネイル情報収集を削除。
+- ZIPの中央情報読込をまとめ、Book列挙で再利用。局所local headerエラーを対象ページへ分離。nested/folderContainersはsource Bookを保持し画像の全件inline化を廃止。TIFF/script inspectとGIF/APNGへ取消を伝播。
+- 履歴のpending snapshotとrevision確認を導入し、現在画像の描画後に別connectionで保存。旧writeはepochで無効化し、終了時・明示DB操作では残りをflush。非表示の履歴・本棚UIの再構築も表示時へ移動。
+- `reader_startup_tests`をfull/platformへ追加（full22群・platform15群）。既存群の時間枠は維持。
+
 - Windows依存cacheのキーからアプリ版番号等を除外し、baseline・依存設定・triplet等に基づくidentityへ変更。既存キーもfallback復元し、不要なcold buildを避ける。
 - cache復元と保存を分離。Qt SDKは検証直後、vcpkgの完成packageは後続test失敗時も保存し、immutableな部分cacheを次回更新できる世代キーを使用。変更なしなら再転送しない。
 - cache復元キー・保存判断の診断JSONと回帰試験を追加。platform試験・時間枠・配布検証は維持。

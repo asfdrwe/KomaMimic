@@ -7,5 +7,5 @@ struct ArchiveNames {
     QVector<ArchiveName> entries;
     QString error;
 };
-ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cancel={});
+ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cancel={},bool strictLocal=true);
 ArchiveNames readLhaNames(const QString &path,const std::function<bool()> &cancel={});

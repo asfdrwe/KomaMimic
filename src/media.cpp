@@ -87,10 +87,11 @@ ImageResult decodeImage(const QByteArray &bytes, const QString &name, QSize thum
         const auto scripted = decodeScriptImage(bytes, name, thumbnail, recognized, false,documentPage,scriptSettings,cancel);
         if (recognized) return scripted;
     }
-    if (!thumbnail.isValid() && documentPage == 0) { bool apng = false; const auto animation = decodeApng(bytes, apng); if (apng) return animation; }
+    if (!thumbnail.isValid() && documentPage == 0) { bool apng = false; const auto animation = decodeApng(bytes, apng,cancel); if (apng) return animation; }
     ImageResult result;
     QBuffer buffer; buffer.setData(bytes); buffer.open(QIODevice::ReadOnly);
     QImageReader reader(&buffer); reader.setAutoTransform(true);
+    if(cancel && cancel())return {};
     if (documentPage == 0 && !reader.canRead()) {
         bool recognized = false;
         const auto scripted = decodeScriptImage(bytes, name, thumbnail, recognized,true,documentPage,scriptSettings,cancel);
@@ -107,6 +108,7 @@ ImageResult decodeImage(const QByteArray &bytes, const QString &name, QSize thum
         return {{}, QCoreApplication::translate("KomaMimic", "画像寸法が不正、または上限（約48メガピクセル）を超えています: %1\n%2").arg(name, reader.errorString())};
     if (thumbnail.isValid()) reader.setScaledSize(size.scaled(thumbnail, Qt::KeepAspectRatio));
     result.image = reader.read();
+    if(cancel && cancel())return {};
     if (result.image.isNull()) return {{}, QCoreApplication::translate("KomaMimic", "画像を読めません: %1\n%2").arg(name, reader.errorString())};
     result.image.setDevicePixelRatio(1);
     if (qint64(result.image.width()) * result.image.height() > MaxPixels) return {{}, QCoreApplication::translate("KomaMimic", "画像の寸法が上限を超えています。")};
@@ -117,6 +119,7 @@ ImageResult decodeImage(const QByteArray &bytes, const QString &name, QSize thum
     qint64 memory = result.image.sizeInBytes();
     // Bound predecoded animation memory; all decoding stays in workers.
     while (reader.canRead()) {
+        if(cancel && cancel())return {};
         const QSize nextSize = reader.size();
         if (!nextSize.isValid() || qint64(nextSize.width()) * nextSize.height() > MaxPixels) {
             result.error = QCoreApplication::translate("KomaMimic", "アニメーションの画像寸法が上限を超えています。先頭画像を表示します。"); break;

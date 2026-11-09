@@ -65,13 +65,22 @@ void MainWindow::setMode(ViewMode mode) {
     if(previous!=mode) {
         for(auto *grid:{m_library,m_pages})for(int row:grid->visibleRows())grid->item(row)->setData(ThumbnailRefreshRole,false);
         for(const auto &scope:{"covers","pages","collection","directory-siblings","cache-maintain","cache-usage"})m_displayJobs->retain(scope);
-        if(mode!=ViewMode::Covers)m_displayJobs->retain("directory");
+        if(mode!=ViewMode::Covers) {
+            m_displayJobs->retain("directory");
+            if(m_directoryLoading) {
+                // Also invalidate GUI continuations, not just worker requests.
+                m_thumbnailToken->store(++m_libraryGeneration);
+                m_directoryLoading=false;m_directoryDirty=true;
+            }
+        }
         m_displayJobs->retain("command-image");m_displayJobs->retain("navigation");
         m_displayJobs->retain("prefetch");m_displayJobs->retain("preload");
         if(mode!=ViewMode::Reader) {m_displayJobs->retain("render");m_renderToken->store(++m_renderGeneration);m_renderDirty=true;}
     }
+    if(mode!=ViewMode::Reader && m_book)m_book->setReaderCacheBudget(0);
     m_mode = mode; m_stack->setCurrentIndex(mode == ViewMode::Covers ? 0 : mode == ViewMode::Pages ? 1 : 2);
     if (mode == ViewMode::Reader && documentViewActive() && m_documentView) m_stack->setCurrentWidget(m_documentView);
+    if(mode==ViewMode::Pages && m_pagesDirty)populatePages();
     requestThumbnails(m_library);requestThumbnails(m_pages);
     if (mode != ViewMode::Reader) activeGrid()->requestVisible();
     else if(previous!=mode && m_renderDirty && m_book && !m_loading)render();
@@ -91,7 +100,8 @@ void MainWindow::showPageThumbnails() {
     if (m_mode == ViewMode::Pages) { setMode(m_beforeThumbnails); return; }
     m_beforeThumbnails = m_mode;
     if (m_mode == ViewMode::Reader && m_book) {
-        m_pages->setCurrentRow(m_anchor); m_pages->scrollToItem(m_pages->currentItem()); setMode(ViewMode::Pages); return;
+        setMode(ViewMode::Pages);
+        m_pages->setCurrentRow(m_anchor); m_pages->scrollToItem(m_pages->currentItem()); return;
     }
     const auto *item = m_library->currentItem();
     if (m_archiveDirectory) { if (item) openBook(item->data(PathRole).toString()); return; }
@@ -102,7 +112,9 @@ void MainWindow::readFolder() { if (!m_directory.isEmpty()) loadBook(m_directory
 void MainWindow::acceptThumbnail() {
     auto *grid = activeGrid(); auto *item = grid->currentItem(); if (!item) return;
     if (m_mode == ViewMode::Pages) {
-        const int page = item->data(PageRole).toInt(); setMode(ViewMode::Reader); jump(page);
+        const int page = item->data(PageRole).toInt();
+        if(page!=m_anchor){m_anchor=page;m_renderDirty=true;}
+        setMode(ViewMode::Reader);
     } else activateLibraryItem(item);
 }
 void MainWindow::cancelThumbnail() {
@@ -298,7 +310,7 @@ void MainWindow::populateDirectory(const QString &path, bool navigate, bool hist
                 }
                 return result;
             },[this,directory,generation](QStringList siblings,bool cancelled) {
-                if(!cancelled && generation==m_libraryGeneration) {m_siblingFolders=std::move(siblings);m_siblingIndex=m_siblingFolders.indexOf(directory);refreshState();}
+                if(!cancelled && generation==m_libraryGeneration) {m_siblingFolders=std::move(siblings);m_siblingIndex=m_siblingFolders.indexOf(directory);m_siblingDirectory=directory;refreshState();}
             });
         bool unchanged=m_library->count()==result.entries.size();
         for(int row=0;unchanged && row<result.entries.size();++row) {
@@ -314,7 +326,7 @@ void MainWindow::populateDirectory(const QString &path, bool navigate, bool hist
         auto entries=std::make_shared<QFileInfoList>(std::move(result.entries));auto offset=std::make_shared<int>(0);
         auto append=std::make_shared<std::function<void()>>();std::weak_ptr<std::function<void()>> next=append;
         *append=[this,generation,entries,offset,selected=currentSelection,previousRow=currentRow,previousScroll=currentScroll,navigate,next] {
-            if(generation!=m_libraryGeneration)return;
+            if(generation!=m_libraryGeneration || m_mode!=ViewMode::Covers)return;
             const int end=std::min(*offset+200,int(entries->size()));
             while(*offset<end) {
                 const auto &entry=(*entries)[(*offset)++];
@@ -407,6 +419,27 @@ void MainWindow::parentFolder() {
     if (parent.cdUp()) { m_directorySelections[parent.absolutePath()] = m_directory; openDirectory(parent.absolutePath()); }
 }
 void MainWindow::moveFolder(int delta) {
+    if(m_directory.isEmpty())return;
+    if(m_siblingDirectory!=m_directory) {
+        m_displayJobs->retain("directory-siblings");
+        const auto directory=m_directory;const auto mode=m_mode;
+        m_displayJobs->submit<QStringList>(DisplayJobs::Lane::Navigation,"directory-siblings","folder-navigation",
+            [directory](const DisplayJobs::Cancel &cancel){
+                QStringList result;QDir parent(directory);
+                if(parent.cdUp()) {
+                    QDirIterator folders(parent.absolutePath(),QDir::Dirs|QDir::NoDotAndDotDot|QDir::Readable);
+                    while(folders.hasNext()){if(cancel())return QStringList{};folders.next();result.append(folders.fileName());}
+                    std::sort(result.begin(),result.end(),naturalLess);
+                    for(auto &name:result)name=parent.absoluteFilePath(name);
+                }
+                return result;
+            },[this,directory,mode,delta](QStringList folders,bool cancelled){
+                if(cancelled || directory!=m_directory || mode!=m_mode)return;
+                m_siblingDirectory=directory;m_siblingFolders=std::move(folders);m_siblingIndex=m_siblingFolders.indexOf(directory);
+                refreshState();moveFolder(delta);
+            });
+        return;
+    }
     const int target = m_siblingIndex + delta;
     if (m_siblingIndex >= 0 && target >= 0 && target < m_siblingFolders.size()) openDirectory(m_siblingFolders[target]);
 }
@@ -416,6 +449,7 @@ void MainWindow::historyFolder(int delta) {
     m_historyIndex = target; populateDirectory(m_history[target], true, false);
 }
 void MainWindow::loadBook(const QString &path, ViewMode mode, bool startAtLastPage) {
+    m_displayJobs->retain("directory-siblings");
     m_displayJobs->retain("command-image");m_displayJobs->retain("navigation");m_displayJobs->visible("covers");m_displayJobs->visible("pages");
     m_displayJobs->retain("open");m_displayJobs->retain("prefetch");m_displayJobs->retain("preload");
     saveDocumentLocation();
@@ -432,10 +466,27 @@ void MainWindow::loadBook(const QString &path, ViewMode mode, bool startAtLastPa
         if (m_library->currentItem()) m_archiveSelections[m_archiveDirectory->path] = m_library->currentItem()->data(PathRole).toString();
         m_archiveDirectory.reset();
     }
-    if (directory != m_directory) populateDirectory(directory, true, true, true, true);
-    else if (leavingArchive) populateDirectory(directory, false, false);
+    if(mode==ViewMode::Covers) {
+        if(directory!=m_directory)populateDirectory(directory,true,true);
+        else if(leavingArchive)populateDirectory(directory,false,false);
+    } else if(directory!=m_directory) {
+        // Remember where Covers should return, without starting its listing.
+        m_displayJobs->retain("directory");m_displayJobs->retain("directory-siblings");
+        m_thumbnailToken->store(++m_libraryGeneration);
+        m_directoryLoading=false;m_directoryDirty=true;
+        if(const auto *item=m_library->currentItem())m_directorySelections[m_directory]=item->data(PathRole).toString();
+        m_directory=directory;m_neighborDirectory.clear();m_neighborPaths.clear();
+        m_siblingFolders.clear();m_siblingIndex=-1;m_siblingDirectory.clear();
+        if(m_historyIndex<0 || m_history[m_historyIndex]!=directory) {
+            while(m_history.size()>m_historyIndex+1)m_history.removeLast();
+            m_history.append(directory);m_historyIndex=m_history.size()-1;
+        }
+        m_directoryRefreshTimer->stop();
+        const auto watched=m_directoryWatcher->directories();
+        if(!watched.isEmpty())m_directoryWatcher->removePaths(watched);
+    } else if(leavingArchive)m_directoryDirty=true;
     m_currentPath = info.absoluteFilePath(); m_book.reset(); m_imageCache.clear(); m_anchor = 0;
-    m_loading = true; m_renderReady = false; m_lastError.clear(); m_renderToken->store(++m_renderGeneration);
+    m_loading = true; m_renderReady = false;m_readerPresented=false; m_lastError.clear(); m_renderToken->store(++m_renderGeneration);
     const auto generation = ++m_bookGeneration; m_openToken->store(generation);
     m_pageThumbnailToken->store(++m_pageGeneration);m_displayJobs->visible("pages"); m_pages->clearItems();
     m_pageTitle->setText(QCoreApplication::translate("KomaMimic", "画像・書庫を読み込んでいます… ") + bookDisplayName(m_currentPath));
@@ -443,21 +494,21 @@ void MainWindow::loadBook(const QString &path, ViewMode mode, bool startAtLastPa
     auto completed = [this, generation, startAtLastPage](Book::OpenResult result,bool cancelled) {
         if(cancelled)return;
         if (generation != m_bookGeneration) return;
-        m_loading = false;
-        if (!result.book) { m_restoreDocumentLocation=false; m_lastError = result.error; if(m_features)m_features->openFailed(); m_pageTitle->setText(result.error); m_view->setMessage(result.error); refreshState(); return; }
+        if (!result.book) { m_loading=false;m_restoreDocumentLocation=false; m_lastError = result.error; if(m_features)m_features->openFailed(); m_pageTitle->setText(result.error); m_view->setMessage(result.error); refreshState(); return; }
         if (result.book->archiveDirectory) {
-            m_book.reset(); m_restoreDocumentLocation = false; m_renderReady = true;
+            m_loading=false;m_book.reset(); m_restoreDocumentLocation = false; m_renderReady = true;
             if (m_features) m_features->openFailed();
             populateArchiveDirectory(result.book); return;
         }
         m_book = result.book; m_anchor = startAtLastPage ? pageCount() - 1 : m_book->initialPage;
-        if (m_book->archiveParent) populateArchiveDirectory(m_book->archiveParent, false);
+        if(m_book->archiveParent)m_archiveDirectory=m_book->archiveParent;
         if (m_features) {m_features->openedBook();m_features->applySavedSort(true);}
         if(startAtLastPage)m_anchor=pageCount()-1;
         if (m_restoreDocumentLocation && !documentViewActive()) {
             m_anchor=resolveDocumentLocation(m_pendingDocumentLocation);m_restoreDocumentLocation=false;
         }
         if (documentViewActive() && m_mode == ViewMode::Pages) setMode(ViewMode::Reader);
+        m_loading=false;
         populatePages();
         if (documentViewActive()) openDocumentView(); else render();
     };
@@ -470,6 +521,10 @@ void MainWindow::loadBook(const QString &path, ViewMode mode, bool startAtLastPa
 }
 void MainWindow::openBook(const QString &path) { if (QFileInfo(path).isDir()) openDirectory(path); else loadBook(path, ViewMode::Reader); }
 void MainWindow::populatePages() {
+    m_pagesDirty=true;
+    if(m_mode!=ViewMode::Pages)return;
+    m_pagesDirty=false;
+    const QSignalBlocker blocker(m_pages);
     m_pageThumbnailToken->store(++m_pageGeneration);m_displayJobs->visible("pages"); m_pages->clearItems();
     if (!m_book) return;
     m_pageTitle->setText(QCoreApplication::translate("KomaMimic", "ページサムネイル — %1（%2ページ）").arg(bookDisplayName(m_currentPath)).arg(pageCount()));

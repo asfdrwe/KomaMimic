@@ -141,7 +141,7 @@ QVector<ShortcutSpec> featureShortcutSpecs() {
                                         {"sortReverse", QCoreApplication::translate("KomaMimic", "逆順")},
                                         {"sortRandom", QCoreApplication::translate("KomaMimic", "ランダム")}})
     specs.append({id, label, {}, ShortcutScope::Reader});
-  add("preloadAll", QCoreApplication::translate("KomaMimic", "全ページをキャッシュ"));
+  add("preloadAll", QCoreApplication::translate("KomaMimic", "全ファイル一括ロード"), "", ShortcutScope::Global);
   add("clearCache", QCoreApplication::translate("KomaMimic", "画像キャッシュを解放"));
   add("importMangaMeeyaSettings", QCoreApplication::translate("KomaMimic", "MangaMeeyaの設定を取り込む…"), "", ShortcutScope::Global);
   add("importSettings", QCoreApplication::translate("KomaMimic", "設定をインポート"), "", ShortcutScope::Global);

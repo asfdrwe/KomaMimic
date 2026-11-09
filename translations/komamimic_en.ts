@@ -1426,8 +1426,8 @@ This cannot be reversed with Edit Undo. You can restore them from the OS Trash.<
         </message>
         <message>
             <location filename="../src/featurecommands.cpp" line="144" />
-            <source>全ページをキャッシュ</source>
-            <translation>Cache all pages</translation>
+            <source>全ファイル一括ロード</source>
+            <translation>Load all files</translation>
         </message>
         <message>
             <location filename="../src/featurecommands.cpp" line="145" />
@@ -2378,8 +2378,8 @@ Settings apply in this order: book, format defaults, then global defaults.</tran
         </message>
         <message>
             <location filename="../src/mainwindowmenus.cpp" line="70" />
-            <source>全ページ一括ロード（メモリ上限内）</source>
-            <translation>Load all pages (within memory limit)</translation>
+            <source>全ファイル一括ロード(&amp;B)</source>
+            <translation>Load all files (&amp;B)</translation>
         </message>
         <message>
             <location filename="../src/mainwindowmenus.cpp" line="71" />
@@ -6395,6 +6395,18 @@ The same key can have different actions in reading, thumbnails, and tree views. 
         <message>
             <source>0でも、表示中のフォルダにある各子フォルダの直下を探します。1以上では、さらに下の階層も探します。保存済み画像は削除しません。</source>
             <translation>0 searches directly inside each child folder shown in the current view. Higher values include additional subfolder levels. Saved images are kept.</translation>
+        </message>
+        <message>
+            <source>一括ロードの上限（MiB）</source>
+            <translation>Whole-file loading limit (MiB)</translation>
+        </message>
+        <message>
+            <source>読書中にファイルデータを順にメモリへ読み込みます。サムネイル表示中は動作しません。現在表示と先読みを優先し、上限またはファイルの末尾で止まります。</source>
+            <translation>Loads file data into memory while reading. Paused in thumbnail views. Current display and nearby preloading take priority. Stops at the memory limit or the last file.</translation>
+        </message>
+        <message>
+            <source>読書履歴を保存できません。後で再試行します。</source>
+            <translation>Cannot save the reading history. It will be retried later.</translation>
         </message>
     </context>
 </TS>

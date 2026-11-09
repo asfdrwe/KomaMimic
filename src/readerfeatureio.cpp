@@ -849,6 +849,9 @@ void ReaderFeatures::loadList(bool save, const QString &provided) {
     m_library->update(id, item.value("metadata").toObject(),
                       item.value("state").toObject());
   }
+  // An explicit import finishes its DB write before returning to the caller.
+  // Reading-position writes use the deferred display-priority path instead.
+  if(!m_library->flushPending())message(QCoreApplication::translate("KomaMimic", "読書履歴を保存できません。後で再試行します。"));
   rebuildLists();
   m_listsDock->show();
 }

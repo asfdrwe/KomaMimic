@@ -75,6 +75,8 @@ private:
   void bind(const QString &id, const std::function<void()> &function);
   void message(const QString &text);
   void rebuildLists();
+  bool m_listsDirty=false;
+  qint64 m_historyRetryAt=0;
   void addCollection(const QString &kind);
   void editMetadata(const QString &id);
   void editPages(const QString &operation);
@@ -138,7 +140,12 @@ private:
   void withCurrentImages(std::function<void(QVector<QImage>)> done);
   int m_imageCommandsActive=0;
   QSet<int> m_prefetchAttempted;
-  bool m_restoring = false, m_prefetching = false;
+  bool m_restoring = false;
+  void preloadFiles();
+  int m_preloadNext=0;
+  QSet<QString> m_preloadSeen;
+  bool m_preloadFull=false;
+  qint64 m_preloadBudget=0;
   bool m_navigationBusy = false;
   int m_lastDirection = 1;
   int m_previousAnchor = 0;

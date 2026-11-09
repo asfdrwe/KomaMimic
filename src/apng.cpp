@@ -24,7 +24,7 @@ struct Frame {
   QByteArray data;
 };
 } // namespace
-ImageResult decodeApng(const QByteArray &bytes, bool &recognized) {
+ImageResult decodeApng(const QByteArray &bytes, bool &recognized,const std::function<bool()> &cancel) {
   recognized = false;
   ImageResult result;
   if (!bytes.startsWith(Signature))
@@ -57,6 +57,7 @@ ImageResult decodeApng(const QByteArray &bytes, bool &recognized) {
                data = bytes.mid(offset + 8, length);
     if (type == "acTL")
       recognized = true;
+    if(cancel && cancel())return {};
     const quint32 actual = quint32(crc32(
         0, reinterpret_cast<const Bytef *>(bytes.constData() + offset + 4),
         length + 4));
@@ -128,6 +129,7 @@ ImageResult decodeApng(const QByteArray &bytes, bool &recognized) {
   canvas.fill(Qt::transparent);
   qint64 memory = 0;
   for (const auto &frame : frames) {
+    if(cancel && cancel())return {};
     if (!frame.width || !frame.height ||
         quint64(frame.x) + frame.width > width ||
         quint64(frame.y) + frame.height > height || frame.dispose > 2 ||

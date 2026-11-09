@@ -94,6 +94,7 @@ protected:
 private:
     friend class ReaderFeatures;
     friend class ThumbnailTests;
+    friend class ReaderStartupTests;
     friend class ReaderInput;
     void buildDocumentActions();
     void documentSettings();
@@ -116,6 +117,7 @@ private:
     Qt::Edges fullscreenRevealEdges(const QPoint &position) const;
     bool fullscreenChromeHovered(const QPoint &position) const;
     void render();
+    void presentedBook();
     void jump(int anchor);
     void stepPage(int direction, bool onePage = false);
     QString adjacentArchive(int direction) const;
@@ -163,7 +165,8 @@ private:
     QFileSystemWatcher *m_thumbnailWatcher=nullptr;
     void watchThumbnail(const QJsonObject &dependencies);
     bool m_cacheMaintenancePending = false;
-    bool m_renderDirty = true;
+    bool m_renderDirty = true, m_pagesDirty = true;
+    bool m_readerPresented=false;
     std::shared_ptr<ThumbnailDiskCache> m_thumbnailDiskCache;
     QHash<QString, QAction *> m_actions;
     ReadingOptions m_options;
@@ -193,6 +196,7 @@ private:
     bool m_restoring = true;
     QStringList m_history, m_siblingFolders;
     int m_historyIndex = -1, m_siblingIndex = -1;
+    QString m_siblingDirectory;
     QHash<QString, QString> m_directorySelections;
     QFileSystemWatcher *m_directoryWatcher = nullptr;
     QTimer *m_directoryRefreshTimer = nullptr;

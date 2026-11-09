@@ -40,7 +40,7 @@ QString unicodeExtra(const QByteArray &extra, const QByteArray &raw, QString &wa
 ArchiveNames failure(const QString &message) { return {{}, message}; }
 }
 
-ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cancel) {
+ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cancel,bool strictLocal) {
     if(cancel && cancel())return failure(QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。"));
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) return failure(file.errorString());
@@ -68,21 +68,28 @@ ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cance
     if (count > MaxEntries || directorySize > MaxMetadata || directoryOffset > fileSize
         || directorySize > fileSize - directoryOffset)
         return failure(QCoreApplication::translate("KomaMimic", "ZIPの項目数・名前情報が上限を超えたか、headerが不正です。"));
+    const auto directory=readAt(file,directoryOffset,directorySize);
+    if(quint64(directory.size())!=directorySize)return failure(QCoreApplication::translate("KomaMimic", "ZIPの名前情報が切れています。"));
     ArchiveNames result;
     quint64 cursor = directoryOffset;
     for (quint64 i = 0; i < count; ++i) {
         if(cancel && cancel())return failure(QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。"));
-        const auto fixed = readAt(file, cursor, 46);
+        const auto fixed=directory.mid(qsizetype(cursor-directoryOffset),46);
         if (fixed.size() != 46 || u32(fixed, 0) != 0x02014b50) return failure(QCoreApplication::translate("KomaMimic", "ZIPのcentral headerが不正です。"));
         const quint16 nameSize = u16(fixed, 28), extraSize = u16(fixed, 30), commentSize = u16(fixed, 32);
         const quint64 headerSize = 46 + quint64(nameSize) + extraSize + commentSize;
         if (cursor < directoryOffset || headerSize > directorySize || cursor - directoryOffset > directorySize - headerSize)
             return failure(QCoreApplication::translate("KomaMimic", "ZIPのcentral headerが範囲外です。"));
         ArchiveName name;
-        name.rawHeader = readAt(file, cursor, headerSize);
+        name.rawHeader=directory.mid(qsizetype(cursor-directoryOffset),qsizetype(headerSize));
         if (quint64(name.rawHeader.size()) != headerSize) return failure(QCoreApplication::translate("KomaMimic", "ZIPの名前情報が切れています。"));
         name.rawName = name.rawHeader.mid(46, nameSize);
         name.zipFlags = u16(fixed, 8);
+        const auto host=u16(fixed,4)>>8;
+        const auto attributes=u32(fixed,38);
+        // Only Unix/macOS creators encode POSIX mode in the upper word.
+        name.fileType=(host==3 || host==19)?(attributes>>16)&0170000:0;
+        if(!name.fileType)name.fileType=(name.rawName.endsWith('/') || (attributes&0x10))?0040000:0100000;
         quint64 offset = u32(fixed, 42), size = u32(fixed, 24);
         const QByteArray extra = name.rawHeader.mid(46 + nameSize, extraSize);
         bool zip64Offset = offset != 0xffffffff, zip64Size = size != 0xffffffff;
@@ -101,12 +108,16 @@ ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cance
             || size > quint64(std::numeric_limits<qint64>::max())) return failure(QCoreApplication::translate("KomaMimic", "ZIP64 entryが不正です。"));
         name.offset = qint64(offset); name.size = qint64(size);
         const auto local = readAt(file, offset, 30);
-        if (local.size() != 30 || u32(local, 0) != 0x04034b50) return failure(QCoreApplication::translate("KomaMimic", "ZIPのlocal headerが不正です。"));
-        const quint16 localNameSize = u16(local, 26), localExtraSize = u16(local, 28);
-        name.localHeader = readAt(file, offset, 30 + quint64(localNameSize) + localExtraSize);
-        if (name.localHeader.size() != 30 + localNameSize + localExtraSize) return failure(QCoreApplication::translate("KomaMimic", "ZIPのlocal名前情報が切れています。"));
+        quint16 localNameSize=0,localExtraSize=0;
+        if(local.size()!=30 || u32(local,0)!=0x04034b50)name.error=QCoreApplication::translate("KomaMimic", "ZIPのlocal headerが不正です。");
+        else {
+            localNameSize=u16(local,26);localExtraSize=u16(local,28);
+            name.localHeader=readAt(file,offset,30+quint64(localNameSize)+localExtraSize);
+            if(name.localHeader.size()!=30+localNameSize+localExtraSize)name.error=QCoreApplication::translate("KomaMimic", "ZIPのlocal名前情報が切れています。");
+        }
+        if(strictLocal && !name.error.isEmpty())return failure(name.error);
         const auto localName = name.localHeader.mid(30, localNameSize);
-        if (localName != name.rawName || ((u16(local, 6) ^ name.zipFlags) & 0x800))
+        if (localName != name.rawName || (local.size()==30 && ((u16(local, 6) ^ name.zipFlags) & 0x800)))
             name.warning += QCoreApplication::translate("KomaMimic", " local/centralの名前・Unicode宣言が異なります。centralを優先します。");
         const QString extraName = unicodeExtra(extra, name.rawName, name.warning);
         const QString localExtraName = unicodeExtra(name.localHeader.mid(30 + localNameSize), localName, name.warning);

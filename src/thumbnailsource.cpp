@@ -231,8 +231,9 @@ ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int inde
                                 const std::function<bool()> &cancel,bool refresh,bool cachedOnly,bool verify,int maxDepth,const QJsonObject &observed) {
     if(!book || index<0 || index>=book->pages.size()) return {{},QCoreApplication::translate("KomaMimic", "ページが範囲外です。")};
     const auto &page=book->pages[index];
-    const auto path=page.archivedText ? book->path : book->filesystem || page.document ? page.filePath : book->path;
     const auto source=book->thumbnailSource(index);
+    const auto path=QJsonDocument::fromJson(source).object().value("path").toString(
+        page.archivedText?book->path:book->filesystem || page.document?page.filePath:book->path);
     auto key=baseKey(source,book->namePolicy);key["kind"]="page";
     qCDebug(thumbnailCacheLog) << "page-key" << digest(source);
     key["identity"]=page.identity;key["name"]=page.name;key["ordinal"]=QString::number(page.archiveIndex);
@@ -273,7 +274,8 @@ ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int inde
         const auto &old=book->pages[index];
         for(int i=0;i<opened.book->pages.size();++i) {
             const auto &page=opened.book->pages[i];
-            if((old.archiveEntryId.isEmpty()?page.name==old.name:page.archiveEntryId==old.archiveEntryId) && page.documentPage==old.documentPage && page.portion==old.portion && page.pdfResource==old.pdfResource) {
+            if((!old.sourceBook || old.name==page.name) &&
+               (old.archiveEntryId.isEmpty()?page.name==old.name:page.archiveEntryId==old.archiveEntryId) && page.documentPage==old.documentPage && page.portion==old.portion && page.pdfResource==old.pdfResource) {
                 if(!opened.book->sourceUnchanged(i))return book->image(index,ThumbnailSize,cancel);
                 return cachedPageThumbnail(opened.book,i,cache,cancel,refresh,false,true,0,actual);
             }
@@ -284,9 +286,40 @@ ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int inde
         const auto hit=cache->lookup(bytes,cancel);
         if(!hit.image.isNull() && hit.image.text("komamimic-cover-stamp")==stamp)return hit;
     }
+    QByteArray reusableData;
+    if(!refresh && page.sourceBook && page.inlineData.isEmpty() && !page.document) {
+        // Older container pages included a payload hash in their PNG key.
+        // Recover that key only on a visible miss, never in cache-only lookup.
+        const auto data=book->encoded(index,cancel);
+        if(!data.error.isEmpty())return {{},data.error};
+        reusableData=data.bytes;
+        auto oldKey=key;oldKey["inline"]=QString::fromLatin1(digest(data.bytes));
+        const auto oldSource=book->filesystem?QByteArray{}:source;
+        const auto oldPath=book->filesystem?page.filePath:path;
+        oldKey["source"]=QFileInfo(physicalBookPath(oldPath)).absoluteFilePath();
+        auto hit=cache->lookup(QJsonDocument(oldKey).toJson(QJsonDocument::Compact),cancel);
+        if(hit.image.isNull()) {
+            oldKey["revision"]=2;oldKey["source"]=QString::fromUtf8(oldSource);
+            oldKey["identity"]=page.identity;oldKey["ordinal"]=QString::number(page.archiveIndex);
+            hit=cache->lookup(QJsonDocument(oldKey).toJson(QJsonDocument::Compact),cancel);
+        }
+        if(!hit.image.isNull()) {
+            hit.image.setText("komamimic-cover-stamp",stamp);
+            hit.thumbnailEntries={{QFileInfo(physicalBookPath(path)).absoluteFilePath(),QJsonDocument::fromJson(source).object()}};
+            return hit; // Keep the saved PNG and its creation time unchanged.
+        }
+    }
     const auto generate=[&] {
         auto result=refresh?ImageResult{}:cache->lookup(legacy,cancel);
-        if(result.image.isNull()){++ThumbnailActivity::generations;result=book->image(index,ThumbnailSize,cancel);}
+        if(result.image.isNull()) {
+            ++ThumbnailActivity::generations;
+            if(reusableData.isEmpty())result=book->image(index,ThumbnailSize,cancel);
+            else {
+                // Reuse the selected payload even when the file cache is off.
+                auto decodedPage=page;decodedPage.inlineData=reusableData;decodedPage.sourceBook.reset();
+                result=book->withPages({decodedPage})->image(0,ThumbnailSize,cancel);
+            }
+        }
         if(!result.image.isNull()) {
             result.image.setText("komamimic-cover-stamp",stamp);
             const auto json=QJsonDocument::fromJson(source).object();

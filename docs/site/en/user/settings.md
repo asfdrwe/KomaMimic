@@ -85,6 +85,25 @@ In v1.5.0, saved thumbnails are trusted by default. They are not checked against
 
 Visible PNG reads run separately from heavy generation, without waiting for writer/maintenance locks or a full cache inventory. Page-thumbnail mode does not render or prefetch the hidden reading image. Reading does not generate or validate thumbnails or scan hidden browser lists.
 
+### Load all files
+
+Tools → Load all files is a saved on/off loading option. You can select it in
+cover and page thumbnail views, but whole-file loading runs only in Reader.
+The current image and configured nearby preloading come first. The option then
+retains JPEG, PNG, and other file data in memory; it does not generate thumbnails
+or decode every page into pixels.
+
+Navigation cancels in-flight work. Once reading is idle, remaining files can be
+loaded while completed data stays reusable for the same book. Turning the option
+off releases its retained data. Preferences → Cache → Whole-file loading limit
+(MiB) defaults to 128 MiB, separate from the regular encoded-file and pixel caches.
+Loading stops at that limit or the final file. Importing MangaMeeya settings maps
+`Config/BundleLoad` to this option.
+
+Reader does not prepare hidden page-thumbnail items or their dedicated metadata.
+Those are prepared when entering the thumbnail view; obsolete listing work is
+cancelled when returning to reading.
+
 ### Checking changes
 
 Reuse the names, sizes, modification times, and other information already obtained for the current directory listing. Only relevant listing differences, OS notifications, or changes made in the app trigger checks. Unchanged ZIPs are not opened, original images are not decoded, and full content hashes are not calculated just to validate a cache.

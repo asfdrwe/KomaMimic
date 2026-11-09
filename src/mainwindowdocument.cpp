@@ -431,6 +431,7 @@ void MainWindow::documentLaidOut(const QVector<DocumentLocation> &locations) {
   m_book = m_book->withPages(pages);
   m_anchor = resolveDocumentLocation(old);
   m_renderReady = true;
+  presentedBook();
   populatePages();
   if (m_features)
     m_features->refreshDocumentToc();

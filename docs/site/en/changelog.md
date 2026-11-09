@@ -2,6 +2,12 @@
 
 [日本語](../changelog.md) | English
 
+## Unreleased
+
+- Defer hidden thumbnail preparation and directory listing until the relevant view is active. Cancel old GUI deliveries and avoid duplicate image requests during opening.
+- Make Load all files a saved loading option. Retain file data within its memory budget only while reading, after current display and nearby preloading.
+- Read nested and folder-container images on demand. Isolate local errors in unshown entries and improve animation cancellation.
+
 ## v1.5.0
 
 - Show saved thumbnails first without checking their sources. Remove periodic validation and update only targets with concrete change evidence. Adding files without changing the selected source or its attributes does not regenerate or rewrite the thumbnail. Unchanged images are retained.

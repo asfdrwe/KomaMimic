@@ -608,6 +608,9 @@ void ReaderFeatures::preferences(const QString &pageName) {
   editors["cache/fileMegabytes"]->setToolTip(QCoreApplication::translate("KomaMimic", "JPEG・PNG等のファイルデータをメモリに保持します。書庫の場合は取り出した画像ファイルのデータです。0で無効。変更は次に本を開くときに適用します。"));
   spin(cache, QCoreApplication::translate("KomaMimic", "表示用画像のキャッシュ容量（MiB）"), "cache/megabytes", 128, 16, 2048);
   editors["cache/megabytes"]->setToolTip(QCoreApplication::translate("KomaMimic", "復号した画素データと先読み画像をメモリに保持します。3000×4000画素・32 bitなら約46 MiBです。容量を超えると古いキャッシュを解放して、必要なときに読み直します。"));
+  check(cache,QCoreApplication::translate("KomaMimic", "全ファイル一括ロード"),"cache/bundleLoad",false);
+  spin(cache,QCoreApplication::translate("KomaMimic", "一括ロードの上限（MiB）"),"cache/bundleMegabytes",128,16,2048);
+  editors["cache/bundleLoad"]->setToolTip(QCoreApplication::translate("KomaMimic", "読書中にファイルデータを順にメモリへ読み込みます。サムネイル表示中は動作しません。現在表示と先読みを優先し、上限またはファイルの末尾で止まります。"));
   spin(cache, QCoreApplication::translate("KomaMimic", "前方向の先読み（表示単位）"), "cache/ahead", 2, 0, 20);
   spin(cache, QCoreApplication::translate("KomaMimic", "逆方向の先読み（表示単位）"), "cache/behind", 1, 0, 20);
   editors["cache/ahead"]->setToolTip(QCoreApplication::translate("KomaMimic", "進んでいる方向のページを先に読み込みます。見開きなら1表示単位は通常2ページ。0で無効。"));

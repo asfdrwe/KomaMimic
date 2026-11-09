@@ -7,7 +7,7 @@ QVariantMap mangaPreferenceDefaults() {
         {"reading/rtl",true}, {"reading/cover",true}, {"reading/leadingBlank",true},
         {"reading/scrollTurnsPage",true}, {"source/recursive",false},
         {"General/watch",true}, {"navigation/count",20},
-        {"cache/ahead",1}, {"cache/behind",0}, {"cache/fileMegabytes",0},
+        {"cache/bundleLoad",false}, {"cache/ahead",1}, {"cache/behind",0}, {"cache/fileMegabytes",0},
         {"slideshow/interval",100}, {"slideshow/scroll",true}, {"display/background",QString("#000000")},
         {"thumbnails/columns",0}, {"thumbnails/folderDepth",0}, {"display/filename",false}, {"thumbnails/numbers",false}, {"folders/twoPane",true},
         {"thumbnails/width",64}, {"thumbnails/height",64}, {"thumbnails/horizontalGap",0},

@@ -84,3 +84,31 @@ reading in the foreground, and released on minimizing, switching to another app,
 returning to a list, or exiting. It uses Windows power APIs, IOKit on macOS, and an
 available D-Bus method on Linux. On macOS it targets automatic display sleep. See
 [native platform validation](platform-validation.md) for checking actual behavior.
+
+## 読書開始と一括ロード
+
+Readerのopenはページ順・編集・再開位置を確定して現在画像を1回だけ要求する。
+非表示ページ項目やJSON snapshotはサムネイル表示まで準備しない。ファイル列挙時の
+属性は保持し、後から新しい属性を古いBookのsnapshotへ混ぜない。
+Coversの走査・GUI分割配送も離脱で取り消し、Reader開始のために親一覧を走査しない。
+
+`preloadAll`は保存オプション`cache/bundleLoad`を切り替えるGlobal action。
+既定offで、MangaMeeyaの`Config/BundleLoad`を取り込む。Readerの最初の描画後、
+通常先読みが終わってからrawファイルを一件ずつ保持する。Pages/Coversでは読まない。
+`cache/bundleMegabytes`は16～2048 MiB、既定128 MiB。現在表示はこの保持の完了を待たない。
+取消でも完成済みデータは同Bookで再利用し、オフ・キャッシュ解放で破棄する。
+通常ファイルキャッシュ・復号画素キャッシュとサムネイルPNGの形式は別。
+
+nested Bookは展開した内部書庫の一時ファイル寿命を保持し、個々の画像は参照で遅延読込する。
+フォルダ内書庫もsource Book参照を使う。ZIPは構造的な中央情報の検査を保ち、
+局所local headerエラーを対象へ分離する。TIFF/scriptのページ数確定に必要な読込は残す。
+アニメーションは現在ファイルのフレーム列を上限内で準備し、途中取消を確認する。
+
+履歴writeはRAMのpending revisionを可視読取へ重ね、描画後のStore laneで独立DB接続へ保存する。
+取消・失敗は未保存として保持し、ackは同revisionだけを消す。明示DB操作はepochを更新し、
+旧writeの再適用を防いでからflushする。通常終了時にも残りをflushする。
+
+通常のページ・表紙PNGのキーは変更しない。旧nested/folderContainersのページPNGは
+inlineデータのhashをキーに含むため、現在キーがmissした場合だけ、その表示対象のデータから
+旧キーを復元してlookupする。cache-only lookupは元データを読まない。旧PNGが見つかれば
+再復号・再保存せず利用する。旧PNGの全削除・一括変換や新しい永続対応表は導入しない。

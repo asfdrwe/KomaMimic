@@ -96,6 +96,8 @@ planLegacySettings(const QString &text,
   };
   for (const auto &[oldKey, newKey, label, high] :
        QVector<std::tuple<QString, QString, QString, int>>{
+           {"Config/BundleLoad", "cache/bundleLoad",
+            QCoreApplication::translate("KomaMimic", "全ファイル一括ロード"), 1},
            {"Config/PrepageForwardNum", "cache/ahead",
             QCoreApplication::translate("KomaMimic",
                                         "前方向の先読み（表示単位）"),

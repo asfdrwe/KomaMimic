@@ -20,6 +20,8 @@ struct ArchiveName {
     bool invalidUnicode = false;
     bool lhaDirectory = false;
     quint16 zipFlags = 0;
+    quint32 fileType = 0;
+    QString error;
     qint64 offset = 0;
     qint64 size = 0;
 };

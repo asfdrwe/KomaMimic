@@ -51,6 +51,7 @@ public:
     void setLeadingBlank(bool enabled);
     void setTransition(int kind,int duration);
 signals:
+    void imagePresented();
     void nextRequested();
     void previousRequested();
     void animationChanged(bool available, bool paused);
@@ -71,6 +72,8 @@ private:
     void clampPan();
     ResizeAlgorithm m_algorithm = ResizeAlgorithm::Smooth;
     ScaleMode m_scaleMode = ScaleMode::Fit;
+    bool m_presentationPending=false;
+    quint64 m_presentationGeneration=0;
     bool m_noUpscale = false, m_scaleReady = false, m_scaleBusy = false, m_scalePending = false, m_dragging = false;
     double m_zoom = 1;
     QPointF m_pan, m_pressPosition, m_pressPan;

@@ -33,6 +33,15 @@
 
 namespace {
 constexpr qint64 MaxEntries = 100000;
+// Recursive opens run on one worker. Bound their combined materialization,
+// including failed candidates, without retaining budget state in a saved Book.
+struct NestedReadBudget {
+    inline static thread_local int depth=0;
+    inline static thread_local qint64 remaining=0;
+    NestedReadBudget(){if(depth++==0)remaining=128LL*1024*1024;}
+    ~NestedReadBudget(){--depth;}
+    static bool consume(qint64 bytes){if(bytes<0 || bytes>remaining)return false;remaining-=bytes;return true;}
+};
 struct ArchiveFree { void operator()(archive *a) const { archive_read_free(a); } };
 using Archive = std::unique_ptr<archive, ArchiveFree>;
 class Utf8ArchiveLocale {
@@ -198,6 +207,7 @@ void Book::sortPages() {
 }
 Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const OpenOptions &options) {
     ++BookActivity::opens;
+    NestedReadBudget nestedBudget;
     if (parseArchiveEntryPath(path).valid()) return openArchiveEntry(path, policy, options);
     // libarchive internally transcodes some Unicode names via LC_CTYPE, even
     // when our own adapter supplies display names. Scope UTF-8 to this worker;
@@ -210,6 +220,7 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
     book->path = info.absoluteFilePath(); book->namePolicy = policy;
     book->openOptions = options;book->openOptions.cancel={};book->m_encodedCache->values.setMaxCost(std::clamp(options.fileCacheMiB,0,256)*1024);
     book->m_fileSize = info.size(); book->m_modifiedMs = info.lastModified().toMSecsSinceEpoch();
+    book->m_fileValid=info.isFile();book->m_resolvedPath=info.canonicalFilePath();
     bool nestedFound = false;
     if (isDocumentPath(path)) {
         if (info.suffix().compare("pdf", Qt::CaseInsensitive) == 0 && options.pdfResources) {
@@ -222,7 +233,7 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
                 page.identity=QString("pdf-image:%1:%2").arg(resource.page).arg(resource.index);
                 page.encodedSize=info.size();page.modifiedMs=book->m_modifiedMs;page.decodedName={page.name,"PDF resource",QCoreApplication::translate("KomaMimic", "画像リソース"),{},false};book->pages.append(page);
             }
-            book->captureThumbnailSources();return {book,{}};
+            return {book,{}};
         }
         if (isTextDocumentPath(path)) {
             book->publication = readPublication(path, options.text);
@@ -236,7 +247,7 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
                 page.document = true; page.documentSection = section.path; page.documentOffset = 0;
                 page.identity = "text:" + section.path + ":0"; book->pages.append(page);
             }
-            book->captureThumbnailSources();return {book, {}};
+            return {book, {}};
         }
         const auto document = inspectDocument(path, options.password);
         if (!document.error.isEmpty()) return {{}, document.error};
@@ -248,24 +259,34 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
             page.filePath = info.absoluteFilePath(); page.encodedSize = info.size(); page.modifiedMs = book->m_modifiedMs;
             page.decodedName = {page.name, "document", QCoreApplication::translate("KomaMimic", "文書ページ"), {}, false}; book->pages.append(page);
         }
-        book->captureThumbnailSources();return {book, {}};
+        return {book, {}};
     }
     if (info.isDir() || isImagePath(path)) {
         book->filesystem = true; book->format = QT_TRANSLATE_NOOP("KomaMimic", "画像フォルダ");
         const QDir directory(info.isDir() ? info.absoluteFilePath() : info.absolutePath());
         QFileInfoList files;
-        if (options.recursive) {
-            QDirIterator iterator(directory.absolutePath(), QDir::Files | QDir::Readable, QDirIterator::Subdirectories);
-            while (iterator.hasNext()) { if(options.cancel&&options.cancel())return {{},QCoreApplication::translate("KomaMimic", "読み込みを取り消しました。")};iterator.next(); files.append(iterator.fileInfo()); if (files.size() > MaxEntries) return {{}, QCoreApplication::translate("KomaMimic", "フォルダの項目数が上限を超えています。")}; }
-        } else files = directory.entryInfoList(QDir::Files | QDir::Readable, QDir::NoSort);
-        qint64 ordinal = 0,containerBytes=0;
+        QDirIterator iterator(directory.absolutePath(),QDir::Files|QDir::Readable,
+            options.recursive?QDirIterator::Subdirectories:QDirIterator::NoIteratorFlags);
+        while(iterator.hasNext()) {
+            if(options.cancel && options.cancel())return {{},QCoreApplication::translate("KomaMimic", "読み込みを取り消しました。")};
+            iterator.next();files.append(iterator.fileInfo());
+            if(options.recursive && files.size()>MaxEntries)return {{},QCoreApplication::translate("KomaMimic", "フォルダの項目数が上限を超えています。")};
+        }
+        const auto resolvedDirectory=directory.canonicalPath();
+        qint64 ordinal = 0;
         for (const auto &file : files) {
             if(options.cancel&&options.cancel())return {{},QCoreApplication::translate("KomaMimic", "読み込みを取り消しました。")};
             if(options.folderContainers&&(isArchivePath(file.fileName())||file.suffix().compare("pdf",Qt::CaseInsensitive)==0)){
                 auto childOptions=options;childOptions.folderContainers=false;childOptions.archiveAsPages=true;const auto child=Book::open(file.absoluteFilePath(),policy,childOptions);
                 if(!child.book){book->warnings.append(file.fileName()+": "+child.error);continue;}
-                for(int i=0;i<child.book->pages.size();++i){auto page=child.book->pages[i];if(!page.document){const auto data=child.book->encoded(i, options.cancel);if(!data.error.isEmpty())return {{},data.error};containerBytes+=data.bytes.size();if(containerBytes>128*1024*1024)return {{},QCoreApplication::translate("KomaMimic", "フォルダ内書庫の展開が128 MiBを超えています。")};page.inlineData=data.bytes;}
-                    page.identity="container:"+file.absoluteFilePath()+"/"+page.identity;page.name=directory.relativeFilePath(file.absoluteFilePath())+"/"+page.name;page.archiveIndex=ordinal++;book->pages.append(page);if(book->pages.size()>MaxEntries)return {{},QCoreApplication::translate("KomaMimic", "フォルダ内のページ数が上限を超えました。")};
+                const auto source=child.book->shareEncodedCache(book->m_encodedCache);
+                for(int i=0;i<source->pages.size();++i){auto page=source->pages[i];
+                    page.sourceBook=source;page.sourceIndex=i;
+                    page.identity="container:"+file.absoluteFilePath()+"/"+page.identity;
+                    page.name=directory.relativeFilePath(file.absoluteFilePath())+"/"+page.name;
+                    page.archiveIndex=ordinal++;
+                    book->pages.append(page);
+                    if(book->pages.size()>MaxEntries)return {{},QCoreApplication::translate("KomaMimic", "フォルダ内のページ数が上限を超えました。")};
                 }continue;
             }
             if (!isImagePath(file.fileName())) continue;
@@ -275,6 +296,7 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
             page.name = directory.relativeFilePath(file.absoluteFilePath()); page.filePath = file.absoluteFilePath();
             page.archiveIndex = ordinal++; page.encodedSize = file.size();
             page.modifiedMs = file.lastModified().toMSecsSinceEpoch();
+            page.resolvedPath=file.isSymLink()?file.canonicalFilePath():QDir(resolvedDirectory).filePath(page.name);
             page.decodedName = {page.name, "filesystem", QCoreApplication::translate("KomaMimic", "OSの名前"), {}, false};
             book->pages.append(page);
         }
@@ -287,14 +309,16 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
         QHash<QByteArray, int> entryOccurrences;
         archive_entry *entry = nullptr;
         qint64 ordinal = 0;
-        qint64 nestedBytes = 0;
         int status = ARCHIVE_OK;
-        while ((status = archive_read_next_header(a.get(), &entry)) == ARCHIVE_OK || status == ARCHIVE_WARN) {
+        bool indexedZip=false;
+        std::unique_ptr<archive_entry,decltype(&archive_entry_free)> indexedEntry(archive_entry_new(),archive_entry_free);
+        while (indexedZip ? ordinal<metadata.entries.size() :
+               ((status=archive_read_next_header(a.get(),&entry))==ARCHIVE_OK || status==ARCHIVE_WARN)) {
             if(options.cancel&&options.cancel())return {{},QCoreApplication::translate("KomaMimic", "読み込みを取り消しました。")};
             if (ordinal >= MaxEntries) return {{}, QCoreApplication::translate("KomaMimic", "書庫内の項目数が上限（100,000）を超えています。")};
             if (!metadataRead) {
                 const int family = archive_format(a.get()) & ARCHIVE_FORMAT_BASE_MASK;
-                if (family == ARCHIVE_FORMAT_ZIP) { metadata = readZipNames(path,options.cancel); book->canReinterpret = true; }
+                if (family == ARCHIVE_FORMAT_ZIP) { metadata = readZipNames(path,options.cancel,false); book->canReinterpret = true;indexedZip=true; }
                 else if (family == ARCHIVE_FORMAT_LHA) { metadata = readLhaNames(path,options.cancel); book->canReinterpret = true; }
                 if (!metadata.error.isEmpty()) return {{}, metadata.error};
                 book->format = QString::fromUtf8(archive_format_name(a.get()));
@@ -302,11 +326,19 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
             }
             if (book->canReinterpret && ordinal >= metadata.entries.size())
                 return {{}, QCoreApplication::translate("KomaMimic", "名前情報と書庫内の項目数が一致しません。")};
+            if(indexedZip) {
+                // Use the directory already parsed for names instead of a second
+                // complete libarchive walk. Payload headers are checked on read.
+                entry=indexedEntry.get();archive_entry_clear(entry);
+                const auto &name=metadata.entries[ordinal];
+                archive_entry_set_filetype(entry,name.fileType?name.fileType:AE_IFREG);
+                archive_entry_set_size(entry,name.size);
+            }
             if (archive_entry_filetype(entry) == AE_IFREG || archive_entry_filetype(entry) == 0) {
                 BookPage page;
                 page.archiveIndex = ordinal; page.encodedSize = archive_entry_size(entry);
                 if (book->canReinterpret) {
-                    page.sourceName = metadata.entries[ordinal];
+                    page.sourceName = metadata.entries[ordinal];page.error=page.sourceName.error;
                     page.decodedName = decodeName(page.sourceName, policy);
                 } else {
                     QString name;
@@ -329,42 +361,54 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
                     (!options.archiveImagesOnly && !options.archiveAsPages && (isArchiveTextPath(page.name) || isArchiveTextPath(QString::fromLatin1(page.sourceName.rawName)))))
                     book->pages.append(std::move(page));
                 else if (options.nestedArchives && options.depth < 3 && isArchivePath(page.name)) {
-                    book->pages.append(page);
-                    const auto data = book->encoded(book->pages.size() - 1); book->pages.removeLast();
-                    if (!data.error.isEmpty()) return {{}, data.error};
-                    QTemporaryDir temporary;
-                    const auto childPath = temporary.path() + "/archive." + QFileInfo(page.name).suffix();
-                    QFile child(childPath);
-                    if (!temporary.isValid() || !child.open(QIODevice::WriteOnly) || child.write(data.bytes) != data.bytes.size()) return {{}, QCoreApplication::translate("KomaMimic", "内部書庫を開けません。")};
-                    child.close(); auto childOptions = options; childOptions.archiveAsPages=true; ++childOptions.depth;
-                    const auto opened = Book::open(childPath, policy, childOptions);
-                    if (!opened.book) {
-                        if (opened.error == QCoreApplication::translate("KomaMimic", "対応する画像・テキストがありません。暗号化・分割書庫や未対応形式も確認してください。")) {
-                            book->warnings.append(page.name + ": " + opened.error);
-                            continue;
+                    const auto expandNested=[&]() -> QString {
+                        if(!NestedReadBudget::consume(page.encodedSize))return QCoreApplication::translate("KomaMimic", "内部書庫の展開容量が上限を超えたか、読込に失敗しました。");
+                        book->pages.append(page);
+                        const auto data=book->encoded(book->pages.size()-1,options.cancel);book->pages.removeLast();
+                        if(!data.error.isEmpty())return data.error;
+                        auto temporary=std::make_shared<QTemporaryDir>();
+                        const auto childPath=temporary->path()+"/archive."+QFileInfo(page.name).suffix();QFile child(childPath);
+                        if(!temporary->isValid() || !child.open(QIODevice::WriteOnly))return QCoreApplication::translate("KomaMimic", "内部書庫を開けません。");
+                        for(qsizetype offset=0;offset<data.bytes.size();offset+=64*1024) {
+                            if(options.cancel && options.cancel())return QCoreApplication::translate("KomaMimic", "読み込みを取り消しました。");
+                            const auto count=std::min<qsizetype>(64*1024,data.bytes.size()-offset);
+                            if(child.write(data.bytes.constData()+offset,count)!=count)return QCoreApplication::translate("KomaMimic", "内部書庫を開けません。");
                         }
-                        return {{}, opened.error};
-                    }
-                    for (int i = 0; i < opened.book->pages.size(); ++i) {
-                        auto nested = opened.book->pages[i]; const auto content = opened.book->encoded(i, options.cancel);
-                        nestedBytes += content.bytes.size();
-                        if (!content.error.isEmpty() || nestedBytes > 128 * 1024 * 1024 || book->pages.size() >= MaxEntries) return {{}, QCoreApplication::translate("KomaMimic", "内部書庫の展開容量が上限を超えたか、読込に失敗しました。")};
-                        if (nested.document) {
-                            nested.name += QString(" [%1].png").arg(nested.documentPage + 1);
-                            nested.document = false; nested.archivedText.reset(); nested.documentPage = 0;
-                            nested.portion = {}; nested.documentOffset = -1; nested.documentSection.clear();
+                        child.close();auto childOptions=options;childOptions.archiveAsPages=true;++childOptions.depth;
+                        const auto opened=Book::open(childPath,policy,childOptions);
+                        if(!opened.book)return opened.error;
+                        if(opened.book->pages.size()>MaxEntries-book->pages.size())return QCoreApplication::translate("KomaMimic", "内部書庫の展開容量が上限を超えたか、読込に失敗しました。");
+                        auto owned=std::shared_ptr<Book>(new Book(*opened.book));owned->m_archiveStorage=temporary;
+                        const auto source=owned->shareEncodedCache(book->m_encodedCache);
+                        for(int i=0;i<source->pages.size();++i) {
+                            if(options.cancel && options.cancel())return QCoreApplication::translate("KomaMimic", "読み込みを取り消しました。");
+                            auto nested=source->pages[i];nested.sourceBook=source;nested.sourceIndex=i;
+                            if(nested.document) {
+                                nested.name+=QString(" [%1].png").arg(nested.documentPage+1);
+                                nested.document=false;nested.archivedText.reset();nested.documentPage=0;
+                            }
+                            nested.name=page.name+"/"+nested.name;
+                            nested.identity=QString("nested:%1/%2").arg(ordinal).arg(nested.identity);
+                            nested.decodedName.text=nested.name;book->pages.append(nested);
                         }
-                        nested.name = page.name + "/" + nested.name; nested.inlineData = content.bytes;
-                        nested.identity=QString("nested:%1/%2").arg(ordinal).arg(nested.identity);
-                        nested.decodedName.text = nested.name; book->pages.append(nested);
+                        nestedFound=true;return {};
+                    };
+                    const auto error=expandNested();
+                    if(options.cancel && options.cancel())return {{},error};
+                    if(!error.isEmpty()) {
+                        book->warnings.append(page.name+": "+error);
+                        if(error!=QCoreApplication::translate("KomaMimic", "対応する画像・テキストがありません。暗号化・分割書庫や未対応形式も確認してください。")) {
+                            page.error=error;page.identity=QString("nested-error:%1").arg(ordinal);book->pages.append(page);nestedFound=true;
+                        }
                     }
-                    nestedFound = true;
                 }
             }
             ++ordinal;
+            if(indexedZip)continue;
             const int skipped = archive_read_data_skip(a.get());
             if (skipped < ARCHIVE_WARN) return {{}, archiveError(a.get())};
         }
+        if(indexedZip)status=ARCHIVE_EOF;
         if (status != ARCHIVE_EOF) return {{}, archiveError(a.get())};
         if (book->canReinterpret && ordinal != metadata.entries.size())
             return {{}, QCoreApplication::translate("KomaMimic", "名前情報と書庫内の項目数が一致しません。")};
@@ -378,7 +422,7 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
         std::any_of(book->pages.cbegin(), book->pages.cend(), [](const BookPage &page) { return isArchiveTextPath(page.name); })) {
         book->archiveDirectory = true;
         for (auto &page : book->pages) page.identity = "archive-file:" + page.archiveEntryId;
-        book->captureThumbnailSources();return {book, {}};
+        return {book, {}};
     }
     // Reading sequences contain image/PDF pages. Text documents stay individual
     // publications and are never paginated into an alternate raster reader.
@@ -388,18 +432,27 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
         const auto suffix = QFileInfo(page.name).suffix().toLower();
         if (options.cancel && options.cancel()) return {{}, QCoreApplication::translate("KomaMimic", "読み込みを取り消しました。")};
         int count = 1;
-        if (suffix == "tiff" || suffix == "tif" || scriptMultipageExtensions().contains(suffix)) {
-            const auto data = book->encoded(index);
-            if (!data.error.isEmpty())return {{},data.error};
-            QString error;
-            const int scripted=scriptPageCount(data.bytes,page.name,error,options.scriptSettings,options.cancel);
-            if(scripted<0)return {{},error};
-            count=scripted ? scripted : documentPages(data.bytes);
+        QString pageError=page.error;
+        if(!page.sourceBook && (suffix=="tiff" || suffix=="tif" || scriptMultipageExtensions().contains(suffix))) {
+            if(book->filesystem && (suffix=="tiff" || suffix=="tif") && !scriptMultipageExtensions().contains(suffix)) {
+                QImageReader reader(page.filePath);
+                count=std::clamp(reader.imageCount(),1,10000);
+            } else {
+                const auto data=book->encoded(index,options.cancel);
+                pageError=data.error;
+                if(pageError.isEmpty()) {
+                    const int scripted=scriptPageCount(data.bytes,page.name,pageError,options.scriptSettings,options.cancel);
+                    if(scripted>=0)count=scripted?scripted:documentPages(data.bytes);
+                }
+            }
         }
+        if(options.cancel && options.cancel())return {{},QCoreApplication::translate("KomaMimic", "読み込みを取り消しました。")};
+        if(!pageError.isEmpty())book->warnings.append(page.name+": "+pageError);
         if (expanded.size() + count > MaxEntries) return {{}, QCoreApplication::translate("KomaMimic", "文書ページ数が上限を超えています。")};
-        for (int p = 0; p < count; ++p) { auto copy = page; if(count > 1) copy.documentPage = p; expanded.append(std::move(copy)); }
+        for (int p = 0; p < count; ++p) { auto copy = page;copy.error=pageError; if(count > 1) copy.documentPage = p; expanded.append(std::move(copy)); }
     }
     book->pages = std::move(expanded);
+    if(!book->pages.isEmpty() && std::all_of(book->pages.cbegin(),book->pages.cend(),[](const auto &page){return !page.error.isEmpty();}))return {{},book->warnings.isEmpty()?book->pages.first().error:book->warnings.join('\n')};
     if (book->pages.isEmpty()) return {{}, book->warnings.join('\n')};
     for (auto &page : book->pages) if (page.identity.isEmpty()) {
         const auto raw=page.sourceName.rawName.isEmpty()?page.name.toUtf8():page.sourceName.rawName;
@@ -408,7 +461,7 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
     if (book->filesystem && !info.isDir()) {
         for (int i = 0; i < book->pages.size(); ++i) if (book->pages[i].filePath == info.absoluteFilePath()) { book->initialPage = i; break; }
     }
-    book->captureThumbnailSources();return {book, {}};
+    return {book, {}};
 }
 std::shared_ptr<const Book> Book::reinterpretNames(const NamePolicy &policy) const {
     auto copy = std::shared_ptr<Book>(new Book(*this));copy->m_thumbnailReopen=std::make_shared<ThumbnailReopen>();
@@ -422,25 +475,48 @@ std::shared_ptr<const Book> Book::reinterpretNames(const NamePolicy &policy) con
     copy->sortPages();
     return copy;
 }
-struct Book::ArchiveCursor { Archive handle; qint64 next=0; std::shared_ptr<std::function<bool()>> cancel=std::make_shared<std::function<bool()>>(); };
+struct Book::ArchiveCursor {
+    // Destroy the reader before removing its temporary archive on Windows.
+    std::shared_ptr<QTemporaryDir> storage;
+    Archive handle;
+    QString path;
+    qint64 next=0;
+    std::shared_ptr<std::function<bool()>> cancel=std::make_shared<std::function<bool()>>();
+};
+std::shared_ptr<const Book> Book::shareEncodedCache(const std::shared_ptr<EncodedCache> &cache) const {
+    QHash<const Book *,std::shared_ptr<const Book>> shared;
+    std::function<std::shared_ptr<const Book>(const Book *)> clone=[&](const Book *original) {
+        if(shared.contains(original))return shared.value(original);
+        auto copy=std::shared_ptr<Book>(new Book(*original));copy->m_encodedCache=cache;
+        shared.insert(original,copy);
+        for(int i=0;i<copy->pages.size();++i) {
+            const auto source=std::as_const(copy->pages)[i].sourceBook;
+            if(source)copy->pages[i].sourceBook=clone(source.get());
+        }
+        return std::shared_ptr<const Book>(copy);
+    };
+    return clone(this);
+}
 MemoryCacheInfo Book::encodedCacheInfo() const {
     QMutexLocker lock(&m_encodedCache->mutex);
-    return {int(m_encodedCache->values.size()),qint64(m_encodedCache->values.totalCost())*1024,qint64(m_encodedCache->values.maxCost())*1024};
-}
-void Book::captureThumbnailSources() {
-    for(int i=0;i<pages.size();++i) {
-        const auto &page=pages[i];
-        const auto source=physicalBookPath(page.archivedText?path:filesystem || page.document?page.filePath:path);
-        if(m_thumbnailSources.contains(source))continue;
-        const QFileInfo info(source);
-        m_thumbnailSources[source]=info.isFile()?QJsonDocument(QJsonObject{{"path",info.absoluteFilePath()},{"resolved",info.canonicalFilePath()},
-            {"bytes",QString::number(info.size())},{"modified",QString::number(info.lastModified().toMSecsSinceEpoch())}}).toJson(QJsonDocument::Compact):QByteArray{};
-    }
+    return {int(m_encodedCache->values.size()+m_encodedCache->bundle.size()),qint64(m_encodedCache->values.totalCost())*1024+m_encodedCache->bundleBytes,qint64(m_encodedCache->values.maxCost())*1024+m_encodedCache->bundleLimit};
 }
 QByteArray Book::thumbnailSource(int index) const {
     if(index<0 || index>=pages.size())return {};
     const auto &page=pages[index];
-    return m_thumbnailSources.value(physicalBookPath(page.archivedText?path:filesystem || page.document?page.filePath:path));
+    if(page.archivedText)return page.archivedText->book->thumbnailSource(page.archivedText->index);
+    if(filesystem && page.sourceBook)return page.sourceBook->thumbnailSource(page.sourceIndex);
+    // Keep the outer container as the stable thumbnail source for nested pages.
+    // Folder containers already retained their file snapshot at enumeration.
+    const bool separate=filesystem && !page.sourceBook;
+    if(separate && page.filePath.isEmpty())return {};
+    if(!separate && !m_fileValid)return {};
+    const auto source=separate?page.filePath:physicalBookPath(path);
+    const auto resolved=separate?page.resolvedPath:m_resolvedPath;
+    ++BookActivity::thumbnailSnapshots;
+    return QJsonDocument(QJsonObject{{"path",source},{"resolved",resolved},
+        {"bytes",QString::number(separate?page.encodedSize:m_fileSize)},
+        {"modified",QString::number(separate?page.modifiedMs:m_modifiedMs)}}).toJson(QJsonDocument::Compact);
 }
 Book::OpenResult Book::reopenedForThumbnail(int index,const std::function<bool()> &cancel) const {
     std::unique_lock<QMutex> lock(m_thumbnailReopen->mutex,std::defer_lock);
@@ -450,7 +526,8 @@ Book::OpenResult Book::reopenedForThumbnail(int index,const std::function<bool()
     if(const auto &cached=m_thumbnailReopen->book) {
         for(int i=0;i<cached->pages.size();++i) {
             const auto &page=cached->pages[i];
-            if((old.archiveEntryId.isEmpty()?old.name==page.name:old.archiveEntryId==page.archiveEntryId) &&
+            if((!old.sourceBook || old.name==page.name) &&
+               (old.archiveEntryId.isEmpty()?old.name==page.name:old.archiveEntryId==page.archiveEntryId) &&
                old.documentPage==page.documentPage && old.pdfResource==page.pdfResource && cached->sourceUnchanged(i))return {cached,{}};
         }
     }
@@ -462,7 +539,13 @@ Book::OpenResult Book::reopenedForThumbnail(int index,const std::function<bool()
 bool Book::sourceUnchanged(int index) const {
     if(index<0 || index>=pages.size()) return false;
     const auto &page=pages[index];
-    if(!page.inlineData.isEmpty()) return true;
+    if(!page.inlineData.isEmpty())return true;
+    if(page.sourceBook) {
+        if(!page.sourceBook->sourceUnchanged(page.sourceIndex))return false;
+        if(filesystem)return true;
+        const QFileInfo original(physicalBookPath(path));
+        return original.isFile() && original.size()==m_fileSize && original.lastModified().toMSecsSinceEpoch()==m_modifiedMs;
+    }
     if(page.archivedText) return page.archivedText->book->sourceUnchanged(page.archivedText->index);
     if (publication && !page.archivedText) {
         const QFileInfo original(path);
@@ -485,7 +568,17 @@ DataResult Book::encoded(int index, const std::function<bool()> &cancel) const {
     if (!locale.valid()) return {{}, QCoreApplication::translate("KomaMimic", "書庫のUnicode処理に必要なUTF-8 localeを作成できません。")};
     if (index < 0 || index >= pages.size()) return {{}, QCoreApplication::translate("KomaMimic", "ページが範囲外です。")};
     const auto &page = pages[index];
+    if(!page.error.isEmpty())return {{},page.error};
     if (!page.inlineData.isEmpty()) return {page.inlineData, {}};
+    if(page.sourceBook) {
+        if(!sourceUnchanged(index))return {{},QCoreApplication::translate("KomaMimic", "画像・書庫が変更されています。開き直してください。")};
+        {auto lock=acquire();if(!lock.owns_lock())return {{},QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。")};
+            const auto key=encodedFileId(index);
+            if(const auto found=m_encodedCache->bundle.constFind(key);found!=m_encodedCache->bundle.cend())return {*found,{}};
+            if(const auto *value=m_encodedCache->values.object(key))return {*value,{}};
+        }
+        return page.sourceBook->encoded(page.sourceIndex,cancelled);
+    }
     if (page.document) {
         const auto image = this->image(index, {}, cancelled);
         if (!image.error.isEmpty()) return {{}, image.error};
@@ -495,22 +588,32 @@ DataResult Book::encoded(int index, const std::function<bool()> &cancel) const {
     if (info.size() != (filesystem ? page.encodedSize : m_fileSize)
         || info.lastModified().toMSecsSinceEpoch() != (filesystem ? page.modifiedMs : m_modifiedMs))
         return {{}, QCoreApplication::translate("KomaMimic", "画像・書庫が変更されています。開き直してください。")};
-    {auto lock=acquire();if(!lock.owns_lock())return {{},QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。")};if(const auto *value=page.identity.isEmpty()?nullptr:m_encodedCache->values.object(page.identity))return {*value,{}};}
+    {auto lock=acquire();if(!lock.owns_lock())return {{},QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。")};
+      if(const auto found=m_encodedCache->bundle.constFind(encodedFileId(index));found!=m_encodedCache->bundle.cend())return {*found,{}};
+      if(const auto *value=m_encodedCache->values.object(encodedFileId(index)))return {*value,{}};}
     if (page.encodedSize > MaxEncodedBytes || page.encodedSize < 0)
         return {{}, QCoreApplication::translate("KomaMimic", "画像データの上限（64 MiB）を超えています: %1").arg(page.name)};
     if (filesystem) {
         QFile file(page.filePath);
         if (!file.open(QIODevice::ReadOnly)) return {{}, file.errorString()};
-        auto bytes = file.read(MaxEncodedBytes + 1);
-        if (bytes.size() > MaxEncodedBytes || file.error() != QFile::NoError) return {{}, QCoreApplication::translate("KomaMimic", "画像データを読めません。")};
-        return cacheData(page.identity,bytes);
+        ++BookActivity::encodedReads;
+        QByteArray bytes;
+        while(true) {
+            if(cancelled())return {{},QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。")};
+            const auto chunk=file.read(64*1024);
+            if(chunk.isEmpty())break;
+            if(bytes.size()+chunk.size()>MaxEncodedBytes)return {{},QCoreApplication::translate("KomaMimic", "画像データを読めません。")};
+            bytes.append(chunk);
+        }
+        if(file.error()!=QFile::NoError)return {{},QCoreApplication::translate("KomaMimic", "画像データを読めません。")};
+        return cacheData(encodedFileId(index),bytes);
     }
     auto lock=acquire();
     if(!lock.owns_lock())return {{},QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。")};
     if(cancelled())return {{},QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。")};
     auto &cursor=m_encodedCache->cursor;
-    if(!cursor || cursor->next>page.archiveIndex) {
-      cursor=std::make_shared<ArchiveCursor>(); QString error;
+    if(!cursor || cursor->path!=physicalBookPath(path) || cursor->next>page.archiveIndex) {
+      cursor=std::make_shared<ArchiveCursor>();cursor->path=physicalBookPath(path);cursor->storage=m_archiveStorage;QString error;
       *cursor->cancel=cancelled;
       cursor->handle=reader(physicalBookPath(path),error,openOptions.password,cursor->cancel);
       if(!cursor->handle){cursor.reset();return {{},error};}
@@ -530,6 +633,7 @@ DataResult Book::encoded(int index, const std::function<bool()> &cancel) const {
         continue;
       }
       if(archive_entry_is_encrypted(entry)>0 && openOptions.password.isEmpty()){cursor.reset();return {{},QCoreApplication::translate("KomaMimic", "書庫のパスワードが必要です。")};}
+      ++BookActivity::encodedReads;
       QByteArray bytes; char chunk[64*1024]; la_ssize_t read;
       while((read=archive_read_data(a,chunk,sizeof chunk))>0) {
         if(cancelled()){cursor.reset();return {{},QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。")};}
@@ -538,18 +642,28 @@ DataResult Book::encoded(int index, const std::function<bool()> &cancel) const {
       }
       if(read<0){const auto error=archiveError(a);cursor.reset();return {{},error};}
       const int cost=int((bytes.size()+1023)/1024);
-      if(!page.identity.isEmpty() && cost<=m_encodedCache->values.maxCost())m_encodedCache->values.insert(page.identity,new QByteArray(bytes),cost);
+      if(cost<=m_encodedCache->values.maxCost())m_encodedCache->values.insert(encodedFileId(index),new QByteArray(bytes),cost);
       return {bytes,{}};
     }
     const auto error=status==ARCHIVE_EOF ? QCoreApplication::translate("KomaMimic", "書庫内のページがありません。開き直してください。") : archiveError(a);
     cursor.reset(); return {{},error};
 }
-ImageResult Book::image(int index, QSize thumbnail, const std::function<bool()> &cancel) const {
+ImageResult Book::image(int index, QSize thumbnail, const std::function<bool()> &cancel,qint64 retainBytes) const {
     ++BookActivity::imageRequests;
     const auto cancelled=[cancel,sourceCancel=openOptions.cancel]{return (cancel && cancel()) || (sourceCancel && sourceCancel());};
     if(cancelled())return {{},QCoreApplication::translate("KomaMimic", "画像読込を取り消しました。")};
     if (index < 0 || index >= pages.size()) return {{}, QCoreApplication::translate("KomaMimic", "ページが範囲外です。")};
     const auto &page = pages[index];
+    if(!page.error.isEmpty())return {{},page.error};
+    if(page.sourceBook && page.inlineData.isEmpty() && page.sourceBook->pages[page.sourceIndex].document) {
+        if(!sourceUnchanged(index))return {{},QCoreApplication::translate("KomaMimic", "画像・書庫が変更されています。開き直してください。")};
+        auto result=page.sourceBook->image(page.sourceIndex,thumbnail,cancelled);
+        if(!page.portion.isEmpty() && !result.image.isNull()) {
+            const auto r=page.portion;auto crop=[r](QImage &img){img=img.copy(QRect(qRound(r.x()*img.width()),qRound(r.y()*img.height()),qRound(r.width()*img.width()),qRound(r.height()*img.height())).intersected(img.rect()));};
+            crop(result.image);for(auto &frame:result.frames)crop(frame);
+        }
+        return result;
+    }
     if ((archiveDirectory && isArchiveTextPath(page.name)) || publication)
         return {{}, QCoreApplication::translate("KomaMimic", "文書の画像出力・ページサムネイルは現在未対応です。")};
     if (page.document) {
@@ -560,6 +674,7 @@ ImageResult Book::image(int index, QSize thumbnail, const std::function<bool()> 
     }
     const auto data = encoded(index,cancelled);
     if (!data.error.isEmpty()) return {{}, data.error};
+    if(retainBytes>0 && page.inlineData.isEmpty())retainEncoded(index,data.bytes,retainBytes,cancelled,true);
     if (page.portion.isEmpty()) return decodeImage(data.bytes, page.name, thumbnail, page.documentPage,openOptions.scriptSettings,cancelled);
     auto image = decodeImage(data.bytes, page.name, {}, page.documentPage,openOptions.scriptSettings,cancelled);
     const auto crop = [&](QImage &value) {
@@ -600,10 +715,70 @@ std::shared_ptr<const Book> Book::withPages(const QVector<BookPage> &newPages) c
 }
 
 
-DataResult Book::cacheData(const QString &key,const QByteArray &data)const{QMutexLocker lock(&m_encodedCache->mutex);const int cost=int((data.size()+1023)/1024);if(cost<=m_encodedCache->values.maxCost())m_encodedCache->values.insert(key,new QByteArray(data),cost);return {data,{}};}
-void Book::clearEncodedCache()const{QMutexLocker lock(&m_encodedCache->mutex);m_encodedCache->values.clear();m_encodedCache->cursor.reset();}
+DataResult Book::cacheData(const QString &key,const QByteArray &data)const {
+    QMutexLocker lock(&m_encodedCache->mutex);
+    const int cost=int((data.size()+1023)/1024);
+    if(!key.isEmpty() && cost<=m_encodedCache->values.maxCost())m_encodedCache->values.insert(key,new QByteArray(data),cost);
+    return {data,{}};
+}
+void Book::clearEncodedCache()const {
+    clearBundleCache();
+    {QMutexLocker lock(&m_encodedCache->mutex);m_encodedCache->values.clear();m_encodedCache->cursor.reset();}
+    QSet<const Book *> cleared;
+    for(const auto &page:pages)if(page.sourceBook && page.sourceBook->m_encodedCache!=m_encodedCache && !cleared.contains(page.sourceBook.get())) {
+        cleared.insert(page.sourceBook.get());page.sourceBook->clearEncodedCache();
+    }
+}
 
-Book::OpenResult Book::fromPages(const QVector<BookPage> &pages){if(pages.isEmpty()||pages.size()>100000)return {{},QCoreApplication::translate("KomaMimic", "生成ページ数が範囲外です。")};qint64 used=0;auto book=std::shared_ptr<Book>(new Book);book->format=QT_TRANSLATE_NOOP("KomaMimic", "生成画像");book->path=QT_TRANSLATE_NOOP("KomaMimic", "クリップボード（未保存）");for(auto page:pages){used+=page.inlineData.size();if(page.inlineData.isEmpty()||page.inlineData.size()>MaxEncodedBytes||used>128*1024*1024)return {{},QCoreApplication::translate("KomaMimic", "生成画像の容量が上限を超えています。")};if(page.identity.isEmpty())page.identity=QUuid::createUuid().toString(QUuid::WithoutBraces);book->pages.append(page);}book->captureThumbnailSources();return {book,{}};}
+QString Book::encodedFileId(int index) const {
+    if(index<0 || index>=pages.size())return {};
+    const Book *source=this;const BookPage *page=&pages[index];
+    while(page->sourceBook) {
+        source=page->sourceBook.get();
+        if(page->sourceIndex<0 || page->sourceIndex>=source->pages.size())return {};
+        page=&source->pages[page->sourceIndex];
+    }
+    return source->filesystem?page->filePath:physicalBookPath(source->path)+":"+QString::number(page->archiveIndex);
+}
+void Book::clearBundleCache() const {
+    m_encodedCache->readerBudget.store(0);
+    {QMutexLocker lock(&m_encodedCache->mutex);m_encodedCache->bundle.clear();m_encodedCache->bundleBytes=0;m_encodedCache->bundleLimit=0;}
+    QSet<const Book *> cleared;
+    for(const auto &page:pages)if(page.sourceBook && page.sourceBook->m_encodedCache!=m_encodedCache && !cleared.contains(page.sourceBook.get())) {
+        cleared.insert(page.sourceBook.get());page.sourceBook->clearBundleCache();
+    }
+}
+FileCacheResult Book::cacheEncoded(int index,qint64 budget,const std::function<bool()> &cancel) const {
+    if(index<0 || index>=pages.size())return {};
+    const auto &page=pages[index];
+    if(page.document || !page.inlineData.isEmpty() || publication)return {};
+    const auto key=encodedFileId(index);
+    {QMutexLocker lock(&m_encodedCache->mutex);m_encodedCache->bundleLimit=budget;}
+    {QMutexLocker lock(&m_encodedCache->mutex);
+        if(m_encodedCache->bundle.contains(key))return {};
+        if(page.encodedSize>budget-m_encodedCache->bundleBytes)return {{},true};
+    }
+    const auto data=encoded(index,cancel);
+    if(!data.error.isEmpty())return {data.error,false};
+    return retainEncoded(index,data.bytes,budget,cancel);
+}
+FileCacheResult Book::retainEncoded(int index,const QByteArray &data,qint64 budget,const std::function<bool()> &cancel,bool current) const {
+    if(cancel && cancel())return {};
+    QMutexLocker lock(&m_encodedCache->mutex);
+    if(cancel && cancel())return {};
+    if(current) {
+        const auto allowed=m_encodedCache->readerBudget.load();
+        if(allowed>=0)budget=std::min(budget,allowed);
+        if(budget<=0)return {};
+    }
+    const auto key=encodedFileId(index);m_encodedCache->bundleLimit=budget;
+    if(m_encodedCache->bundle.contains(key))return {};
+    if(data.size()>budget-m_encodedCache->bundleBytes)return {{},true};
+    m_encodedCache->bundle.insert(key,data);m_encodedCache->bundleBytes+=data.size();
+    return {};
+}
+
+Book::OpenResult Book::fromPages(const QVector<BookPage> &pages){if(pages.isEmpty()||pages.size()>100000)return {{},QCoreApplication::translate("KomaMimic", "生成ページ数が範囲外です。")};qint64 used=0;auto book=std::shared_ptr<Book>(new Book);book->format=QT_TRANSLATE_NOOP("KomaMimic", "生成画像");book->path=QT_TRANSLATE_NOOP("KomaMimic", "クリップボード（未保存）");for(auto page:pages){used+=page.inlineData.size();if(page.inlineData.isEmpty()||page.inlineData.size()>MaxEncodedBytes||used>128*1024*1024)return {{},QCoreApplication::translate("KomaMimic", "生成画像の容量が上限を超えています。")};if(page.identity.isEmpty())page.identity=QUuid::createUuid().toString(QUuid::WithoutBraces);book->pages.append(page);}return {book,{}};}
 
 bool browserLess(const QFileInfo &a, const QFileInfo &b, int sort, bool reverse) {
         if (a.isDir() != b.isDir()) return a.isDir();
@@ -648,7 +823,6 @@ Book::OpenResult Book::openArchiveEntry(const QString &path, const NamePolicy &p
         for (int i = 0; i < book->pages.size(); ++i) if (book->pages[i].archiveEntryId == address.id) {
             book->initialPage = i; found = true; break;
         }
-        if(found)book->captureThumbnailSources();
         return found ? OpenResult{book, {}} : OpenResult{{}, missing};
     }
     if (entry.encodedSize < 0 || entry.encodedSize > 16 * 1024 * 1024)
@@ -678,5 +852,5 @@ Book::OpenResult Book::openArchiveEntry(const QString &path, const NamePolicy &p
     page.filePath = book->path; page.documentSection = "text.html"; page.documentPage = 0;
     page.documentOffset = 0; page.identity = "text:text.html:0";
     book->pages.append(std::move(page));
-    book->captureThumbnailSources();return {book, {}};
+    return {book, {}};
 }

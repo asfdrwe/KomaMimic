@@ -38,6 +38,7 @@ LibraryStore::LibraryStore(const QString &path)
   query.exec("PRAGMA user_version=1");
 }
 LibraryStore::~LibraryStore() {
+  flushPending();
   m_db.close();
   m_db = {};
   QSqlDatabase::removeDatabase(m_connection);
@@ -53,6 +54,16 @@ QVector<LibraryItem> LibraryStore::items(const QString &kind) const {
   if (query.exec())
     while (query.next())
       values.append(read(query));
+  for(const auto &pending:m_pending)if(pending.item.kind==kind) {
+    const auto found=std::find_if(values.begin(),values.end(),[&](const auto &item){return item.id==pending.item.id;});
+    if(found!=values.end())*found=pending.item;else values.append(pending.item);
+  }
+  if(kind=="history" && !m_pending.isEmpty())std::stable_sort(values.begin(),values.end(),[&](const auto &a,const auto &b){
+    const auto x=m_pending.constFind(a.id),y=m_pending.constFind(b.id);
+    if(x==m_pending.cend())return false;
+    if(y==m_pending.cend())return true;
+    return x->modified==y->modified?x->revision>y->revision:x->modified>y->modified;
+  });
   if (kind != "history")
     std::stable_sort(values.begin(), values.end(),
                      [](const auto &a, const auto &b) {
@@ -62,6 +73,7 @@ QVector<LibraryItem> LibraryStore::items(const QString &kind) const {
   return values;
 }
 LibraryItem LibraryStore::item(const QString &id) const {
+  if(const auto pending=m_pending.constFind(id);pending!=m_pending.cend())return pending->item;
   QSqlQuery query(m_db);
   query.prepare(
       "SELECT id,kind,path,title,metadata,state FROM items WHERE id=?");
@@ -70,6 +82,7 @@ LibraryItem LibraryStore::item(const QString &id) const {
 }
 QString LibraryStore::add(const QString &kind, const QString &path,
                           const QString &title) {
+  for(const auto &pending:m_pending)if(pending.item.kind==kind && pending.item.path==path)return pending.item.id;
   QSqlQuery existing(m_db);
   existing.prepare("SELECT id FROM items WHERE kind=? AND path=?");
   existing.addBindValue(kind);
@@ -77,6 +90,11 @@ QString LibraryStore::add(const QString &kind, const QString &path,
   if (existing.exec() && existing.next())
     return existing.value(0).toString();
   const auto id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+  if(m_deferred) {
+    const auto name=title.isEmpty()?bookDisplayName(path):title;
+    m_pending[id]={{id,kind,path,name.isEmpty()?path:name,{},{}},QDateTime::currentMSecsSinceEpoch(),++m_revision};
+    return id;
+  }
   QSqlQuery query(m_db);
   query.prepare(
       "INSERT INTO items(id,kind,path,title,modified) VALUES(?,?,?,?,?)");
@@ -92,6 +110,12 @@ QString LibraryStore::add(const QString &kind, const QString &path,
 }
 bool LibraryStore::update(const QString &id, const QJsonObject &metadata,
                           const QJsonObject &state) {
+  if(m_deferred) {
+    auto value=item(id);if(value.id.isEmpty())return false;
+    value.metadata=metadata;value.state=state;
+    if(!metadata.value("title").toString().isEmpty())value.title=metadata.value("title").toString();
+    m_pending[id]={value,QDateTime::currentMSecsSinceEpoch(),++m_revision};return true;
+  }
   QSqlQuery query(m_db);
   query.prepare("UPDATE items SET "
                 "metadata=?,state=?,title=COALESCE(NULLIF(?,''),title),"
@@ -106,12 +130,14 @@ bool LibraryStore::update(const QString &id, const QJsonObject &metadata,
   return query.exec();
 }
 bool LibraryStore::remove(const QString &id) {
+  if(!flushPending())return false;
   QSqlQuery query(m_db);
   query.prepare("DELETE FROM items WHERE id=?");
   query.addBindValue(id);
   return query.exec();
 }
 bool LibraryStore::clear(const QString &kind) {
+  if(!flushPending())return false;
   QSqlQuery query(m_db);
   query.prepare("DELETE FROM items WHERE kind=?");
   query.addBindValue(kind);
@@ -119,6 +145,7 @@ bool LibraryStore::clear(const QString &kind) {
 }
 
 bool LibraryStore::movePath(const QString &before, const QString &after) {
+  if(!flushPending())return false;
   if(before==after)return true;
   if(!m_db.transaction())return false;
   QSqlQuery source(m_db);source.prepare("SELECT id,kind,path,title,metadata,state FROM items WHERE path=?");source.addBindValue(before);
@@ -148,4 +175,40 @@ bool LibraryStore::movePath(const QString &before, const QString &after) {
   }
   if(m_db.commit())return true;
   m_db.rollback();return false;
+}
+
+QVector<LibraryStore::Pending> LibraryStore::pendingWrites() const {
+    QVector<Pending> writes;for(const auto &value:m_pending)writes.append(value);
+    std::sort(writes.begin(),writes.end(),[](const auto &a,const auto &b){return a.revision<b.revision;});return writes;
+}
+bool LibraryStore::writePending(const QString &path,const QVector<Pending> &writes,const std::function<bool()> &cancel) {
+    if(writes.isEmpty())return true;
+    if(cancel && cancel())return false;
+    LibraryStore store(path);
+    if(!store.error().isEmpty() || !store.m_db.transaction())return false;
+    for(const auto &pending:writes) {
+        if(cancel && cancel()){store.m_db.rollback();return false;}
+        const auto &item=pending.item;
+        QSqlQuery query(store.m_db);
+        query.prepare("INSERT INTO items(id,kind,path,title,metadata,state,modified) VALUES(?,?,?,?,?,?,?) "
+            "ON CONFLICT(id) DO UPDATE SET kind=excluded.kind,path=excluded.path,title=excluded.title,"
+            "metadata=excluded.metadata,state=excluded.state,modified=excluded.modified");
+        query.addBindValue(item.id);query.addBindValue(item.kind);query.addBindValue(item.path);query.addBindValue(item.title);
+        query.addBindValue(QString::fromUtf8(QJsonDocument(item.metadata).toJson(QJsonDocument::Compact)));
+        query.addBindValue(QString::fromUtf8(QJsonDocument(item.state).toJson(QJsonDocument::Compact)));query.addBindValue(pending.modified);
+        if(!query.exec()){store.m_db.rollback();return false;}
+    }
+    if(cancel && cancel()){store.m_db.rollback();return false;}
+    return store.m_db.commit();
+}
+void LibraryStore::acknowledge(const QVector<Pending> &writes) {
+    for(const auto &write:writes)if(const auto found=m_pending.constFind(write.item.id);found!=m_pending.cend() && found->revision==write.revision)m_pending.remove(write.item.id);
+}
+bool LibraryStore::flushPending() {
+    // Reject queued older snapshots before destructive/explicit DB operations.
+    m_writeEpoch->fetch_add(1);
+    const auto writes=pendingWrites();
+    if(writes.isEmpty())return true;
+    if(!writePending(m_db.databaseName(),writes))return false;
+    acknowledge(writes);return true;
 }

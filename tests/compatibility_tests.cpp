@@ -89,9 +89,14 @@ private slots:
         MainWindow window(config);window.show();window.openDirectory(d.path());QTRY_VERIFY(window.directoryReady());
         window.command("sortUnicode")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());window.readFolder();QTRY_VERIFY(window.renderReady());
         auto *pages=window.findChild<ThumbnailGrid *>("pageThumbnails");QVERIFY(pages);
-        QCOMPARE(pages->item(1)->text(),QString("10.png"));
+        const auto verifyPage=[&](int index,const QString &name) {
+            window.showPageThumbnails();QCOMPARE(pages->count(),3);
+            QVERIFY(pages->item(index));QCOMPARE(pages->item(index)->text(),name);
+            window.command("thumbCancel")->trigger();QTRY_VERIFY(window.renderReady());
+        };
+        verifyPage(1,QString("10.png"));
         const auto current=window.currentPageName();window.command("sortReverse")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());
-        QCOMPARE(window.currentPageName(),current);QCOMPARE(pages->item(0)->text(),QString("2.png"));
+        QCOMPARE(window.currentPageName(),current);verifyPage(0,QString("2.png"));
         QVERIFY(window.command("sortUnicode")->isChecked());QVERIFY(window.command("sortReverse")->isChecked());
         QStringList notices;
         QTimer dismiss;connect(&dismiss,&QTimer::timeout,&window,[&]{if(auto *box=qobject_cast<QMessageBox *>(QApplication::activeModalWidget())){notices.append(box->text());box->accept();}});dismiss.start(10);
@@ -108,7 +113,7 @@ private slots:
         window.command("settingsSave4")->trigger();
         window.command("sortNatural")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());window.command("settingsLoad4")->trigger();
         QTRY_VERIFY(!window.isLoading() && window.renderReady());
-        QVERIFY(window.command("sortUnicode")->isChecked());QCOMPARE(pages->item(0)->text(),QString("2.png"));
+        QVERIFY(window.command("sortUnicode")->isChecked());verifyPage(0,QString("2.png"));
         window.command("sortNatural")->trigger();QTRY_VERIFY(window.viewMode()!=MainWindow::ViewMode::Covers || window.directoryReady());features->settingsFile(true,exported);
         // Import can start an asynchronous book reload while its result dialog
         // is closing. Wait for the restored book, not just the action checkmark.

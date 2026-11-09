@@ -108,7 +108,8 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
             populateDirectory(m_directory,false,false,false,true);
         if(m_features)m_features->requestBackgroundWork();
         const auto cache=m_thumbnailDiskCache;
-        if(cache->enabled()) {
+        if(cache->enabled() && (m_mode!=ViewMode::Reader || m_readerPresented) &&
+            (cache->recoveryPending() || cache->hasPendingWrites())) {
             m_displayJobs->submit<bool>(DisplayJobs::Lane::Store,"cache-store","cache-store",
                 [cache](const DisplayJobs::Cancel &cancel){
                     cache->recoverPending();
@@ -356,6 +357,7 @@ void MainWindow::buildUi() {
     m_pageTitle = new QLabel(QCoreApplication::translate("KomaMimic", "ページサムネイル"), pagePanel); pagesLayout->addWidget(m_pageTitle);
     m_pages = new ThumbnailGrid(pagePanel); m_pages->setObjectName("pageThumbnails"); m_pages->setAccessibleName(QCoreApplication::translate("KomaMimic", "画像・書庫内のページサムネイル")); pagesLayout->addWidget(m_pages);
     m_view = new PageView(m_stack);
+    connect(m_view,&PageView::imagePresented,this,&MainWindow::presentedBook);
     auto *pdfTimer = new QTimer(this); pdfTimer->setSingleShot(true); pdfTimer->setInterval(160);
     connect(m_view, &PageView::scaleChanged, pdfTimer, [pdfTimer] { pdfTimer->start(); });
     connect(pdfTimer, &QTimer::timeout, this, [this] {
@@ -431,7 +433,7 @@ void MainWindow::activateLibraryItem(QListWidgetItem *item) {
 
 void MainWindow::render() {
     m_renderDirty=true;
-    if (!m_book || m_mode != ViewMode::Reader) return;
+    if (!m_book || m_loading || m_mode != ViewMode::Reader) return;
     m_displayJobs->retain("render");m_displayJobs->retain("navigation");
     m_displayJobs->retain("prefetch");m_displayJobs->retain("preload");
     m_renderDirty=false;
@@ -463,7 +465,7 @@ void MainWindow::render() {
           std::abs(original.image.devicePixelRatio()-target.width()/2400.0)>.001) original={};
       cached.append(original);
     }
-    m_renderReady = false;
+    m_renderReady = false;m_readerPresented=false;
     refreshState();
     auto completed = [this, generation](RenderResult result,bool cancelled) {
         if(cancelled)return;
@@ -490,12 +492,15 @@ void MainWindow::render() {
         refreshState();
     };
     const bool automatic = m_features && m_features->autoSpread();
-    m_displayJobs->submit<RenderResult>(DisplayJobs::Lane::Render,"render",QString("render/%1").arg(generation),[book, indices, cached, targets, automatic, filter=configuredScriptFilter(m_settings->value("scripts/filter")), condition=m_settings->value("reading/spreadCondition","@height>@width").toString(), options = m_imageOptions, token = m_renderToken, generation](const DisplayJobs::Cancel &cancel) {
+    const qint64 retainBytes=m_settings->value("cache/bundleLoad",false).toBool()?
+        qint64(std::clamp(m_settings->value("cache/bundleMegabytes",128).toInt(),16,2048))*1024*1024:0;
+    book->setReaderCacheBudget(retainBytes);
+    m_displayJobs->submit<RenderResult>(DisplayJobs::Lane::Render,"render",QString("render/%1").arg(generation),[book, indices, cached, targets, automatic, retainBytes, filter=configuredScriptFilter(m_settings->value("scripts/filter")), condition=m_settings->value("reading/spreadCondition","@height>@width").toString(), options = m_imageOptions, token = m_renderToken, generation](const DisplayJobs::Cancel &cancel) {
         const auto stale=[token,generation,cancel]{return cancel() || token->load()!=generation;};
         RenderResult result;
         for (int n = 0; n < indices.size(); ++n) {
             if (stale()) return RenderResult{};
-            auto original = !cached[n].image.isNull() ? cached[n] : book->image(indices[n],targets[n],stale);
+            auto original = !cached[n].image.isNull() ? cached[n] : book->image(indices[n],targets[n],stale,retainBytes);
             const double rasterScale=targets[n].isEmpty() ? 1 : targets[n].width()/2400.0;
             original.image.setDevicePixelRatio(rasterScale);
             if (automatic && n > 0 && !evaluateExpression(condition,{{"width",original.image.width()/original.image.devicePixelRatio()},{"height",original.image.height()/original.image.devicePixelRatio()},{"page",double(indices[n]+1)},{"totalpage",double(book->pages.size())}}).value) break;
@@ -516,6 +521,14 @@ void MainWindow::render() {
         }
         return result;
     },std::move(completed));
+}
+
+void MainWindow::presentedBook() {
+    if(m_mode!=ViewMode::Reader || !m_renderReady)return;
+    m_readerPresented=true;
+    if(m_book && m_book->format!="生成画像")m_settings->setValue("lastBook",m_currentPath);
+    m_settings->setValue("lastDirectory",m_directory);
+    if(m_features)m_features->requestBackgroundWork();
 }
 
 void MainWindow::jump(int anchor) {
@@ -642,8 +655,8 @@ void MainWindow::refreshState() {
     m_actions["parentFolder"]->setEnabled(!m_directory.isEmpty() && (m_mode != ViewMode::Covers || !QDir(m_directory).isRoot()));
     m_actions["folderBack"]->setEnabled(m_historyIndex > 0);
     m_actions["folderForward"]->setEnabled(m_historyIndex >= 0 && m_historyIndex + 1 < m_history.size());
-    m_actions["previousFolder"]->setEnabled(m_siblingIndex > 0);
-    m_actions["nextFolder"]->setEnabled(m_siblingIndex >= 0 && m_siblingIndex + 1 < m_siblingFolders.size());
+    m_actions["previousFolder"]->setEnabled((!m_directory.isEmpty() && m_siblingDirectory!=m_directory) || m_siblingIndex>0);
+    m_actions["nextFolder"]->setEnabled((!m_directory.isEmpty() && m_siblingDirectory!=m_directory) || (m_siblingIndex>=0 && m_siblingIndex+1<m_siblingFolders.size()));
     m_actions["readFolder"]->setEnabled(!m_directory.isEmpty() && !m_archiveDirectory);
     { const QSignalBlocker blocker(m_actions["library"]); m_actions["library"]->setChecked(m_mode == ViewMode::Covers); }
     { const QSignalBlocker blocker(m_actions["thumbnails"]); m_actions["thumbnails"]->setChecked(m_mode == ViewMode::Pages); }
@@ -683,7 +696,7 @@ void MainWindow::refreshState() {
     }
     m_status->setToolTip(details);
     m_slider->setInvertedAppearance(m_settings->value("display/sliderDirection",false).toBool()&&m_options.rightToLeft);
-    if(loaded&&m_book->format!="生成画像")m_settings->setValue("lastBook",m_currentPath);
+    if(loaded && m_mode!=ViewMode::Reader && m_book->format!="生成画像")m_settings->setValue("lastBook",m_currentPath);
     if (m_features) m_features->refresh();
     updateDocumentActions();
     setWindowTitle(loaded ? QString("%1 [%2/%3] — KomaMimic").arg(bookDisplayName(m_currentPath)).arg(m_anchor + 1).arg(count) : "KomaMimic");

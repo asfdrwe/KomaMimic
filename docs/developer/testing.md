@@ -38,11 +38,11 @@ Rerun timed-out suites individually to distinguish contention from a genuine han
 
 ## Test scopes
 
-`full` registers 21 CTest entries: 18 Qt suites (compatibility, reader, UI,
+`full` registers 22 CTest entries: 19 Qt suites (compatibility, reader, UI,
 feature, format, PDF, CLI, script, PIC, document, power, evolution, cache, i18n,
 archive_text, legacy_settings, thumbnail and thumbnail_scroll), the C-locale format check, and the Python
 single-instance IPC and distribution checks.
-`platform` registers 14 CTest entries: compatibility, CLI, UI, PDF, script,
+`platform` registers 15 CTest entries: compatibility, CLI, UI, PDF, script,
 document, power, cache, i18n, legacy_settings, thumbnail, thumbnail_scroll, single-instance IPC, and
 distribution. Some Qt suites run only selected platform integration functions.
 This is the Windows-fast CI default. Its cache suite selects cancellation,

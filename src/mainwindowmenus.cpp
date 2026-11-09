@@ -67,7 +67,7 @@ void MainWindow::buildMenus() {
         {"scaleSpecified", QCoreApplication::translate("KomaMimic", "指定スケールサイズ…")}, {"scaleFixed", QCoreApplication::translate("KomaMimic", "倍率固定")},
         {"next", QCoreApplication::translate("KomaMimic", "次に進む")}, {"previous", QCoreApplication::translate("KomaMimic", "前に戻る")}, {"first", QCoreApplication::translate("KomaMimic", "最初のページへ")},
         {"last", QCoreApplication::translate("KomaMimic", "最終ページへ")}, {"nextBook", QCoreApplication::translate("KomaMimic", "次の書庫へ")}, {"previousBook", QCoreApplication::translate("KomaMimic", "前の書庫へ")},
-        {"preloadAll", QCoreApplication::translate("KomaMimic", "全ページ一括ロード（メモリ上限内）")},
+        {"preloadAll", QCoreApplication::translate("KomaMimic", "全ファイル一括ロード(&B)")},
         {"shortcuts", QCoreApplication::translate("KomaMimic", "キーボード(&K)…")}, {"mouseSettings", QCoreApplication::translate("KomaMimic", "マウス・ジェスチャ(&M)…")},
         {"gamepadSettings", QCoreApplication::translate("KomaMimic", "ゲームパッド(&P)…")}, {"toolbarSettings", QCoreApplication::translate("KomaMimic", "ツールバー(&T)…")},
         {"preferences", QCoreApplication::translate("KomaMimic", "環境設定(&C)…")}, {"imageInfo", QCoreApplication::translate("KomaMimic", "画像情報(&I)…")},

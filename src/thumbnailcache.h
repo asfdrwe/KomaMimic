@@ -31,6 +31,7 @@ public:
     // Persist deferred pixels as a replayable journal before normal shutdown.
     bool checkpoint();
     void recoverPending();
+    bool recoveryPending() const {return !m_recovered.load();}
     bool invalidate(const QByteArray &key,const std::function<bool()> &cancel={});
     qint64 pendingMemoryBytes() const;
     QString failedGeneration(const QByteArray &identity);

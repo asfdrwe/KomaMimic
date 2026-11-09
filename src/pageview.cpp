@@ -40,6 +40,7 @@ void PageView::setPages(const QVector<QImage> &images, bool rtl, const QString &
     setMedia(media, rtl, caption);
 }
 void PageView::setMedia(const QVector<ImageResult> &media, bool rtl, const QString &caption) {
+    ++m_presentationGeneration;m_presentationPending=false;
     m_scrollTimer->stop();
     m_transitionTimer->stop();m_transitionImage={};
     if(m_transitionKind&&isVisible()&&!m_images.isEmpty()&&qint64(width())*height()<8*1024*1024){m_transitionImage=grab().toImage();m_transitionClock.start();m_transitionTimer->start();}
@@ -49,6 +50,7 @@ void PageView::setMedia(const QVector<ImageResult> &media, bool rtl, const QStri
     m_rtl = rtl; m_caption = caption; m_message.clear(); m_paused = false;
     m_clock.start(); if (animated && isVisible()) m_timer->start();
     m_pan = {};
+    m_presentationPending=true;
     emit animationChanged(animated, false); requestScale(); update();
 }
 void PageView::setAnimationPaused(bool paused) {
@@ -101,6 +103,7 @@ void PageView::animate() {
     if (!running) { m_timer->stop(); m_paused = true; emit animationChanged(true, true); }
 }
 void PageView::setMessage(const QString &message) {
+    ++m_presentationGeneration;m_presentationPending=false;
     m_scanEntry=0;
     m_timer->stop(); m_media.clear(); m_playback.clear(); emit animationChanged(false, false);
     m_images.clear(); m_caption.clear(); m_message = message; update();
@@ -224,6 +227,10 @@ void PageView::paintEvent(QPaintEvent *) {
         p.setPen(palette().color(QPalette::Text));
         p.drawText(rect().adjusted(24, 24, -24, -24), Qt::AlignCenter | Qt::TextWordWrap, m_message);
         return;
+    }
+    if(m_presentationPending) {
+        m_presentationPending=false;
+        QTimer::singleShot(0,this,[this,generation=m_presentationGeneration]{if(generation==m_presentationGeneration)emit imagePresented();});
     }
     const auto rects = pageRects();
     p.save(); p.setClipRect(imageArea());

@@ -86,6 +86,7 @@ ReaderFeatures::ReaderFeatures(MainWindow *window, IdleInhibitor *inhibitor)
     : QObject(window), w(window) {
   initializeInhibit(inhibitor);
   m_library = std::make_unique<LibraryStore>(collectionPath());
+  m_library->setDeferredWrites(true);
   m_undo = new QUndoStack(this);
   m_saveTimer = new QTimer(this);
   m_saveTimer->setSingleShot(true);
@@ -284,6 +285,7 @@ void ReaderFeatures::build() {
     bind(QString("userCommand%1").arg(i), [this, i] { external(i, false); });
   m_listsDock = new QDockWidget(QCoreApplication::translate("KomaMimic", "ブックリスト"), w);
   m_listsDock->setObjectName("bookListDock");
+  connect(m_listsDock,&QDockWidget::visibilityChanged,this,[this](bool shown){if(shown && m_shelfDock && m_tabs && m_listsDirty)rebuildLists();});
   m_tabs = new QTabWidget(m_listsDock);
   for (const auto &[kind, label] :
        QVector<QPair<QString, QString>>{{"playlist", QCoreApplication::translate("KomaMimic", "プレイリスト")},
@@ -402,6 +404,7 @@ void ReaderFeatures::build() {
           });
   m_shelfDock = new QDockWidget(QCoreApplication::translate("KomaMimic", "本棚"), w);
   m_shelfDock->setObjectName("bookshelfDock");
+  connect(m_shelfDock,&QDockWidget::visibilityChanged,this,[this](bool shown){if(shown && m_listsDock && m_tabs && m_listsDirty)rebuildLists();});
   m_shelf = new QListWidget(m_shelfDock);
   m_shelf->setObjectName("bookshelfList");
   installThumbnailDelegate(m_shelf);
@@ -655,42 +658,19 @@ void ReaderFeatures::build() {
   });
   bind("clearCache", [this] {
     w->m_displayJobs->retain("prefetch");w->m_displayJobs->retain("preload");
-    w->m_imageCache.clear();
+    w->m_imageCache.clear();m_preloadNext=0;m_preloadSeen.clear();m_preloadFull=false;
     if (w->m_book)
       w->m_book->clearEncodedCache();
     message(QCoreApplication::translate("KomaMimic", "画像キャッシュを解放しました。"));
   });
-  bind("preloadAll", [this] {
-    if (!w->m_book || m_prefetching)
-      return;
-    m_prefetching = true;
-    auto book = w->m_book;
-    auto generation = w->m_bookGeneration;
-    auto completed = [this, generation](QVector<QPair<int,ImageResult>> images,bool cancelled) {
-              m_prefetching = false;
-              if (cancelled || generation != w->m_bookGeneration)
-                return;
-              for (auto &[index, image] : images)
-                w->m_imageCache.insert(index, new ImageResult(image),
-                                       int((image.memoryCost() + 1023) / 1024));
-              message(QCoreApplication::translate("KomaMimic", "設定した容量内の画像をキャッシュしました。"));
-            };
-    w->m_displayJobs->submit<QVector<QPair<int,ImageResult>>>(DisplayJobs::Lane::Background,"preload","preload",
-        [book, budget = qint64(w->m_imageCache.maxCost()) * 1024](const DisplayJobs::Cancel &cancel) {
-          QVector<QPair<int, ImageResult>> values;
-          qint64 used = 0;
-          for (int i = 0; i < book->pages.size(); ++i) {
-            if(cancel())break;
-            auto image = book->image(i,{},cancel);
-            if (!image.error.isEmpty())
-              continue;
-            if (used + image.memoryCost() > budget)
-              break;
-            used += image.memoryCost();
-            values.append({i, std::move(image)});
-          }
-          return values;
-        },std::move(completed));
+  auto *bundle=w->m_actions["preloadAll"];
+  bundle->setCheckable(true);
+  bundle->setChecked(w->m_settings->value("cache/bundleLoad",false).toBool());
+  connect(bundle,&QAction::toggled,this,[this](bool enabled){
+    w->m_settings->setValue("cache/bundleLoad",enabled);
+    w->m_displayJobs->retain("preload");m_preloadNext=0;m_preloadSeen.clear();m_preloadFull=false;
+    if(!enabled && w->m_book)w->m_book->clearBundleCache();
+    requestBackgroundWork();
   });
   bind("importMangaMeeyaSettings", [this] { settingsFile(true, {}, true); });
   bind("importSettings", [this] { settingsFile(true); });
@@ -815,6 +795,7 @@ void ReaderFeatures::build() {
 }
 void ReaderFeatures::refresh() {
   updateInhibit();
+  w->m_actions["preloadAll"]->setChecked(w->m_settings->value("cache/bundleLoad",false).toBool());
   const QStringList sortIds{"sortNatural","sortDate","sortType","sortSize","sortEntry","sortUnicode","sortRandom","sortName"};
   for(int i=0;i<sortIds.size();++i) {auto *action=w->m_actions[sortIds[i]];action->setCheckable(true);action->setChecked(i==w->m_settings->value("covers/sort",0).toInt());}
   w->m_actions["sortReverse"]->setCheckable(true);w->m_actions["sortReverse"]->setChecked(w->m_settings->value("covers/reverse",false).toBool());
@@ -840,6 +821,8 @@ void ReaderFeatures::refresh() {
   }
 }
 void ReaderFeatures::rebuildLists() {
+  if(!m_listsDock->isVisible() && !m_shelfDock->isVisible()){m_listsDirty=true;return;}
+  m_listsDirty=false;
   for (auto it = m_lists.begin(); it != m_lists.end(); ++it) {
     const auto selected =
         it.value()->currentItem()
@@ -908,7 +891,7 @@ void ReaderFeatures::closingBook() {
     m_panPositions[m_lastPositionKey] = w->m_view->pan();
   m_saveTimer->stop();
   saveState();
-  w->m_settings->setValue("window/docks",
+  if(property("closing").toBool())w->m_settings->setValue("window/docks",
                           w->isFullScreen() && !m_normalDocks.isEmpty()
                               ? m_normalDocks
                               : w->saveState());
@@ -921,6 +904,7 @@ void ReaderFeatures::closingBook() {
   m_undo->clear();
 }
 void ReaderFeatures::openedBook() {
+  m_preloadNext=0;m_preloadSeen.clear();m_preloadFull=false;m_preloadBudget=0;
   m_visibleIndices.clear();
   m_dimensions.clear();
   m_navigationBusy = false;
@@ -1071,8 +1055,8 @@ void ReaderFeatures::rendered(const QVector<int> &indices,
   prefetch();
 }
 void ReaderFeatures::prefetch() {
-  if(m_prefetching || !w->m_book || w->viewMode()!=MainWindow::ViewMode::Reader ||
-     !w->renderReady() || w->m_backgroundCancel->load() || w->m_displayJobs->contains("prefetch"))return;
+  if(!w->m_book || w->viewMode()!=MainWindow::ViewMode::Reader ||
+     !w->renderReady() || !w->m_readerPresented || w->m_backgroundCancel->load() || w->m_displayJobs->contains("prefetch"))return;
   QVector<int> wanted;
   for (int sign : {m_lastDirection, -m_lastDirection}) {
     int anchor = w->m_anchor;
@@ -1109,6 +1093,34 @@ void ReaderFeatures::prefetch() {
           }
         }
         if(!cancelled)prefetch();
+      });
+}
+
+void ReaderFeatures::preloadFiles() {
+  if(w->m_mode!=MainWindow::ViewMode::Reader || !w->m_book || !w->renderReady() || !w->m_readerPresented ||
+      w->documentViewActive() || w->m_backgroundCancel->load() ||
+      !w->m_settings->value("cache/bundleLoad",false).toBool() ||
+      w->m_displayJobs->contains("prefetch") || w->m_displayJobs->contains("preload"))return;
+  const auto book=w->m_book;
+  const auto budget=qint64(std::clamp(w->m_settings->value("cache/bundleMegabytes",128).toInt(),16,2048))*1024*1024;
+  if(budget!=m_preloadBudget) {
+    if(m_preloadBudget)book->clearBundleCache();
+    m_preloadBudget=budget;m_preloadNext=0;m_preloadSeen.clear();m_preloadFull=false;
+  }
+  book->setReaderCacheBudget(budget);
+  if(m_preloadFull)return;
+  while(m_preloadNext<book->pages.size() && (book->pages[m_preloadNext].document || !book->pages[m_preloadNext].inlineData.isEmpty() || m_preloadSeen.contains(book->encodedFileId(m_preloadNext))))++m_preloadNext;
+  const int page=m_preloadNext;
+  if(page==book->pages.size())return;
+  w->m_displayJobs->submit<FileCacheResult>(DisplayJobs::Lane::Background,"preload","preload",
+      [book,page,budget](const DisplayJobs::Cancel &cancel){return book->cacheEncoded(page,budget,cancel);},
+      [this,book,page](FileCacheResult result,bool cancelled){
+        if(book!=w->m_book)return;
+        if(!cancelled) {
+            m_preloadFull=result.full;m_preloadSeen.insert(book->encodedFileId(page));
+            if(m_preloadNext==page)++m_preloadNext;
+        }
+        if(!cancelled)requestBackgroundWork();
       });
 }
 
@@ -1232,6 +1244,7 @@ void ReaderFeatures::replacePages(const QVector<BookPage> &pages, int anchor) {
 }
 void ReaderFeatures::changeBook(std::shared_ptr<const Book> book, int anchor) {
   w->m_renderToken->store(++w->m_renderGeneration);
+  m_preloadNext=0;m_preloadSeen.clear();m_preloadFull=false;
   w->m_book = std::move(book);
   for (int i = 0; i < m_tocEntries.size(); ++i) {
     auto entry = m_tocEntries[i].toObject();
@@ -1245,6 +1258,7 @@ void ReaderFeatures::changeBook(std::shared_ptr<const Book> book, int anchor) {
   w->m_imageCache.clear();
   m_selectionFirst = m_selectionLast = -1;
   w->m_anchor = std::clamp(anchor, 0, std::max(0, w->pageCount() - 1));
+  if(w->m_loading)return;
   w->populatePages();
   w->render();
   m_saveTimer->start();
@@ -1302,7 +1316,7 @@ void ReaderFeatures::editPages(const QString &operation) {
         message(QCoreApplication::translate("KomaMimic", "コピーする画像が128 MiBを超えています。"));
         return;
       }
-      page.inlineData = data.bytes;
+      page.inlineData = data.bytes;page.sourceBook.reset();
       page.identity = QUuid::createUuid().toString(QUuid::WithoutBraces);
       if (page.document) {
         page.document = false;
@@ -1703,6 +1717,21 @@ void ReaderFeatures::showCollection(const QString &kind, int layout) {
 void ReaderFeatures::requestBackgroundWork() {
   if(w->m_backgroundCancel->load())return;
   prefetch();
+  preloadFiles();
+  if(!w->m_loading && (w->m_mode!=MainWindow::ViewMode::Reader || w->m_readerPresented) &&
+      QDateTime::currentMSecsSinceEpoch()>=m_historyRetryAt && !w->m_displayJobs->contains("history-store")) {
+    const auto writes=m_library->pendingWrites();
+    const auto epoch=m_library->writeEpoch();const auto generation=epoch->load();
+    if(!writes.isEmpty())w->m_displayJobs->submit<bool>(DisplayJobs::Lane::Store,"history-store","history-store",
+        [path=collectionPath(),writes,epoch,generation](const DisplayJobs::Cancel &cancel){return LibraryStore::writePending(path,writes,[cancel,epoch,generation]{return cancel() || epoch->load()!=generation;});},
+        [this,writes](bool stored,bool cancelled){
+            if(stored && !cancelled){m_library->acknowledge(writes);m_historyRetryAt=0;}
+            else if(!cancelled) {
+                if(!m_historyRetryAt)message(QCoreApplication::translate("KomaMimic", "読書履歴を保存できません。後で再試行します。"));
+                m_historyRetryAt=QDateTime::currentMSecsSinceEpoch()+1000;
+            }
+        });
+  }
   if(w->m_mode!=MainWindow::ViewMode::Reader)requestCollectionCover();
 }
 void ReaderFeatures::requestCollectionCover() {
