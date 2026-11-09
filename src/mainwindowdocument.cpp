@@ -376,7 +376,7 @@ void MainWindow::documentSettings() {
   else
     updateDocumentActions();
 }
-void MainWindow::openDocumentView(const QImage &preview) {
+void MainWindow::openDocumentView() {
   if (!m_documentView) {
     m_documentView = new DocumentView(m_stack);
     for (const auto &spec : shortcutSpecs())
@@ -418,7 +418,6 @@ void MainWindow::openDocumentView(const QImage &preview) {
                                                   : currentDocumentLocation();
   m_restoreDocumentLocation = false;
   m_documentView->open(m_book->publication, m_book->openOptions.text, location);
-  m_documentView->setPreview(preview);
   setMode(m_mode);
 }
 void MainWindow::documentLaidOut(const QVector<DocumentLocation> &locations) {

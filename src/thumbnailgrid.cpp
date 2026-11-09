@@ -84,6 +84,7 @@ ThumbnailGrid::ThumbnailGrid(QWidget *parent) : QListWidget(parent) {
     updateGrid();
 }
 void ThumbnailGrid::resetMousePosition() { m_lastMousePosition = QCursor::pos(); }
+ThumbnailGrid::~ThumbnailGrid() { m_sourceImages.clear(); }
 void ThumbnailGrid::setMouseSelectionEnabled(bool enabled) {
     m_mouseSelectionEnabled = enabled;
     resetMousePosition();
@@ -160,7 +161,9 @@ QIcon ThumbnailGrid::displayIcon(const QImage &image, bool directory) const {
 void ThumbnailGrid::repaintIcons() {
     for (int row = 0; row < count(); ++row) {
         auto *entry=item(row);
-        if(const auto *image=m_sourceImages.object(row))entry->setIcon(displayIcon(*image,entry->data(DirectoryRole).toBool()));
+        if(const auto *image=m_sourceImages.object(row)) {
+            const auto icon=displayIcon(*image,entry->data(DirectoryRole).toBool());entry->setIcon(icon);recordThumbnailCost(row,*image,icon);
+        }
         else if(entry->data(ThumbnailRoleReady).toBool()) {
             // A display-only change never clears the disk cache. Reload just
             // the visible image sources that have left this bounded RAM cache.
@@ -169,6 +172,7 @@ void ThumbnailGrid::repaintIcons() {
         item(row)->setData(ThumbnailCacheNextCheckRole,0);
         } else entry->setIcon(displayIcon({},entry->data(DirectoryRole).toBool()));
     }
+    trimThumbnails();
 }
 void ThumbnailGrid::setCustomSettings(CustomThumbnailSettings settings) {
     settings.columns = std::clamp(settings.columns,0,100);
@@ -225,7 +229,7 @@ QVector<int> ThumbnailGrid::visibleRows() const {
         if(visualItemRect(item(i)).intersects(viewport()->rect()))rows.append(i);
     return rows;
 }
-void ThumbnailGrid::clearItems() { m_cached.clear(); m_sourceImages.clear(); clear(); }
+void ThumbnailGrid::clearItems() { m_cached.clear(); m_sourceImages.clear();m_thumbnailCosts.clear();m_thumbnailBytes=0; clear(); }
 void ThumbnailGrid::invalidateThumbnails() {
     // Explicit refresh replaces pixels only after a successful generation.
     for (int row = 0; row < count(); ++row) {
@@ -245,23 +249,51 @@ void ThumbnailGrid::setThumbnail(int row, const QImage &image, const QString &er
     if (!error.isEmpty()) entry->setToolTip(entry->toolTip() + '\n' + error);
     if (image.isNull()) {
         m_sourceImages.remove(row);m_cached.removeAll(row);
+        m_thumbnailBytes-=m_thumbnailCosts.take(row);
         entry->setIcon(displayIcon({},entry->data(DirectoryRole).toBool()));
         return;
     }
-    m_sourceImages.insert(row,new QImage(image),int(std::max<qint64>(1,(image.sizeInBytes()+1023)/1024)));
-    entry->setIcon(displayIcon(image,entry->data(DirectoryRole).toBool()));
+    m_sourceImages.remove(row);
+    const auto icon=displayIcon(image,entry->data(DirectoryRole).toBool());entry->setIcon(icon);recordThumbnailCost(row,image,icon);
+    const auto sourceBytes=image.sizeInBytes();
+    // Account only for sources still held by the bounded cache. Its automatic
+    // eviction must not leave phantom bytes that prematurely evict ready icons.
+    m_sourceImages.insert(row,new SourceImage(image,[this,row,sourceBytes] {
+        if(m_thumbnailCosts.contains(row)){m_thumbnailCosts[row]-=sourceBytes;m_thumbnailBytes-=sourceBytes;}
+    }),int(std::max<qint64>(1,(sourceBytes+1023)/1024)));
     m_cached.removeAll(row); m_cached.enqueue(row);
+    trimThumbnails();
+}
+void ThumbnailGrid::recordThumbnailCost(int row,const QImage &image,const QIcon &icon) {
+    qint64 bytes=image.sizeInBytes();
+    for(const auto &size:icon.availableSizes())bytes+=qint64(size.width())*size.height()*4;
+    m_thumbnailBytes+=bytes-m_thumbnailCosts.value(row);m_thumbnailCosts[row]=bytes;
+}
+qint64 ThumbnailGrid::offscreenThumbnailBytes() const {
+    qint64 bytes=m_thumbnailBytes;
+    for(int row:visibleRows())bytes-=m_thumbnailCosts.value(row);
+    return bytes;
+}
+void ThumbnailGrid::setMemoryRetention(bool enabled,qint64 bytes) {
+    bytes=std::max<qint64>(0,bytes);
+    if(m_retainAll==enabled && m_memoryLimit==bytes)return;
+    m_retainAll=enabled;m_memoryLimit=bytes;trimThumbnails();
+}
+void ThumbnailGrid::trimThumbnails() {
     // Icon pixels are bounded independently of the number of list entries.
     const auto visible = visibleRows();
     const int keep = std::max(160, int(visible.size()) + 20);
-    if (m_cached.size() <= keep) return;
     const QSet<int> protectedRows(visible.begin(), visible.end());
+    qint64 offscreen=m_thumbnailBytes;
+    for(int row:visible)offscreen-=m_thumbnailCosts.value(row);
+    const auto overLimit=[&]{return m_retainAll?offscreen>m_memoryLimit:m_cached.size()>keep;};
     int candidates = m_cached.size();
-    while (m_cached.size() > keep && candidates-- > 0) {
+    while (overLimit() && candidates-- > 0) {
         const int old = m_cached.dequeue();
         // A ready visible row has no pending reload. Evicting it here would
         // leave a placeholder after another row's asynchronous completion.
         if (protectedRows.contains(old)) { m_cached.enqueue(old); continue; }
+        const auto cost=m_thumbnailCosts.take(old);m_thumbnailBytes-=cost;offscreen-=cost;
         if (old >= count()) continue;
         m_sourceImages.remove(old);
         item(old)->setIcon(displayIcon({}, item(old)->data(DirectoryRole).toBool()));
@@ -282,7 +314,7 @@ void ThumbnailGrid::selectLast() { if (count()) { setCurrentRow(count() - 1); sc
 void ThumbnailGrid::requestVisible() {
     if (m_scheduled) return;
     m_scheduled = true;
-    QTimer::singleShot(0, this, [this] { m_scheduled = false; updateGrid(); emit visibleRowsChanged(); });
+    QTimer::singleShot(0, this, [this] { m_scheduled = false; updateGrid(); trimThumbnails(); emit visibleRowsChanged(); });
 }
 void ThumbnailGrid::resizeEvent(QResizeEvent *event) { QListWidget::resizeEvent(event); resetMousePosition(); requestVisible(); }
 void ThumbnailGrid::changeEvent(QEvent *event) {

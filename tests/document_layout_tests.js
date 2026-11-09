@@ -41,7 +41,7 @@ function environment(fixtures) {
     const document={body:new Element('body'),createElement(tag){
         const el=new Element(tag);
         if(tag==='iframe') {
-            Object.defineProperty(el,'src',{set(value){const key=decodeURIComponent(value.slice(value.lastIndexOf('/')+1));loaded.push(key);const fixture=fixtures[key];assert.ok(fixture,`unexpected source ${key}`);el.contentDocument=content(fixture);el.contentWindow={scrollX:0,scrollY:0,scrollTo(x,y){this.scrollX=x;this.scrollY=y;}};if(fixture.delay)setTimeout(()=>el.onload?.(),fixture.delay);else setImmediate(()=>el.onload?.());}});
+            Object.defineProperty(el,'src',{set(value){const key=decodeURIComponent(value.slice(value.lastIndexOf('/')+1));loaded.push(key);const fixture=fixtures[key];assert.ok(fixture,`unexpected source ${key}`);el.contentDocument=content(fixture);el.contentWindow={scrollX:0,scrollY:0,scrollTo(x,y){this.scrollX=x;this.scrollY=y;}};const count=loaded.filter(p=>p===key).length,delay=fixture.delays?.[count-1] ?? fixture.delay;const finish=()=>fixture.failLoads?.includes(count)?el.onerror?.():el.onload?.();if(delay)setTimeout(finish,delay);else setImmediate(finish);}});
         }
         return el;
     }};
@@ -101,11 +101,66 @@ function environment(fixtures) {
         const s=e.api.state(true);assert.equal(s.pages[s.current].section,'latest.xhtml');
     }
     {
+        const fixtures=Object.fromEntries(Array.from({length:6},(_,i)=>[`${i}.xhtml`,{pages:1}]));
+        const e=environment(fixtures);await e.api.start(e.spec());
+        await e.api.select(2);await e.api.select(4);await e.api.select(0);
+        const s=e.api.state(true);
+        assert.equal(s.error,'','both pages of an evicted spread must be reloaded');
+        assert.deepEqual(Array.from(s.visible),[0,1]);
+        assert.equal(e.loaded.filter(p=>p==='1.xhtml').length,2);
+        const visible=e.sandbox.document.body.children.filter(f=>f.contentDocument && f.style.visibility==='visible');
+        assert.equal(visible.length,2);
+    }
+    {
         const e=environment({'good.xhtml':{pages:1},'pending.xhtml':{pages:2,delay:20}});await e.api.start(e.spec({pageLayout:0}));
         const pending=e.api.select(1);e.api.pause();await pending;
         assert.equal(e.api.state(true).current,0);await e.api.select(1);
         const s=e.api.state(true);assert.equal(s.error,'');assert.equal(s.pages[s.current].section,'pending.xhtml');
         assert.equal(e.loaded.filter(p=>p==='pending.xhtml').length,2);
     }
-    console.log('document_layout_tests: scheduling, cover fit, direction, resume, lazy navigation and wide images passed');
+    {
+        const e=environment({'previous.xhtml':{pages:3,delay:20},'current.xhtml':{pages:2},'latest.xhtml':{pages:2}}),spec=e.spec({pageLayout:0});
+        spec.location={section:'current.xhtml',offset:0};await e.api.start(spec);
+        const old=e.api.step(-1);await e.api.select(3);await old;
+        const s=e.api.state(true);assert.equal(s.error,'');assert.equal(s.pages[s.current].section,'latest.xhtml','a delayed previous-page request must not replace a newer move');
+    }
+    {
+        const e=environment({'body.xhtml':{pages:4,delays:[0,30]}});
+        const first=e.api.start(e.spec());
+        while(e.loaded.length<2)await new Promise(resolve=>setImmediate(resolve));
+        await e.api.select(1);
+        let s=e.api.state(true);assert.equal(s.error,'');assert.equal(s.current,1);
+        const visible=e.sandbox.document.body.children.filter(f=>f.contentDocument && f.style.visibility==='visible');
+        assert.equal(visible.length,2);assert.ok(visible.every(f=>f.style.width),'a shared mirror must finish preparation before it becomes visible');
+        await first;s=e.api.state(true);assert.equal(s.current,1);
+        assert.equal(e.loaded.length,2,'concurrent moves must share one prepared mirror');
+    }
+    for(const failLoads of [[],[1]]) {
+        const e=environment({'good.xhtml':{pages:1},'pending.xhtml':{pages:2,delay:20,failLoads}});await e.api.start(e.spec({pageLayout:0}));
+        const old=e.api.select(1);e.api.pause();const first=e.api.select(1),latest=e.api.select(1);
+        await Promise.all([old,first,latest]);const s=e.api.state(true);
+        assert.equal(s.error,'');assert.equal(s.pages[s.current].section,'pending.xhtml');
+        assert.equal(e.loaded.filter(p=>p==='pending.xhtml').length,2,'resume must share the replacement pane after an obsolete load');
+    }
+    for(const operation of ['navigate','find']) {
+        const e=environment({'current.xhtml':{pages:1},'slow.xhtml':{pages:1,delay:20,text:'needle'},'latest.xhtml':{pages:1}});
+        await e.api.start(e.spec({pageLayout:0}));
+        const old=operation==='navigate'?e.api.navigate({section:'slow.xhtml',offset:0}):e.api.find('needle');
+        await e.api.select(2);await old;
+        const s=e.api.state(true);assert.equal(s.error,'');assert.equal(s.pages[s.current].section,'latest.xhtml',`a delayed ${operation} must not replace a newer move`);
+    }
+    for(const rightToLeft of [false,true]) {
+        const fixtures=Object.fromEntries(Array.from({length:9},(_,i)=>[`${i}.xhtml`,{pages:i%3+1,delay:i%2?2:0}]));
+        const e=environment(fixtures),spec=e.spec();spec.rightToLeft=rightToLeft;await e.api.start(spec);
+        for(let n=0;n<20;++n) {
+            const moves=[e.api.step(1),e.api.step(-1),e.api.last(),e.api.select(n%3)];
+            await Promise.all(moves);
+            let s=e.api.state(true);assert.equal(s.error,'');
+            assert.equal(s.current,n%3,'latest move must win a rapid burst');
+            assert.ok(s.visible.length>=1 && s.visible.length<=2);
+            const at=s.current;await e.api.step(1);s=e.api.state(true);assert.equal(s.error,'');assert.ok(s.current>at,'navigation must remain usable after a burst');
+            await e.api.step(-1);assert.equal(e.api.state(true).error,'');
+        }
+    }
+    console.log('document_layout_tests: lazy spreads, rapid navigation, shared mirrors, cancellation, cover fit, direction and resume passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});

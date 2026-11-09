@@ -117,12 +117,41 @@ private slots:
         QTRY_VERIFY(!w.isLoading());QVERIFY(w.m_book && w.m_book->publication);QVERIFY(!w.m_documentView);
         QCOMPARE(w.viewMode(),MainWindow::ViewMode::Covers);
     }
-    void nativePreviewCoversTheLoadingView() {
+    void nativeEpubOpensWithoutPreviewPaint() {
         if(!TestData::webEngineIpcAvailable())QSKIP("WebEngine IPC is unavailable in this execution environment.");
         QTemporaryDir d;const auto path=d.filePath("sample.epub");QVERIFY(TestData::write(path,epub()));
-        const auto p=readPublication(path,{});DocumentView view;view.resize(800,1200);view.show();view.open(p,{});
-        view.setPreview(TestData::solid(Qt::blue,{600,800}));auto *preview=view.findChild<QWidget *>("documentCoverPreview");QVERIFY(preview);QVERIFY(!preview->isHidden());
-        QTRY_VERIFY_WITH_TIMEOUT(view.ready(),40000);QVERIFY(preview->isHidden());
+        // Opening a hidden window cannot paint a temporary PageView cover.
+        // It must still create the document view directly after metadata opens.
+        MainWindow w(d.filePath("settings.ini"));w.openBook(path);
+        QTRY_VERIFY_WITH_TIMEOUT(w.m_documentView,10000);
+        QVERIFY(!w.findChild<QWidget *>("documentCoverPreview"));
+        w.resize(800,1200);w.show();QTRY_VERIFY_WITH_TIMEOUT(w.renderReady(),40000);
+        QCOMPARE(w.m_documentView->visiblePages().size(),1);
+    }
+    void nativeEvictedSpreadAndRapidNavigation_data() {
+        QTest::addColumn<bool>("rtl");QTest::newRow("ltr")<<false;QTest::newRow("rtl")<<true;
+    }
+    void nativeEvictedSpreadAndRapidNavigation() {
+        if(!TestData::webEngineIpcAvailable())QSKIP("WebEngine IPC is unavailable in this execution environment.");
+        QFETCH(bool,rtl);
+        auto p=std::make_shared<Publication>();p->epub=true;p->directionSpecified=true;p->rightToLeft=rtl;
+        for(int i=0;i<6;++i) {
+            PublicationSection s;s.path=QString("%1.xhtml").arg(i);s.fixed=true;s.viewport={1200,1600};
+            s.html="<html><head></head><body><p>Generic sample page.</p></body></html>";p->sections.append(s);
+        }
+        DocumentView view;view.resize(1000,800);view.show();QSignalSpy failures(&view,&DocumentView::failed);
+        TextOptions options;options.pageLayout=1;view.open(p,options);
+        QTRY_VERIFY_WITH_TIMEOUT(view.ready(),40000);QCOMPARE(view.visiblePages().size(),2);
+        for(int target:{2,4,0}) {
+            view.jump(target);QTRY_COMPARE_WITH_TIMEOUT(view.currentIndex(),target,10000);
+            QCOMPARE(view.visiblePages(),(QVector<int>{target,target+1}));QCOMPARE(failures.size(),0);
+        }
+        for(int i=0;i<4;++i) {
+            view.jump(4);view.step(-1,false);view.step(1,false);view.jump(2);
+            QTRY_COMPARE_WITH_TIMEOUT(view.currentIndex(),2,10000);QCOMPARE(failures.size(),0);
+            view.step(1,false);QTRY_COMPARE_WITH_TIMEOUT(view.currentIndex(),4,10000);
+            QCOMPARE(view.visiblePages(),(QVector<int>{4,5}));QCOMPARE(failures.size(),0);
+        }
     }
     void nativeAozoraWidePageAndResume() {
         if(!TestData::webEngineIpcAvailable())QSKIP("WebEngine IPC is unavailable in this execution environment.");

@@ -1,7 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "documentview.h"
-#include "pageview.h"
-#include <QResizeEvent>
 #include <QCoreApplication>
 #include <QApplication>
 #include <QBuffer>
@@ -177,7 +175,6 @@ DocumentView::DocumentView(QWidget *parent) : QWidget(parent) {
   auto *layout = new QVBoxLayout(this);
   layout->setContentsMargins(0, 0, 0, 0);
   layout->addWidget(m_web);
-  m_preview=new PageView(this);m_preview->setObjectName("documentCoverPreview");m_preview->setFilenameVisible(false);m_preview->hide();
   m_timer = new QTimer(this);
   m_timer->setInterval(150);
   connect(m_timer, &QTimer::timeout, this, &DocumentView::poll);
@@ -197,7 +194,6 @@ void DocumentView::clear() {
   static_cast<Handler *>(m_handler)->token->store(true);
   m_timer->stop();
   m_ready = false;
-  m_preview->setMessage({});m_preview->hide();
   m_vertical = false; m_auxiliary=false;
   m_polling = false;
   m_locations.clear();m_visible.clear();m_revision=-1;m_complete=false;
@@ -308,7 +304,6 @@ void DocumentView::poll() {
         }
         if (!state.value("ready").toBool())
           return;
-        if(!self->m_preview->isHidden()){self->m_preview->setMessage({});self->m_preview->hide();}
         self->m_auxiliary=state.value("auxiliary").toBool();
         self->m_vertical=state.value("vertical").toBool();self->m_rightToLeft=state.value("rightToLeft").toBool();self->m_complete=state.value("complete").toBool();
         self->m_visible.clear();for(const auto &v:state.value("visible").toArray())self->m_visible.append(v.toInt());
@@ -322,13 +317,6 @@ void DocumentView::poll() {
           if(state.value("changed").toBool())emit self->positionChanged(page,self->m_location);
         }
       });
-}
-void DocumentView::setPreview(const QImage &image) {
-  if(image.isNull())return;
-  m_preview->setPages({image},false,{});m_preview->setGeometry(rect());m_preview->show();m_preview->raise();
-}
-void DocumentView::resizeEvent(QResizeEvent *event) {
-  QWidget::resizeEvent(event);if(m_preview)m_preview->setGeometry(rect());
 }
 void DocumentView::jump(int page) {
   m_timer->start();

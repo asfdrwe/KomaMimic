@@ -94,13 +94,14 @@ protected:
 private:
     friend class ReaderFeatures;
     friend class ThumbnailTests;
+    friend class ThumbnailPreloadTests;
     friend class ReaderStartupTests;
     friend class DocumentBehaviorTests;
     friend class ReaderInput;
     void buildDocumentActions();
     void documentSettings();
     void updateDocumentActions();
-    void openDocumentView(const QImage &preview = {});
+    void openDocumentView();
     void clearDocumentView();
     void retainDocumentView();
     void discardRetainedDocument();
@@ -134,6 +135,13 @@ private:
     void activateLibraryItem(QListWidgetItem *item);
     void startNextThumbnail(quint64 generation);
     void requestThumbnails(ThumbnailGrid *grid);
+    void requestThumbnail(ThumbnailGrid *grid,int row,bool preload=false);
+    bool thumbnailPreloadReady(ThumbnailGrid *grid) const;
+    void preloadThumbnails();
+    void cancelThumbnailPreload();
+    struct ThumbnailPreloadState { quint64 generation=0;int next=0,batch=0;bool enabled=false;QVector<int> visible; };
+    ThumbnailPreloadState m_thumbnailPreload[2];
+    QTimer *m_thumbnailPreloadTimer=nullptr;
     void populatePages();
     void populateDirectory(const QString &path, bool navigate, bool history, bool persist = true, bool background = false);
     void initializeDirectoryWatcher();
@@ -224,7 +232,6 @@ private:
         QString path;QVariantMap settings; qint64 size=0,modified=0;int anchor=0;
         QSet<int> wide,solo,rtl;QHash<int,int> sides;
     } m_retainedDocument;
-    QMetaObject::Connection m_documentPreviewPaint;
     QHash<int,int> m_documentSides;
     QHash<QString, QKeySequence> m_baseBindings, m_documentBindings;
     QLabel *m_status;

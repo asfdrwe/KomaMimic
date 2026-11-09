@@ -97,6 +97,8 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
     m_imageCache.setMaxCost(std::clamp(m_settings->value("cache/megabytes",128).toInt(),16,2048)*1024);
     setApplicationAppearance(m_settings->value("display/appearance",0).toInt());
     m_displayJobs=std::make_unique<DisplayJobs>();
+    m_thumbnailPreloadTimer=new QTimer(this);m_thumbnailPreloadTimer->setSingleShot(true);m_thumbnailPreloadTimer->setInterval(200);
+    connect(m_thumbnailPreloadTimer,&QTimer::timeout,this,&MainWindow::preloadThumbnails);
     m_thumbnailDiskCache=std::make_shared<ThumbnailDiskCache>();
     m_thumbnailDiskCache->configure(m_settings->value("cache/thumbnailsEnabled",true).toBool(),m_settings->value("cache/thumbnailMegabytes",512).toInt());
     m_thumbnailDiskCache->setDeferredWrites(true);
@@ -380,7 +382,10 @@ void MainWindow::buildUi() {
     connect(m_library, &QListWidget::itemActivated, this, &MainWindow::activateLibraryItem);
     connect(m_pages, &QListWidget::itemActivated, this, [this] { acceptThumbnail(); });
     for (auto *grid : {m_library, m_pages}) {
-        connect(grid, &ThumbnailGrid::visibleRowsChanged, this, [this, grid] { requestThumbnails(grid); });
+        connect(grid, &ThumbnailGrid::visibleRowsChanged, this, [this, grid] {
+            if(grid==activeGrid())cancelThumbnailPreload();
+            requestThumbnails(grid);
+        });
         connect(grid, &QListWidget::currentRowChanged, this, [this] { refreshState(); });
         grid->setContextMenuPolicy(Qt::CustomContextMenu);
         connect(grid, &QWidget::customContextMenuRequested, this, [this, grid](const QPoint &position) {
@@ -919,6 +924,7 @@ void MainWindow::saveSettings() {
 }
 bool MainWindow::backgroundWorkActive() const {return m_displayJobs && m_displayJobs->active();}
 void MainWindow::cancelBackgroundWork() {
+    if(m_thumbnailPreloadTimer)m_thumbnailPreloadTimer->stop();
     if(m_documentView)m_documentView->suspend();
     if(m_retainedDocument.view)m_retainedDocument.view->suspend();
     m_backgroundCancel->store(true);

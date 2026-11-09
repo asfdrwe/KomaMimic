@@ -27,7 +27,7 @@ The Windows offscreen Qt Test entry point sets `QT_QPA_FONTDIR` from
 `%WINDIR%\Fonts` if it is unset, and defaults `QTWEBENGINE_CHROMIUM_FLAGS`
 to `--disable-gpu` if it is unset. These settings affect tests, not the
 installed application. On Windows, `ui_tests` has a 600-second CTest timeout
-(a full local run took 274 seconds without parallel suites), `cli_tests` has
+and `cli_tests` has
 180 seconds, and `document_tests` has 300 seconds. CLI subprocess helpers wait
 up to 60 seconds for completion on Windows, including GUI startup and settings
 writes; other OSes use 15 seconds. A subprocess timeout logs its arguments,
@@ -38,12 +38,12 @@ Rerun timed-out suites individually to distinguish contention from a genuine han
 
 ## Test scopes
 
-`full` registers 23 CTest entries (24 when Node.js is available): 20 Qt suites (compatibility, reader, UI,
+`full` registers 24 CTest entries (25 when Node.js is available): 21 Qt suites (compatibility, reader, UI,
 feature, format, PDF, CLI, script, PIC, document, power, evolution, cache, i18n,
-archive_text, legacy_settings, thumbnail, thumbnail_scroll, reader_startup and document_behavior), the C-locale format check, and the Python
+archive_text, legacy_settings, thumbnail, thumbnail_scroll, thumbnail_preload, reader_startup and document_behavior), the C-locale format check, and the Python
 single-instance IPC and distribution checks.
-`platform` registers 16 CTest entries (17 when Node.js is available): compatibility, CLI, UI, PDF, script,
-document, power, cache, i18n, legacy_settings, thumbnail, thumbnail_scroll, reader_startup, document_behavior, single-instance IPC, and
+`platform` registers 17 CTest entries (18 when Node.js is available): compatibility, CLI, UI, PDF, script,
+document, power, cache, i18n, legacy_settings, thumbnail, thumbnail_scroll, thumbnail_preload, reader_startup, document_behavior, single-instance IPC, and
 distribution. Some Qt suites run only selected platform integration functions.
 This is the Windows-fast CI default. Its cache suite selects cancellation,
 disk-persistence and worker-scheduling regressions; it is not the full cache suite.
@@ -53,12 +53,10 @@ Do not report passing `platform` checks as the full test scope.
 reuse in fresh processes, nested source changes, explicit refresh, and cached display
 while generation is busy. `thumbnail_scroll_tests` separately runs the 220-folder/
 220-page ZIP scroll-and-persistence cases in both scopes. Each has its own 180-second
-timeout; the cache suite retains its 300-second budget. The split preserves all
-assertions without extending a timeout as coverage grows. Scroll cases log elapsed
+timeout; the cache suite has a 300-second budget. Scroll cases log elapsed
 time at fixture, book-load, outward-scroll, persistence and return-check milestones.
 Each suite uses a distinct application name for native Windows/macOS cache isolation.
-The platform cache selection includes the regression where 300 cache hits used to
-discard an unsaved image.
+The platform cache selection verifies that 300 cache hits preserve unsaved images.
 
 ```sh
 ctest --test-dir build-test -R '^(ui|script)_tests$' --output-on-failure
@@ -115,11 +113,16 @@ thumbnail群は実際の属性検査・走査・生成・Book open／画像読�
 旧PNGから分からない深部変更のテストには実際の対象ディレクトリ変更通知を供給し、
 周期検証や余計な本体読込をテストの前提にしない。
 
+独立したthumbnail_preload群は全件先読みの既定OFF、設定の保存・取消・再起動、表紙とページのcold/warm取得、
+ディスク保存OFFでも表示アイコンを保持すること、スクロール復帰時の追加元画像読込なし、
+メモリ上限とOFF時の解放、スクロール・モード・フォルダ・Book・設定OFF・前景要求による
+先読み取消も検査する。合成データを使い、私有作品をfixtureへ含めない。
+
 UI群は親の多数項目から子のwarm hitへの移動、ページ表示、明示次巻操作、
 モードを離れた一覧が勝手に更新されないことを検査する。
 220項目の往復ではfixture側から保存を補わず、アプリ自身の保存済み画像をlookupする。
 大量の永続書込を行うUI／cache／thumbnail／thumbnail_scroll群はRESOURCE_LOCKで直列化し、
-UIはRUN_SERIALで単独実行する。既存の時間枠を延長して不具合を隠さない。
+UIはRUN_SERIALで単独実行する。
 
 ## Validation with logs
 

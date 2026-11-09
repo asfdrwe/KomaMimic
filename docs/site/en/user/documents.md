@@ -56,7 +56,7 @@ A cover absent from the reading sequence is not inserted. TXT, Aozora and Markdo
 first pages are not automatically treated as covers.
 
 The reader prepares the current EPUB section first and loads unread sections on
-navigation. The total shows “…” until all reading pages are known. A cover can be
-shown before the body is ready. Book navigation remains available during loading;
+navigation. The total shows “…” until all reading pages are known. EPUBs open
+directly in the document view, which also displays the cover. Book navigation remains available during loading;
 the previous document view is retained for one book and reused when its source and
 settings have not changed.

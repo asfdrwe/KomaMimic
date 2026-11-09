@@ -125,9 +125,9 @@ primary keyは実行ごとに異なるため、`cache-hit`の完全一致フラ�
 `automatic.json`のconfigure時間、configure.logの`Restored N package(s)`と組み合わせると、
 archive未復元と、復元後にABIが合わず再構築した場合を切り分けられる。
 
-今回の最適化は依存の再構築と不要な転送の削減を狙う。初回や依存・toolchain変更時の
-cold buildは必要であり、短縮時間はWindows Actionsでのwarm runを実測して判断する。
-platformの試験範囲、時間枠、配布ZIPの検証は維持する。
+初回や依存・toolchain変更時はcold buildが必要になる。所要時間はWindows Actionsの
+configureログと依存キャッシュの復元結果で確認する。platformの試験範囲・時間枠と
+配布ZIPの検証はキャッシュの有無にかかわらず適用する。
 
 ## Windows x86_64 distribution ZIP candidates
 

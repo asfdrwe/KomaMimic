@@ -3,6 +3,7 @@
 #include <QListWidget>
 #include <QQueue>
 #include <QCache>
+#include <functional>
 struct CustomThumbnailSettings {
     int columns = 0, width = 64, height = 64, horizontalGap = 0, verticalGap = 0, filenameLines = 1;
     bool rightOrigin = false, frames = false;
@@ -15,6 +16,7 @@ class ThumbnailGrid : public QListWidget {
 public:
     enum class Layout { Custom, EightColumns, Fit };
     explicit ThumbnailGrid(QWidget *parent = nullptr);
+    ~ThumbnailGrid() override;
     void setMouseSelectionEnabled(bool enabled);
     bool mouseSelectionEnabled() const { return m_mouseSelectionEnabled; }
     void setLayoutMode(Layout layout, int columns = 0);
@@ -26,6 +28,8 @@ public:
     QVector<int> visibleRows() const;
     void clearItems();
     void setThumbnail(int row, const QImage &image, const QString &error);
+    void setMemoryRetention(bool enabled, qint64 bytes);
+    qint64 offscreenThumbnailBytes() const;
     void invalidateThumbnails();
     void moveSelection(int dx, int dy);
     void selectFirst();
@@ -54,7 +58,17 @@ private:
     bool m_mouseSelectionEnabled = true;
     QPoint m_lastMousePosition;
     QQueue<int> m_cached;
-    QCache<int, QImage> m_sourceImages{32 * 1024};
+    struct SourceImage : QImage {
+        SourceImage(const QImage &image,std::function<void()> released):QImage(image),released(std::move(released)){}
+        ~SourceImage(){released();}
+        std::function<void()> released;
+    };
+    QCache<int, SourceImage> m_sourceImages{32 * 1024};
+    void trimThumbnails();
+    void recordThumbnailCost(int row,const QImage &image,const QIcon &icon);
+    QHash<int,qint64> m_thumbnailCosts;
+    qint64 m_thumbnailBytes=0,m_memoryLimit=128LL*1024*1024;
+    bool m_retainAll=false;
 };
 
 void installThumbnailDelegate(QListWidget *list);

@@ -569,6 +569,13 @@ void ReaderFeatures::preferences(const QString &pageName) {
        3600000);
   check(display,QCoreApplication::translate("KomaMimic", "自動再生で大きい画像をスクロールしてからめくる"),"slideshow/scroll",false);
   auto *thumbnails = form("thumbnails", QCoreApplication::translate("KomaMimic", "サムネイル"));
+  check(thumbnails,QCoreApplication::translate("KomaMimic", "サムネイルを全件先読みする"),"thumbnails/preloadAll",false);
+  editors["thumbnails/preloadAll"]->setToolTip(QCoreApplication::translate("KomaMimic", "表紙・ページ一覧で、表示が終わってから残りを順に読み込みます。操作中は表示を優先し、フォルダ・本・モードの移動で取り消します。"));
+  spin(thumbnails,QCoreApplication::translate("KomaMimic", "非表示サムネイルのメモリ上限（MiB）"),"thumbnails/memoryMegabytes",128,16,2048);
+  editors["thumbnails/memoryMegabytes"]->setToolTip(QCoreApplication::translate("KomaMimic", "現在の一覧の非表示画像を、表示用アイコンを含めてこの容量内に保持します。上限を超えると古い画像を解放します。表示中の画像と他のキャッシュは別です。"));
+  auto *preloadAll=qobject_cast<QCheckBox *>(editors["thumbnails/preloadAll"]);
+  auto *thumbnailMemory=editors["thumbnails/memoryMegabytes"];thumbnailMemory->setEnabled(preloadAll->isChecked());
+  connect(preloadAll,&QCheckBox::toggled,thumbnailMemory,&QWidget::setEnabled);
   check(thumbnails,QCoreApplication::translate("KomaMimic", "ページサムネイルに連番を表示"),"thumbnails/numbers",false);
   spin(thumbnails,QCoreApplication::translate("KomaMimic", "フォルダ表紙の追加探索階層数"),"thumbnails/folderDepth",0,0,8);
   editors["thumbnails/folderDepth"]->setToolTip(QCoreApplication::translate("KomaMimic", "0でも、表示中のフォルダにある各子フォルダの直下を探します。1以上では、さらに下の階層も探します。保存済み画像は削除しません。"));
@@ -623,7 +630,7 @@ void ReaderFeatures::preferences(const QString &pageName) {
   diskLimit->setEnabled(diskEnabled->isChecked());
   connect(diskEnabled,&QCheckBox::toggled,diskLimit,&QWidget::setEnabled);
   diskLimit->setToolTip(QCoreApplication::translate("KomaMimic", "保存したPNGの合計容量です。上限を超えた場合は、作成時刻の古いサムネイルから削除します。設定ファイルや本の原本は削除しません。"));
-  auto *diskHelp=new QLabel(QCoreApplication::translate("KomaMimic", "表示した分だけ保存します。元ファイル変更時は作り直します。\nF6の再取得では保存済み画像を使わず再生成します。\nサムネイル画像はディスクに残るため、共有PCでは無効化・削除してください。"),&dialog);
+  auto *diskHelp=new QLabel(QCoreApplication::translate("KomaMimic", "読み込んだ分だけ保存します。全件先読みを有効にすると、非表示分も保存対象になります。\nF6の再取得では保存済み画像を使わず再生成します。\nサムネイル画像はディスクに残るため、共有PCでは無効化・削除してください。"),&dialog);
   diskHelp->setWordWrap(true);cache->addRow(diskHelp);
   auto *diskPath=new QLabel(w->m_thumbnailDiskCache->directory(),&dialog);
   diskPath->setTextFormat(Qt::PlainText);

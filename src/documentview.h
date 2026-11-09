@@ -6,7 +6,6 @@
 class QWebEngineView;
 class QWebEngineProfile;
 class QTimer;
-class PageView;
 class DocumentView : public QWidget {
   Q_OBJECT
 public:
@@ -17,7 +16,6 @@ public:
   void open(std::shared_ptr<const Publication> publication,
             const TextOptions &options, const DocumentLocation &location = {});
   void clear();
-  void setPreview(const QImage &image);
   void jump(int page);
   void last();
   void step(int direction,bool onePage=false);
@@ -45,12 +43,10 @@ signals:
 
 protected:
   bool eventFilter(QObject *object, QEvent *event) override;
-  void resizeEvent(QResizeEvent *event) override;
 
 private:
   void poll();
   QWebEngineView *m_web;
-  PageView *m_preview=nullptr;
   QWebEngineProfile *m_profile;
   QObject *m_handler;
   QTimer *m_timer;

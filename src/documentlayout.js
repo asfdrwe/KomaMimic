@@ -7,6 +7,7 @@ window.komaDocument = (() => {
     let spec, controls, messages = {}, history = [], inferredDirection = false, boundary = 0;
     const message = id => messages[id] || id;
     const canonicalPath = s => s.locationPath || s.path;
+    const active = (run,nav) => run===serial && nav===navigation;
     const remember = () => { history.push({location: locationOf(note >= 0 ? notes[note] : pages[current]), auxiliary: note >= 0}); if (history.length > 100) history.shift(); };
     const locationOf = p => p ? {section:p.section, offset:p.offset, quote:p.quote || ''} : {};
     function textNodes(doc) {
@@ -153,33 +154,59 @@ window.komaDocument = (() => {
         },true);
     }
     async function ensureFrame(frame,run) {
-        if(frame.el && frame.loaded)return;
-        if(frame.loading){await frame.loading;return;}
+        while(frame.loading) {
+            const loadingRun=frame.loadingRun;
+            try{await frame.loading;}catch(e){if(loadingRun===run)throw e;}
+        }
+        if(run!==serial || (frame.el && frame.loaded))return;
+        frame.loadingRun=run;
         frame.loading=(async()=>{
-            frame.el?.remove();frame.mirror?.remove();frame.mirror=null;frame.el=makeElement(frame);
+            frame.el?.remove();frame.mirror?.remove();frame.mirror=null;frame.mirrorLoaded=false;frame.el=makeElement(frame);
             await prepare(frame,frame.el,run);if(run!==serial)return;
             offsets(frame);frame.loaded=true;
         })();
         try{await frame.loading;}finally{frame.loading=null;}
     }
+    async function ensureMirror(frame,run) {
+        while(frame.mirrorLoading) {
+            const loadingRun=frame.mirrorLoadingRun;
+            try{await frame.mirrorLoading;}catch(e){if(loadingRun===run)throw e;}
+        }
+        if(run!==serial || (frame.mirror && frame.mirrorLoaded))return;
+        frame.mirrorLoadingRun=run;
+        frame.mirrorLoading=(async()=>{
+            frame.mirror?.remove();frame.mirror=makeElement(frame);frame.mirrorLoaded=false;
+            await prepare(frame,frame.mirror,run);if(run===serial)frame.mirrorLoaded=true;
+        })();
+        try{await frame.mirrorLoading;}finally{frame.mirrorLoading=null;}
+    }
     async function display(index,list,run,nav) {
         const requested=list[index];if(!requested)return;
         await ensureFrame(frames[requested.frame],run);
-        if(run!==serial || nav!==navigation)return;
+        if(!active(run,nav))return;
         index=locate(locationOf(requested),list);
         // Load only a section that may join the current spread, never the rest of the book.
         const first=list[index];
         if(spec.options.pageLayout===1 && !first.wide && !first.solo && list[index+1]?.pending) {
-            await ensureFrame(frames[list[index+1].frame],run);if(run!==serial || nav!==navigation)return;
+            await ensureFrame(frames[list[index+1].frame],run);if(!active(run,nav))return;
             index=locate(locationOf(requested),list);
         }
-        const panels=plan(index,list),used=new Set();
+        // Offsets survive pane eviction. A known page is not necessarily loaded:
+        // restore every pane in the spread, including an evicted second section.
+        let panels;
+        for(;;) {
+            index=locate(locationOf(requested),list);panels=plan(index,list);
+            const missing=[...new Set(panels.map(panel=>frames[list[panel.page].frame]))].filter(f=>!f.el || !f.loaded);
+            if(!missing.length)break;
+            for(const f of missing){await ensureFrame(f,run);if(!active(run,nav))return;}
+        }
+        const used=new Set();
         for(const panel of panels) {
             const f=frames[list[panel.page].frame];
-            if(used.has(f) && !f.mirror){f.mirror=makeElement(f);await prepare(f,f.mirror,run);}
+            if(used.has(f)){await ensureMirror(f,run);if(!active(run,nav))return;}
             used.add(f);
         }
-        if(run!==serial || nav!==navigation)return;
+        if(!active(run,nav))return;
         for(const panel of displayed)panel.el.style.visibility='hidden';displayed=[];used.clear();
         for(const panel of panels) {
             const p=list[panel.page],f=frames[p.frame],el=used.has(f)?f.mirror:f.el;used.add(f);
@@ -190,36 +217,35 @@ window.komaDocument = (() => {
         if(controls)controls.style.display=history.length || note>=0?'flex':'none';
         // Keep current and previous spread panes, with page offsets retained.
         const keep=new Set(displayed.map(p=>list[p.page].frame));
-        for(const f of frames)if(f.loaded && !keep.has(f.index) && !f.recent) {
-            f.el.remove();f.mirror?.remove();f.el=null;f.mirror=null;f.nodes=[];f.loaded=false;
+        for(const f of frames)if(f.loaded && !f.loading && !f.mirrorLoading && !keep.has(f.index) && !f.recent) {
+            f.el.remove();f.mirror?.remove();f.el=null;f.mirror=null;f.mirrorLoaded=false;f.nodes=[];f.loaded=false;
         }
         for(const f of frames)f.recent=used.has(f);
     }
-    async function select(index,tail=false) {
+    async function select(index,tail=false,nav=++navigation,run=serial) {
         if(!pages.length)return;
-        const nav=++navigation,run=serial;index=Math.max(0,Math.min(pages.length-1,index));
+        index=Math.max(0,Math.min(pages.length-1,index));
         try {
-            if(tail){await ensureFrame(frames[pages[index].frame],run);index=pages.length-1;}
+            if(tail){await ensureFrame(frames[pages[index].frame],run);if(!active(run,nav))return;index=pages.length-1;}
             await display(index,pages,run,nav);
-        }catch(e){if(run===serial && nav===navigation)error=String(e.message || e);}
+        }catch(e){if(active(run,nav))error=String(e.message || e);}
     }
     async function step(direction,onePage=false) {
         if(!pages.length)return;
-        const here=locationOf(pages[current]);const run=serial;
+        const here=locationOf(pages[current]);const run=serial,nav=++navigation;
         try {
             if(direction<0 && current>0 && pages[current-1].pending)await ensureFrame(frames[pages[current-1].frame],run);
-            if(run!==serial)return;
+            if(!active(run,nav))return;
             current=locate(here,pages);let target=current;
             if(direction>0)target=current+(onePage?1:plan(current,pages).length);
             else if(onePage)target=current-1;
             else {const candidate=Math.max(0,current-2);target=plan(candidate,pages).some(p=>p.page===current-1)?candidate:current-1;}
             if(target<0 || target>=pages.length || target===current){boundary=direction;return;}
-            await select(target);
-        } catch(e){if(run===serial)error=String(e.message || e);}
+            await select(target,false,nav,run);
+        } catch(e){if(active(run,nav))error=String(e.message || e);}
     }
-    async function showNote(index) {
-        const nav=++navigation,run=serial;
-        try{await display(Math.max(0,Math.min(notes.length-1,index)),notes,run,nav);}catch(e){if(run===serial)error=String(e.message || e);}
+    async function showNote(index,nav=++navigation,run=serial) {
+        try{await display(Math.max(0,Math.min(notes.length-1,index)),notes,run,nav);}catch(e){if(active(run,nav))error=String(e.message || e);}
     }
     async function start(value) {
         ++serial;++navigation;spec=value;messages=spec.messages || {};ready=false;error='';changed=false;revision=1;pages=[];notes=[];history=[];displayed=[];note=-1;current=0;
@@ -231,23 +257,23 @@ window.komaDocument = (() => {
         for(const [label,fn] of [[message('back'),back],[message('notePrevious'),()=>note>=0&&showNote(note-1)],[message('noteNext'),()=>note>=0&&showNote(note+1)]]){const button=document.createElement('button');button.textContent=label;button.onclick=fn;controls.append(button);}
         document.body.append(controls);
         const run=serial,nav=navigation;
-        try{const location=spec.location || {};const target=pages[locate(location)];if(target)await ensureFrame(frames[target.frame],run);if(run===serial && nav===navigation)await select(locate(location));}
-        catch(e){if(run===serial)error=String(e.message || e);}
+        try{const location=spec.location || {};const target=pages[locate(location)];if(target)await ensureFrame(frames[target.frame],run);if(active(run,nav))await select(locate(location),false,nav,run);}
+        catch(e){if(active(run,nav))error=String(e.message || e);}
     }
     async function navigate(location) {
         const candidate=pages[locate(location)];
         const f=(candidate?.section===location.section?frames[candidate.frame]:null) || frames.find(f=>f.section.path===location.section || canonicalPath(f.section)===location.section);if(!f)return;
-        remember();const run=serial;try{await ensureFrame(f,run);if(run!==serial)return;
+        remember();const run=serial,nav=++navigation;try{await ensureFrame(f,run);if(!active(run,nav))return;
             const list=f.section.auxiliary?notes:pages;let index=locate(location,list);
             if(location.fragment){const el=f.el.contentDocument.getElementById(location.fragment);if(el){const range=f.el.contentDocument.createRange();range.selectNodeContents(el);const local=pageAt(f,range);const found=list.findIndex(p=>p.frame===f.index && p.local===local);if(found>=0)index=found;}}
-            if(f.section.auxiliary)await showNote(index);else await select(index);
-        }catch(e){if(run===serial)error=String(e.message || e);}
+            if(f.section.auxiliary)await showNote(index,nav,run);else await select(index,false,nav,run);
+        }catch(e){if(active(run,nav))error=String(e.message || e);}
     }
     function back(){const old=history.pop();if(old)navigate(old.location);}
     addEventListener('resize',fit);
     return {start,select,step,last(){return select(pages.length-1,true);},navigate,back,
         pause(){++serial;++navigation;error='';},stepNote(direction){if(note>=0)showNote(note+direction);},
         state(includePages){const p=pages[current];const result={ready,error,current,changed,revision,boundary,complete:pages.every(p=>!p.pending),auxiliary:note>=0,noteSection:notes[note]?.section || '',vertical:!!frames[p?.frame]?.vertical,rightToLeft:!!p?.rightToLeft,visible:displayed.map(p=>p.page),pages:(typeof includePages==='number'?includePages!==revision:includePages)?pages:[]};changed=false;boundary=0;error='';return result;},
-        async find(text){if(!text)return false;for(let n=0;n<frames.length;++n){const f=frames[(frames[pages[current]?.frame]?.index+1+n)%frames.length];if(f.section.auxiliary)continue;await ensureFrame(f,serial);const at=(f.section.plain || '').toLocaleLowerCase().indexOf(text.toLocaleLowerCase());if(at>=0){await select(locate({section:canonicalPath(f.section),offset:at+(f.section.baseOffset || 0)}));return true;}}return false;}
+        async find(text){if(!text)return false;const run=serial,nav=++navigation;for(let n=0;n<frames.length;++n){if(!active(run,nav))return false;const f=frames[(frames[pages[current]?.frame]?.index+1+n)%frames.length];if(f.section.auxiliary)continue;await ensureFrame(f,run);if(!active(run,nav))return false;const at=(f.section.plain || '').toLocaleLowerCase().indexOf(text.toLocaleLowerCase());if(at>=0){await select(locate({section:canonicalPath(f.section),offset:at+(f.section.baseOffset || 0)}),false,nav,run);return true;}}return false;}
     };
 })();

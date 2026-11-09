@@ -3,6 +3,22 @@
 <TS version="2.1" language="en" sourcelanguage="ja">
     <context>
         <name>KomaMimic</name>
+        <message>
+            <source>サムネイルを全件先読みする</source>
+            <translation>Preload all thumbnails</translation>
+        </message>
+        <message>
+            <source>表紙・ページ一覧で、表示が終わってから残りを順に読み込みます。操作中は表示を優先し、フォルダ・本・モードの移動で取り消します。</source>
+            <translation>In cover and page lists, preload remaining thumbnails after visible items are ready. Display takes priority during input; changing folders, books or modes cancels preloading.</translation>
+        </message>
+        <message>
+            <source>非表示サムネイルのメモリ上限（MiB）</source>
+            <translation>Offscreen thumbnail memory limit (MiB)</translation>
+        </message>
+        <message>
+            <source>現在の一覧の非表示画像を、表示用アイコンを含めてこの容量内に保持します。上限を超えると古い画像を解放します。表示中の画像と他のキャッシュは別です。</source>
+            <translation>Keep offscreen images and display icons in the current list within this limit. Older images are released when it is exceeded. Visible images and other caches are separate.</translation>
+        </message>
     <message>
         <source>EPUBの表紙を単ページにする</source>
         <translation>Show the EPUB cover on a single page</translation>
@@ -4727,10 +4743,10 @@ Backup: %2</translation>
         </message>
         <message>
             <location filename="../src/readerfeatureprefs.cpp" line="596" />
-            <source>表示した分だけ保存します。元ファイル変更時は作り直します。
+            <source>読み込んだ分だけ保存します。全件先読みを有効にすると、非表示分も保存対象になります。
 F6の再取得では保存済み画像を使わず再生成します。
 サムネイル画像はディスクに残るため、共有PCでは無効化・削除してください。</source>
-            <translation>Only viewed thumbnails are saved. They are regenerated when the source changes.
+            <translation>Loaded thumbnails are saved. With full-list preloading enabled, offscreen thumbnails are saved too.
 F6 regenerates thumbnails without using saved images.
 Thumbnails remain on disk; disable or delete them on shared computers.</translation>
         </message>

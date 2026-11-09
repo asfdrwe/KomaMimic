@@ -34,6 +34,9 @@ Zero lines also removes the caption area. Images retain their aspect ratio;
 tooltips show full filenames. Custom layout settings are shared by covers and pages.
 Fit-to-screen and eight-column modes remain available.
 
+Preferences → Thumbnails also offers [full-list preloading and memory retention](settings.md#preload-all-thumbnails).
+Preloading is off by default, with visible items taking priority.
+
 ## Folder browser
 
 The default browser has two vertically arranged panes. Double-click a folder in

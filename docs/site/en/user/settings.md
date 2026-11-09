@@ -85,6 +85,25 @@ In v1.5.0, saved thumbnails are trusted by default. They are not checked against
 
 Visible PNG reads run separately from heavy generation, without waiting for writer/maintenance locks or a full cache inventory. Page-thumbnail mode does not render or prefetch the hidden reading image. Reading does not generate or validate thumbnails or scan hidden browser lists.
 
+### Preload all thumbnails
+
+Preferences → Thumbnails → **Preload all thumbnails** is off by default.
+When off, only visible items are requested, with a limited number of completed images retained in memory.
+When on, the current cover list or current book's page list is loaded progressively after visible cache reads
+and missing-thumbnail generation have finished. Missing cached images are generated as needed.
+This does not crawl all folders or create document-body page thumbnails.
+
+Scrolling interrupts preloading and gives the new visible range priority. Remaining work resumes after input settles.
+Completed display images remain in memory within the limit, avoiding file reads and image decoding on return.
+Changing folders, books or display modes cancels remaining work. Preloading does not run in Reader.
+
+**Offscreen thumbnail memory limit (MiB)** defaults to 128 MiB, adjustable from 16 to 2048 MiB.
+It bounds offscreen thumbnail images and display icons in the current list, evicting older images when necessary.
+Visible images, other existing caches and Qt overhead are separate; this is not a whole-application memory limit.
+A list larger than the limit cannot remain entirely in memory at once.
+Turning the option off restores normal retention without deleting saved disk thumbnails.
+If disk saving is enabled, preloaded offscreen images are also saved for later reuse.
+
 ### Load all files
 
 Tools → Load all files is a saved on/off loading option. You can select it in
