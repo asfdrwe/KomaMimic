@@ -31,22 +31,28 @@ and `cli_tests` has
 180 seconds, and `document_tests` has 300 seconds. CLI subprocess helpers wait
 up to 60 seconds for completion on Windows, including GUI startup and settings
 writes; other OSes use 15 seconds. A subprocess timeout logs its arguments,
-elapsed time, stdout and stderr before failing the test. The cache suite uses
-300 seconds on every OS for its 20,001-file regression. For local full runs on
+elapsed time, stdout and stderr before failing the test. Cache checks run in
+`cache_tests` and `cache_capacity_tests`, each with a 300-second limit on every OS.
+The capacity suite contains the 20,001-file check, disk eviction with pending
+replacement pixels, and creation-order capacity management. Both use the same
+filesystem resource lock. Each case logs its start and elapsed milliseconds so a
+timeout retains the active case and completed costs. For local full runs on
 Windows, use `--parallel 1` to reduce contention with filesystem-heavy suites.
 Rerun timed-out suites individually to distinguish contention from a genuine hang.
 
 ## Test scopes
 
-`full` registers 25 CTest entries (26 when Node.js is available): 22 Qt suites (compatibility, reader, UI,
-feature, format, PDF, CLI, script, PIC, document, power, evolution, cache, i18n,
+`full` registers 26 CTest entries (27 when Node.js is available): 23 Qt suites (compatibility, reader, UI,
+feature, format, PDF, CLI, script, PIC, document, power, evolution, cache, cache_capacity, i18n,
 archive_text, legacy_settings, thumbnail, thumbnail_scroll, thumbnail_preload, reader_startup, document_behavior and document_surface), the C-locale format check, and the Python
 single-instance IPC and distribution checks.
-`platform` registers 18 CTest entries (19 when Node.js is available): compatibility, CLI, UI, PDF, script,
-document, power, cache, i18n, legacy_settings, thumbnail, thumbnail_scroll, thumbnail_preload, reader_startup, document_behavior, document_surface, single-instance IPC, and
+`platform` registers 19 CTest entries (20 when Node.js is available): compatibility, CLI, UI, PDF, script,
+document, power, cache, cache_capacity, i18n, legacy_settings, thumbnail, thumbnail_scroll, thumbnail_preload, reader_startup, document_behavior, document_surface, single-instance IPC, and
 distribution. Some Qt suites run only selected platform integration functions.
 This is the Windows-fast CI default. Its cache suite selects cancellation,
-disk-persistence and worker-scheduling regressions; it is not the full cache suite.
+disk-persistence and worker-scheduling regressions. Its capacity suite selects
+eviction and creation-order checks, without the 20,001-file case. These are not
+the full cache suites.
 Do not report passing `platform` checks as the full test scope.
 
 `thumbnail_tests` checks source-access counts, visible-image eviction, folder and ZIP

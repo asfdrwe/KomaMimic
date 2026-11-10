@@ -15,6 +15,8 @@
 #include <QProcess>
 #include <QLockFile>
 #include <QScrollBar>
+#include <QSignalBlocker>
+#include <QFileSystemWatcher>
 #include <algorithm>
 
 // Keep the filesystem-heavy scroll fixtures outside cache_tests' timeout.
@@ -251,11 +253,23 @@ private slots:
         MainWindow window(d.filePath("settings.ini"));window.show();window.openDirectory(books);
         auto *grid=window.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(grid);
         QTRY_VERIFY(window.directoryReady() && grid->count()==1 && grid->item(0)->data(ThumbnailRoleReady).toBool());
+        // This fixture does not change files. Late initial watcher/layout
+        // notices must not remove the held validation before the cache probe.
+        QSignalBlocker directoryNotices(window.m_directoryWatcher);
+        QSignalBlocker initialLayout(grid);
+        window.m_directoryRefreshTimer->stop();
         window.m_displayJobs->retain("covers");
+        bool finished=false,obsolete=false;
         std::latch release(1);std::atomic<bool> entered=false;auto cleanup=qScopeGuard([&]{release.count_down();});
-        const auto id=QString("covers/%1/0/verify").arg(window.m_libraryGeneration);
-        window.m_displayJobs->submit<int>(DisplayJobs::Lane::Update,"covers",id,[&](const auto &){entered=true;release.wait();return 0;},[](int,bool){});
-        QTRY_VERIFY(entered.load());
+        const auto generation=window.m_libraryGeneration;
+        const auto id=QString("covers/%1/0/verify").arg(generation);
+        const bool accepted=window.m_displayJobs->submit<int>(DisplayJobs::Lane::Update,"covers",id,
+            [&](const auto &){entered=true;release.wait();return 0;},[&](int,bool stale){finished=true;obsolete=stale;});
+        QVERIFY(accepted);
+        QTRY_VERIFY2(entered.load(),qPrintable(QString("finished=%1 obsolete=%2 generation=%3 current=%4")
+            .arg(finished).arg(obsolete).arg(generation).arg(window.m_libraryGeneration)));
+        QVERIFY(!finished);QVERIFY(window.m_displayJobs->contains(id));
+        initialLayout.unblock();
         // Equivalent to an evicted row becoming visible while its old validation
         // is still running. Keep the real request id to exercise deduplication.
         grid->item(0)->setData(ThumbnailRoleReady,false);grid->item(0)->setData(ThumbnailNextCheckRole,0);
