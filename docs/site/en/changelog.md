@@ -4,6 +4,7 @@
 
 ## v1.6.0
 
+- Keep thumbnail display working when a cache PNG cannot be read: use another saved copy when available, otherwise generate the image from its source.
 - Wait for image-page presentation after command-line page selection or navigation before executing following commands, preserving the last book and reading position on immediate exit.
 - Isolate document rendering so WebEngine does not switch the cover and page galleries to RHI composition. Building now requires Qt 6.8 or later.
 - Reuse decoded cover and page thumbnails in memory to reduce saved-PNG reads when revisiting folders or switching views.

@@ -55,6 +55,11 @@ eviction and creation-order checks, without the 20,001-file case. These are not
 the full cache suites.
 Do not report passing `platform` checks as the full test scope.
 
+Both scopes check fallback from unreadable cache PNGs to another saved image or
+generation. These permission-based rows skip when the OS/account can still read
+the restricted fixture. Concurrent-writer failures log the worker, key, null-image
+state and error after all workers have joined.
+
 `thumbnail_tests` checks source-access counts, visible-image eviction, folder and ZIP
 reuse in fresh processes, nested source changes, explicit refresh, and cached display
 while generation is busy. `thumbnail_scroll_tests` separately runs the 220-folder/

@@ -17,6 +17,7 @@
 #include <QElapsedTimer>
 #include <QLabel>
 #include <QLockFile>
+#include <QMutexLocker>
 #include <QPushButton>
 #include <QProcess>
 #include <QSaveFile>
@@ -601,16 +602,20 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
     }
     void concurrentWriters() {
         QTemporaryDir d;ThumbnailDiskCache first(d.path()),second(d.path());std::atomic<bool> good{true};
+        QMutex errorsMutex;QStringList errors;
         std::vector<std::thread> workers;
         for(int i=0;i<4;++i) workers.emplace_back([&,i]{
             auto &cache=i%2?first:second;
             for(int j=0;j<32;++j) {
                 const auto result=cache.image(QByteArray::number(j),[]{return ImageResult{TestData::solid(Qt::green),{}};});
-                if(result.image.isNull() || result.image.pixelColor(0,0)!=QColor(Qt::green)) good=false;
+                if(result.image.isNull() || result.image.pixelColor(0,0)!=QColor(Qt::green)) {
+                    good=false;QMutexLocker guard(&errorsMutex);
+                    errors.append(QString("worker=%1 key=%2 null=%3 error=%4").arg(i).arg(j).arg(result.image.isNull()).arg(result.error));
+                }
             }
         });
         for(auto &worker:workers) worker.join();
-        QVERIFY(good.load());
+        QVERIFY2(good.load(),qPrintable(errors.join('\n')));
         // Persistence is best-effort when another instance holds the directory
         // lock. Contention must not corrupt a stored PNG or lose the image
         // returned to the reader; it does not guarantee 32 immediate writes.
@@ -631,6 +636,34 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         while(first.hasPendingWrites())QVERIFY(first.flushPending());
         while(second.hasPendingWrites())QVERIFY(second.flushPending());
         QCOMPARE(first.stats().entries,32);QCOMPARE(second.stats().entries,32);
+    }
+    void unreadableCacheDoesNotBlockDisplay_data() {
+        QTest::addColumn<bool>("pending");QTest::addColumn<bool>("committedFallback");
+        QTest::newRow("pending-to-committed")<<true<<true;
+        QTest::newRow("pending-to-generation")<<true<<false;
+        QTest::newRow("committed-to-generation")<<false<<false;
+    }
+    void unreadableCacheDoesNotBlockDisplay() {
+        QFETCH(bool,pending);QFETCH(bool,committedFallback);
+        QTemporaryDir d;const auto name=QString::fromLatin1(QCryptographicHash::hash("one",QCryptographicHash::Sha256).toHex())+".png";
+        if(committedFallback)QVERIFY(TestData::write(d.filePath(name),TestData::png(TestData::solid(Qt::green))));
+        const auto parent=pending?d.filePath("pending"):d.path();QVERIFY(QDir().mkpath(parent));
+        const auto path=parent+'/'+name;QVERIFY(TestData::write(path,TestData::png(TestData::solid(Qt::blue))));
+        QVERIFY(QFile::setPermissions(path,QFileDevice::WriteOwner));
+        const auto restore=qScopeGuard([&]{QFile::setPermissions(path,QFileDevice::ReadOwner|QFileDevice::WriteOwner);});
+        // Some platforms/accounts can still open a file with read permission
+        // removed. Keep the failure precondition explicit rather than faking I/O.
+        QFile probe(path);if(probe.open(QIODevice::ReadOnly))QSKIP("This account can read the permission-restricted fixture");
+        QVERIFY(QFileInfo(path).isFile());
+        ThumbnailDiskCache cache(d.path());cache.setDeferredWrites(true);
+        const auto hit=cache.lookup("one");
+        QVERIFY2(hit.error.isEmpty(),qPrintable(hit.error));
+        QCOMPARE(!hit.image.isNull(),committedFallback);
+        if(committedFallback)QCOMPARE(hit.image.pixelColor(0,0),QColor(Qt::green));
+        int calls=0;
+        const auto image=cache.image("one",[&]{++calls;return ImageResult{TestData::solid(Qt::green),{}};});
+        QVERIFY2(image.error.isEmpty(),qPrintable(image.error));QVERIFY(!image.image.isNull());
+        QCOMPARE(image.image.pixelColor(0,0),QColor(Qt::green));QCOMPARE(calls,committedFallback?0:1);
     }
     void contendedReadUsesCommittedPixels() {
         QTemporaryDir d;

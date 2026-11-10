@@ -28,14 +28,13 @@ bool managed(const QString &name) {
     static const QRegularExpression pattern("^[a-f0-9]{64}\\.png$");
     return pattern.match(name).hasMatch();
 }
-QImage committedImage(const QString &path,QString *error=nullptr,qint64 *created=nullptr) {
+QImage committedImage(const QString &path,qint64 *created=nullptr) {
     const QFileInfo info(path);
     if(info.isSymLink() || !info.isFile() || info.size()>MaxCacheFile)return {};
     QFile file(path);
-    if(!file.open(QIODevice::ReadOnly)) {
-        if(error)*error=QCoreApplication::translate("KomaMimic", "サムネイルの保存先を使用できません。");
-        return {};
-    }
+    // Another writer can commit/remove a staged PNG between stat and open.
+    // Cache reads are best-effort: a failed open must still allow fallback.
+    if(!file.open(QIODevice::ReadOnly))return {};
     QImageReader reader(&file,"PNG");const auto size=reader.size();
     if(size.width()<=0 || size.height()<=0 || size.width()>1024 || size.height()>1024)return {};
     if(created)*created=info.lastModified().toMSecsSinceEpoch();
@@ -176,11 +175,9 @@ ImageResult ThumbnailDiskCache::lookup(const QByteArray &key,const std::function
     if(tracked){version=m_versions.value(key);m_pendingMutex.unlock();}
     const auto name=QString::fromLatin1(QCryptographicHash::hash(key,QCryptographicHash::Sha256).toHex())+".png";
     const auto staged=QDir(m_directory).filePath("pending/"+name),committed=QDir(m_directory).filePath(name);
-    QString error;
     qint64 created=0;
-    auto image=committedImage(staged,&error,&created);
-    if(image.isNull() && error.isEmpty())image=committedImage(committed,&error,&created);
-    if(!error.isEmpty())return {{},error};
+    auto image=committedImage(staged,&created);
+    if(image.isNull())image=committedImage(committed,&created);
     if((cancel && cancel()) || epoch!=m_generation.load())return {};
     if(image.isNull())return {};
     ++m_pngDecodes;
