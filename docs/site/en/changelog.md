@@ -2,17 +2,19 @@
 
 [日本語](../changelog.md) | English
 
-## Unreleased
+## v1.6.0
 
 - Wait for image-page presentation after command-line page selection or navigation before executing following commands, preserving the last book and reading position on immediate exit.
 - Isolate document rendering so WebEngine does not switch the cover and page galleries to RHI composition. Building now requires Qt 6.8 or later.
 - Reuse decoded cover and page thumbnails in memory to reduce saved-PNG reads when revisiting folders or switching views.
 - Added optional full-list thumbnail preloading, off by default. Visible covers and pages take priority; remaining images are loaded progressively and retained within an offscreen memory limit, with interruption and cancellation on navigation.
-- Synchronize reflow writing mode and spread order. Center EPUB covers on a single page, prepare current sections/resources first, cancel obsolete loads, and reuse the previous document view.
+- Synchronize reflow writing mode and spread order. Support the EPUB single-page cover setting with centered covers, and open directly in the document view using the current sections and required resources. Improve load cancellation, navigation between books during loading, and reuse of the previous document view.
+- Fix EPUB display failures after repeated forward and backward page navigation.
 - Resolve Windows-style relative Aozora image paths. Load illustration sections on demand, preserve captions/text locations, and display standalone landscape illustrations at full spread width.
 - Defer hidden thumbnail preparation and directory listing until the relevant view is active. Cancel old GUI deliveries and avoid duplicate image requests during opening.
 - Make Load all files a saved loading option. Retain file data within its memory budget only while reading, after current display and nearby preloading.
 - Read nested and folder-container images on demand. Isolate local errors in unshown entries and improve animation cancellation.
+- Reuse Windows dependency caches across application versions, preserve completed dependencies after test failures, and avoid re-uploading unchanged caches.
 
 ## v1.5.0
 

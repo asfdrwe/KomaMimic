@@ -5,16 +5,16 @@ the existing Build and Rocky/Ubuntu AppImage workflows, assembles their verified
 outputs, uploads them to a draft, checks the uploaded assets, and publishes the
 complete Release. It never creates or moves Git tags.
 
-## v1.5.0のタグ作成前
+## v1.6.0のタグ作成前
 
-v1.5.0では、保存画像を原則有効として扱い、現在表示を優先するキャッシュ設計へ変更します。
-利用ごとの元ソース検査・周期検証を行わず、変更の兆候がある対象だけ更新します。
-有限のフォルダ表紙探索、旧要求の取消、完成画像の低優先度保存、保存日時による容量整理を含みます。
-詳細は[キャッシュ仕様](specification.md)と日英利用ガイドを参照してください。
+v1.6.0では、読書開始時の処理と文書の必要部分の読込みを優先し、
+EPUB・青空文庫の表示とページ移動、サムネイルのメモリ再利用を改善します。
+全件先読みは既定オフのオプションです。文書描画を一覧から分離し、Qtの下限は6.8です。
+詳細は[更新履歴](../site/changelog.md)と[仕様](specification.md)を参照してください。
 
-版番号`1.5.0`を`CMakeLists.txt`・両vcpkg manifest・READMEへ揃え、
-日英サイトと開発者向け更新履歴をv1.5.0へ確定します。
-Release validatorはこれらとタグ`v1.5.0`の一致を検証します。
+版番号`1.6.0`を`CMakeLists.txt`・両vcpkg manifest・READMEへ揃え、
+日英サイトの更新履歴をv1.6.0へ確定します。開発者向け更新履歴は共通履歴を参照します。
+Release validatorはこれらとタグ`v1.6.0`の一致を検証します。
 版番号更新のcommitが`main`へ反映されるまでタグをpushしません。
 既存タグは移動・変更しません。
 
@@ -25,7 +25,7 @@ Release validatorはこれらとタグ`v1.5.0`の一致を検証します。
 版番号更新commitをpushし、BuildとPagesを確認してから、`main`で
 **Release → Run workflow**を手動実行します。この実行は成果物を組み立てて検証し、
 GitHub Releaseは公開しません。成果物・依存ライセンス表示・対応ソース・checksumを確認し、
-成功後に管理者が対象commitへ注釈付き`v1.5.0`タグを作成してpushします。
+成功後に管理者が対象commitへ注釈付き`v1.6.0`タグを作成してpushします。
 既存の公開タグを再試行のために移動しません。
 
 ## Version and tag checks
