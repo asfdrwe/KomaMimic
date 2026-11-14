@@ -17,7 +17,34 @@
 #include <QScrollBar>
 #include <QSignalBlocker>
 #include <QFileSystemWatcher>
+#include <QCryptographicHash>
+#include <QJsonDocument>
 #include <algorithm>
+#include <filesystem>
+
+namespace {
+QString makeSymbolicLink(const QString &source,const QString &link,bool directory=false) {
+    std::error_code error;
+#ifdef Q_OS_WIN
+    const std::filesystem::path target(source.toStdWString()),alias(link.toStdWString());
+#else
+    const std::filesystem::path target(QFile::encodeName(source).constData()),alias(QFile::encodeName(link).constData());
+#endif
+    if(directory)std::filesystem::create_directory_symlink(target,alias,error);
+    else std::filesystem::create_symlink(target,alias,error);
+    return error?QString::fromStdString(error.message()):QString{};
+}
+QJsonObject savedThumbnails(const QString &directory) {
+    QJsonObject result;
+    for(const auto &name:QDir(directory).entryList({"*.png"},QDir::Files)) {
+        QFile file(QDir(directory).filePath(name));
+        if(!file.open(QIODevice::ReadOnly))return {};
+        result[name]=QString::fromLatin1(QCryptographicHash::hash(file.readAll(),QCryptographicHash::Sha256).toHex())+":"+
+            QString::number(QFileInfo(file).lastModified().toMSecsSinceEpoch());
+    }
+    return result;
+}
+}
 
 // Keep the filesystem-heavy scroll fixtures outside cache_tests' timeout.
 class ThumbnailTests : public QObject {
@@ -27,6 +54,101 @@ private slots:
         // Native Windows/macOS cache paths ignore XDG_CACHE_HOME. A distinct
         // app name prevents cache_tests' explicit clears from racing this suite.
         QCoreApplication::setApplicationName("ThumbnailRegression");
+    }
+    void symbolicLinkModeSwitchesKeepSavedCover_data() {
+        QTest::addColumn<bool>("legacy");
+        QTest::newRow("current-stamp")<<false;
+        QTest::newRow("legacy-link-stamp")<<true;
+    }
+    void symbolicLinkModeSwitchesKeepSavedCover() {
+        QFETCH(bool,legacy);
+        QTemporaryDir d;const auto real=d.filePath("real"),aliases=d.filePath("aliases");
+        QVERIFY(QDir().mkpath(real));QVERIFY(QDir().mkpath(aliases));
+        const auto source=real+"/book.zip",link=aliases+"/book.zip";
+        const auto png=TestData::png(TestData::solid(Qt::red));
+        QVERIFY(TestData::write(source,TestData::zip({{"1.png",png},{"2.png",png}})));
+        const auto error=makeSymbolicLink(source,link);if(!error.isEmpty())QSKIP(qPrintable("Cannot create a symbolic link: "+error));
+        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));
+        QVERIFY(!cachedCover(link,{},cache).image.isNull());
+        if(legacy) {
+            const auto names=QDir(cache->directory()).entryList({"*.png"},QDir::Files);QCOMPARE(names.size(),1);
+            const auto path=QDir(cache->directory()).filePath(names.first());QImage pixels(path);QVERIFY(!pixels.isNull());
+            const QFileInfo info(link);
+            const QJsonObject record{{"path",link},{"resolved",QDir(info.absoluteDir().canonicalPath()).filePath(info.fileName())},
+                {"bytes",QString::number(info.size())},{"modified",QString::number(info.lastModified().toMSecsSinceEpoch())}};
+            pixels.setText("komamimic-cover-stamp",QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(record).toJson(QJsonDocument::Compact),QCryptographicHash::Sha256).toHex()));
+            QVERIFY(pixels.save(path,"PNG"));cache=std::make_shared<ThumbnailDiskCache>(cache->directory());
+        }
+        const auto book=Book::open(link).book;QVERIFY(book);
+        for(int i=0;i<book->pages.size();++i)QVERIFY(!cachedPageThumbnail(book,i,cache).image.isNull());
+        const auto before=savedThumbnails(cache->directory());QCOMPARE(before.size(),3);
+        const auto generations=ThumbnailActivity::generations.load();
+        MainWindow window(d.filePath("settings.ini"));window.m_thumbnailDiskCache=cache;cache->setDeferredWrites(true);window.show();
+        const auto ready=[](ThumbnailGrid *grid){if(!grid->count())return false;for(int row:grid->visibleRows())if(!grid->item(row)->data(ThumbnailRoleReady).toBool())return false;return true;};
+        window.openDirectory(aliases);QTRY_VERIFY(window.directoryReady() && ready(window.m_library));
+        window.openBook(link);QTRY_VERIFY(window.renderReady());window.showPageThumbnails();QTRY_VERIFY(ready(window.m_pages));
+        for(int i=0;i<2;++i) {
+            window.showCovers();QTRY_VERIFY(ready(window.m_library));QTest::qWait(300);
+            window.showPageThumbnails();QTRY_VERIFY(ready(window.m_pages));QTest::qWait(300);
+        }
+        window.showCovers();QTest::qWait(300);window.close();
+        QCOMPARE(ThumbnailActivity::generations.load(),generations);
+        QCOMPARE(savedThumbnails(cache->directory()),before);
+    }
+    void symbolicLinkPageVerificationAndChanges_data() {
+        QTest::addColumn<bool>("directory");QTest::addColumn<bool>("image");
+        QTest::newRow("file-link-zip")<<false<<false;
+        QTest::newRow("file-link-image")<<false<<true;
+        QTest::newRow("directory-link-zip")<<true<<false;
+        QTest::newRow("directory-link-image")<<true<<true;
+    }
+    void symbolicLinkPageVerificationAndChanges() {
+        QFETCH(bool,directory);QFETCH(bool,image);
+        QTemporaryDir d;const auto real=d.filePath("real"),aliases=d.filePath("aliases");QVERIFY(QDir().mkpath(real));
+        const auto name=image?QString("page.png"):QString("book.zip"),source=real+'/'+name,link=aliases+'/'+name;
+        const auto red=TestData::png(TestData::solid(Qt::red));
+        QVERIFY(TestData::write(source,image?red:TestData::zip({{"1.png",red}})));
+        if(!directory)QVERIFY(QDir().mkpath(aliases));
+        const auto error=directory?makeSymbolicLink(real,aliases,true):makeSymbolicLink(source,link);
+        if(!error.isEmpty())QSKIP(qPrintable("Cannot create a symbolic link: "+error));
+        const auto book=Book::open(link).book;QVERIFY(book);
+        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));
+        QVERIFY(!cachedPageThumbnail(book,0,cache).image.isNull());
+        const auto before=savedThumbnails(cache->directory());QCOMPARE(before.size(),1);
+        const auto opens=BookActivity::opens.load(),generations=ThumbnailActivity::generations.load();
+        int calls=0;auto cancel=[&]{return ++calls>100;};
+        const auto verified=cachedPageThumbnail(book,0,cache,cancel,false,false,true);
+        QVERIFY2(!verified.image.isNull(),qPrintable(verified.error));QVERIFY(calls<=100);
+        QCOMPARE(BookActivity::opens.load(),opens);QCOMPARE(ThumbnailActivity::generations.load(),generations);
+        QCOMPARE(savedThumbnails(cache->directory()),before);
+        const auto observed=thumbnailEntry(QFileInfo(link),QFileInfo(link).absoluteDir().canonicalPath());
+        QCOMPARE(observed.value("resolved"),QJsonDocument::fromJson(book->thumbnailSource(0)).object().value("resolved"));
+        // Old pixels remain available before a concrete change is verified.
+        const auto blue=TestData::png(TestData::solid(Qt::blue,{43,67}));
+        QVERIFY(TestData::write(source,image?blue:TestData::zip({{"1.png",blue}})));
+        QCOMPARE(cachedPageThumbnail(book,0,cache).image.pixelColor(0,0),QColor(Qt::red));
+        calls=0;const auto changed=cachedPageThumbnail(book,0,cache,cancel,false,false,true);
+        QVERIFY2(!changed.image.isNull(),qPrintable(changed.error));QVERIFY(calls<=100);
+        QCOMPARE(changed.image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(BookActivity::opens.load(),opens+1);QCOMPARE(ThumbnailActivity::generations.load(),generations+1);
+        auto restarted=std::make_shared<ThumbnailDiskCache>(cache->directory());
+        QCOMPARE(cachedPageThumbnail(Book::open(link).book,0,restarted,{},false,true).image.pixelColor(0,0),QColor(Qt::blue));
+    }
+    void stalePageObservationDoesNotRepeatReopen() {
+        QTemporaryDir d;const auto path=d.filePath("book.zip");
+        QVERIFY(TestData::write(path,TestData::zip({{"1.png",TestData::png(TestData::solid(Qt::red))}})));
+        const auto book=Book::open(path).book;QVERIFY(book);
+        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));
+        QVERIFY(!cachedPageThumbnail(book,0,cache).image.isNull());
+        const auto before=savedThumbnails(cache->directory());QCOMPARE(before.size(),1);
+        auto observed=thumbnailEntry(QFileInfo(path),QFileInfo(path).absoluteDir().canonicalPath());
+        observed["modified"]=QString::number(observed.value("modified").toString().toLongLong()+1);
+        const auto opens=BookActivity::opens.load(),generations=ThumbnailActivity::generations.load();
+        int calls=0;const auto result=cachedPageThumbnail(book,0,cache,[&]{return ++calls>100;},false,false,true,0,observed);
+        QVERIFY(calls<=100);QVERIFY(result.image.isNull());QVERIFY(!result.error.isEmpty());
+        QCOMPARE(BookActivity::opens.load(),opens+1);QCOMPARE(ThumbnailActivity::generations.load(),generations);
+        QCOMPARE(savedThumbnails(cache->directory()),before);
+        QCOMPARE(cachedPageThumbnail(book,0,cache).image.pixelColor(0,0),QColor(Qt::red));
     }
     void irrelevantFolderAdditionDoesNotRewriteOrRepeat() {
         QTemporaryDir d;const auto parent=d.filePath("A"),folder=parent+"/B",source=folder+"/01.png";QVERIFY(QDir().mkpath(folder));

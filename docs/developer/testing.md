@@ -69,6 +69,11 @@ time at fixture, book-load, outward-scroll, persistence and return-check milesto
 Each suite uses a distinct application name for native Windows/macOS cache isolation.
 The platform cache selection verifies that 300 cache hits preserve unsaved images.
 
+シンボリックリンクの回帰条件は両scopeの`thumbnail_tests`で実行する。ファイルリンクでの
+表紙・ページ往復、旧表紙PNGの内容・保存日時の維持、ファイル／ディレクトリリンクの
+画像・ZIPページの未変更時再利用と変更時更新、古い観測情報による再openの反復防止を
+検査する。実際のsymlink作成がOS／権限で利用できない場合は、その条件だけ理由付きでskipする。
+
 ```sh
 ctest --test-dir build-test -R '^(ui|script)_tests$' --output-on-failure
 ```

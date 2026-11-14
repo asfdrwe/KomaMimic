@@ -2,6 +2,11 @@
 
 [日本語](../changelog.md) | English
 
+## Unreleased
+
+- Fix cover regeneration when switching between covers and page thumbnails through a file symlink, preserving existing saved images.
+- Stop repeated file reopening when page-thumbnail verification encounters inconsistent resolved paths or source observations.
+
 ## v1.6.0
 
 - Keep thumbnail display working when a cache PNG cannot be read: use another saved copy when available, otherwise generate the image from its source.

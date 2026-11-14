@@ -27,8 +27,11 @@ QJsonObject thumbnailEntry(const QFileInfo &entry,const QString &resolvedDirecto
     QJsonObject value{{"directory",dir},{"modified",QString::number(entry.lastModified().toMSecsSinceEpoch())}};
     if(!dir) {
         value["bytes"]=QString::number(entry.size());
-        value["resolved"]=resolvedDirectory.isEmpty()?entry.absoluteFilePath():QDir(resolvedDirectory).filePath(entry.fileName());
-        if(!entry.isSymLink())value["stamp"]=recordStamp(entry.absoluteFilePath(),value);
+        // Match Book's opened snapshot, including the final file symlink.
+        // This runs while collecting source information, never on a PNG hit.
+        value["resolved"]=entry.isSymLink()?entry.canonicalFilePath():
+            resolvedDirectory.isEmpty()?entry.absoluteFilePath():QDir(resolvedDirectory).filePath(entry.fileName());
+        value["stamp"]=recordStamp(entry.absoluteFilePath(),value);
     }
     return value;
 }
@@ -117,6 +120,19 @@ QJsonObject baseKey(const QByteArray &source,const NamePolicy &policy) {
         {"width",ThumbnailSize.width()},{"height",ThumbnailSize.height()}};
 }
 QByteArray digest(const QByteArray &data) {return QCryptographicHash::hash(data,QCryptographicHash::Sha256).toHex();}
+bool savedCoverMatches(const QImage &image,const QString &path,const QJsonObject &entry) {
+    const auto saved=image.text("komamimic-cover-stamp");
+    if(saved.isEmpty())return false;
+    if(saved==recordStamp(path,entry))return true;
+    // Older link covers fingerprinted the resolved parent plus the link name.
+    // Recognize that fingerprint during a requested verification without
+    // rewriting existing PNGs or changing their lexical cache keys.
+    const QFileInfo file(path);
+    if(!file.isSymLink())return false;
+    auto legacy=entry;
+    legacy["resolved"]=QDir(file.absoluteDir().canonicalPath()).filePath(file.fileName());
+    return saved==recordStamp(path,legacy);
+}
 // Purely lexical: never stat/canonicalize the original archive during a disk-cache hit.
 QByteArray coverKey(const QString &path,const NamePolicy &policy) {
     const auto absolute=QDir::cleanPath(QFileInfo(physicalBookPath(path)).absoluteFilePath());
@@ -191,7 +207,7 @@ ImageResult cover(const QString &path,const NamePolicy &policy,const std::shared
     if(info.isEmpty())return {{},QCoreApplication::translate("KomaMimic", "表紙画像を読めません。")};
     const auto stamp=recordStamp(physical,info);
     const auto previous=old.image.isNull()?fallback:old;
-    if(!refresh && !previous.image.isNull() && ((!stamp.isEmpty() && previous.image.text("komamimic-cover-stamp")==stamp) ||
+    if(!refresh && !previous.image.isNull() && (savedCoverMatches(previous.image,physical,info) ||
        (previous.image.text("komamimic-cover-stamp").isEmpty() && previous.cacheCreatedMs>0 && info.value("modified").toString().toLongLong()<=previous.cacheCreatedMs))) {
         auto result=previous;result.thumbnailEntries={{physical,info}};return result;
     }
@@ -277,6 +293,10 @@ ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int inde
             if((!old.sourceBook || old.name==page.name) &&
                (old.archiveEntryId.isEmpty()?page.name==old.name:page.archiveEntryId==old.archiveEntryId) && page.documentPage==old.documentPage && page.portion==old.portion && page.pdfResource==old.pdfResource) {
                 if(!opened.book->sourceUnchanged(i))return book->image(index,ThumbnailSize,cancel);
+                // A stale observation (or a source changing during open) must
+                // not reopen recursively with the same mismatched record.
+                if(opened.book->thumbnailSource(i)!=freshSource)
+                    return {{},QCoreApplication::translate("KomaMimic", "画像・書庫が変更されています。開き直してください。")};
                 return cachedPageThumbnail(opened.book,i,cache,cancel,refresh,false,true,0,actual);
             }
         }
@@ -353,7 +373,7 @@ ImageResult cachedCollectionCover(const QString &path,const NamePolicy &policy,c
     const auto source=sourceRecord(QFileInfo(physicalBookPath(path)).absoluteFilePath(),info);
     const auto stamp=QString::fromLatin1(digest(source));
     const auto old=cache->lookup(bytes,cancel).image;
-    if(!old.isNull() && old.text("komamimic-cover-stamp")==stamp)return {old,{}};
+    if(!old.isNull() && savedCoverMatches(old,QFileInfo(physicalBookPath(path)).absoluteFilePath(),info))return {old,{}};
     return cache->image(bytes,[&]() -> ImageResult {
         ++ThumbnailActivity::generations;
         OpenOptions options;options.cancel=cancel;
