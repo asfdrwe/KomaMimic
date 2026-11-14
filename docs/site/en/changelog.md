@@ -4,7 +4,7 @@
 
 ## v1.7.0
 
-- Fix cover regeneration when switching between covers and page thumbnails through a file symlink, preserving existing saved images.
+- Fix cover regeneration when switching between covers and page thumbnails through a file symlink, preserving existing saved images. Detect changes to the target image or ZIP on Windows.
 - Stop repeated file reopening when page-thumbnail verification encounters inconsistent resolved paths or source observations.
 - Select the cover image before loading a ZIP/CBZ entry, reducing repeated archive reads and avoiding page-count scans of unrelated TIFF images. Existing saved thumbnails remain reusable.
 - Reduce cover-selection overhead for ZIP archives with many entries: reuse extension and text-decoding setup and the size captured for each open file, and choose the candidate during name parsing. Preserve filename interpretation and selection order.

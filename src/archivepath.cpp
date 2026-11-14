@@ -34,3 +34,11 @@ QString bookIdentityPath(const QString &path) {
     return entry.valid() ? entry.archive + Marker + entry.id : QFileInfo(path).absoluteFilePath();
 }
 bool bookPathExists(const QString &path) { return QFileInfo::exists(physicalBookPath(path)); }
+
+QFileInfo fileTargetInfo(const QFileInfo &entry) {
+    // Windows path/enumeration metadata can describe the reparse point itself.
+    // Resolve only links; ordinary entries keep their enumerated attributes.
+    if(!entry.isSymLink())return entry;
+    const QFileInfo link(entry.absoluteFilePath());
+    return QFileInfo(link.canonicalFilePath());
+}

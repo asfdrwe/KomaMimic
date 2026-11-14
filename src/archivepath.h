@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #pragma once
 #include <QString>
+#include <QFileInfo>
 struct ArchiveEntryPath {
     QString archive, id, name;
     bool valid() const { return !archive.isEmpty(); }
@@ -12,3 +13,7 @@ QString physicalBookPath(const QString &path);
 QString bookDisplayName(const QString &path);
 QString bookIdentityPath(const QString &path);
 bool bookPathExists(const QString &path);
+
+// Source attributes must describe the target, not a Windows link entry.
+// Call only while observing/opening/validating a source, never for a PNG hit.
+QFileInfo fileTargetInfo(const QFileInfo &entry);

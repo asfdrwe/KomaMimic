@@ -23,13 +23,14 @@ static QString recordStamp(const QString &path,const QJsonObject &entry) {
     return record.isEmpty()?QString{}:QString::fromLatin1(QCryptographicHash::hash(record,QCryptographicHash::Sha256).toHex());
 }
 QJsonObject thumbnailEntry(const QFileInfo &entry,const QString &resolvedDirectory) {
-    const bool dir=entry.isDir();
-    QJsonObject value{{"directory",dir},{"modified",QString::number(entry.lastModified().toMSecsSinceEpoch())}};
+    const auto target=fileTargetInfo(entry);
+    const bool dir=target.isDir();
+    QJsonObject value{{"directory",dir},{"modified",QString::number(target.lastModified().toMSecsSinceEpoch())}};
     if(!dir) {
-        value["bytes"]=QString::number(entry.size());
+        value["bytes"]=QString::number(target.size());
         // Match Book's opened snapshot, including the final file symlink.
         // This runs while collecting source information, never on a PNG hit.
-        value["resolved"]=entry.isSymLink()?entry.canonicalFilePath():
+        value["resolved"]=entry.isSymLink()?target.absoluteFilePath():
             resolvedDirectory.isEmpty()?entry.absoluteFilePath():QDir(resolvedDirectory).filePath(entry.fileName());
         value["stamp"]=recordStamp(entry.absoluteFilePath(),value);
     }
@@ -90,8 +91,8 @@ ThumbnailNamePolicies::ThumbnailNamePolicies(const QSettings &settings) {
     }
 }
 QString ThumbnailNamePolicies::settingsKey(const QString &path) {
-    const QFileInfo info(physicalBookPath(path));
-    const QByteArray identity=info.absoluteFilePath().toUtf8()+'\0'+QByteArray::number(info.size())+':'+QByteArray::number(info.lastModified().toMSecsSinceEpoch());
+    const QFileInfo info(physicalBookPath(path));const auto target=fileTargetInfo(info);
+    const QByteArray identity=info.absoluteFilePath().toUtf8()+'\0'+QByteArray::number(target.size())+':'+QByteArray::number(target.lastModified().toMSecsSinceEpoch());
     return "archiveNames/"+QString::fromLatin1(QCryptographicHash::hash(identity,QCryptographicHash::Sha256).toHex());
 }
 NamePolicy ThumbnailNamePolicies::resolve(const QString &path) const {

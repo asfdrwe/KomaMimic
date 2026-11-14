@@ -73,9 +73,11 @@ private slots:
         if(legacy) {
             const auto names=QDir(cache->directory()).entryList({"*.png"},QDir::Files);QCOMPARE(names.size(),1);
             const auto path=QDir(cache->directory()).filePath(names.first());QImage pixels(path);QVERIFY(!pixels.isNull());
-            const QFileInfo info(link);
+            // This fixture covers the old resolved-path spelling with valid
+            // target attributes, not Windows' invalid link-owned attributes.
+            const QFileInfo info(link),target(source);
             const QJsonObject record{{"path",link},{"resolved",QDir(info.absoluteDir().canonicalPath()).filePath(info.fileName())},
-                {"bytes",QString::number(info.size())},{"modified",QString::number(info.lastModified().toMSecsSinceEpoch())}};
+                {"bytes",QString::number(target.size())},{"modified",QString::number(target.lastModified().toMSecsSinceEpoch())}};
             pixels.setText("komamimic-cover-stamp",QString::fromLatin1(QCryptographicHash::hash(QJsonDocument(record).toJson(QJsonDocument::Compact),QCryptographicHash::Sha256).toHex()));
             QVERIFY(pixels.save(path,"PNG"));cache=std::make_shared<ThumbnailDiskCache>(cache->directory());
         }
@@ -124,10 +126,13 @@ private slots:
         QCOMPARE(savedThumbnails(cache->directory()),before);
         const auto observed=thumbnailEntry(QFileInfo(link),QFileInfo(link).absoluteDir().canonicalPath());
         QCOMPARE(observed.value("resolved"),QJsonDocument::fromJson(book->thumbnailSource(0)).object().value("resolved"));
+        QCOMPARE(QJsonDocument::fromJson(book->thumbnailSource(0)).object().value("bytes").toString().toLongLong(),qint64(redInput.size()));
+        QVERIFY(book->sourceUnchanged(0));
         // Old pixels remain available before a concrete change is verified.
         const auto blue=TestData::png(TestData::solid(Qt::blue,{43,67}));
         auto blueInput=blue;if(!image)blueInput=TestData::zip({{"1.png",blue}});
-        QVERIFY(TestData::write(source,blueInput));
+        QVERIFY(redInput.size()!=blueInput.size());QVERIFY(TestData::write(source,blueInput));
+        QVERIFY(!book->sourceUnchanged(0));
         QCOMPARE(cachedPageThumbnail(book,0,cache).image.pixelColor(0,0),QColor(Qt::red));
         calls=0;const auto changed=cachedPageThumbnail(book,0,cache,cancel,false,false,true);
         QVERIFY2(!changed.image.isNull(),qPrintable(changed.error));QVERIFY(calls<=100);
@@ -135,6 +140,35 @@ private slots:
         QCOMPARE(BookActivity::opens.load(),opens+1);QCOMPARE(ThumbnailActivity::generations.load(),generations+1);
         auto restarted=std::make_shared<ThumbnailDiskCache>(cache->directory());
         QCOMPARE(cachedPageThumbnail(Book::open(link).book,0,restarted,{},false,true).image.pixelColor(0,0),QColor(Qt::blue));
+        // Cover validation must follow the same target attributes as pages.
+        QCOMPARE(cachedCover(link,{},cache).image.pixelColor(0,0),QColor(Qt::blue));
+        QVERIFY(TestData::write(source,redInput));
+        QCOMPARE(cachedCover(link,{},cache).image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(cachedCover(link,{},cache,{},false,0,false,true).image.pixelColor(0,0),QColor(Qt::red));
+    }
+    void cachedFileLinkEntryUsesCurrentTargetMetadata() {
+        QTemporaryDir d;const auto source=d.filePath("target.bin"),link=d.filePath("alias.bin");
+        const QByteArray original="old",replacement="updated target contents";QVERIFY(TestData::write(source,original));
+        const auto error=makeSymbolicLink(source,link);if(!error.isEmpty())QSKIP(qPrintable("Cannot create a symbolic link: "+error));
+        const auto entries=QDir(d.path()).entryInfoList({"alias.bin"},QDir::Files|QDir::Readable);QCOMPARE(entries.size(),1);
+        const auto listed=entries.first();QVERIFY(listed.isSymLink());
+        const auto oldSize=listed.size();const auto oldModified=listed.lastModified();Q_UNUSED(oldSize);Q_UNUSED(oldModified);
+        const auto before=thumbnailEntry(listed,d.path());
+        QCOMPARE(before.value("bytes").toString().toLongLong(),qint64(original.size()));
+        QVERIFY(TestData::write(source,replacement));
+        // A directory entry can retain link metadata while its target changes.
+        // The dependency record must contain the current target attributes.
+        const auto after=thumbnailEntry(listed,d.path());
+        QCOMPARE(after.value("bytes").toString().toLongLong(),qint64(replacement.size()));
+        QCOMPARE(after.value("modified").toString().toLongLong(),QFileInfo(source).lastModified().toMSecsSinceEpoch());
+        QCOMPARE(after.value("resolved").toString(),QFileInfo(source).canonicalFilePath());
+        QVERIFY(before.value("stamp")!=after.value("stamp"));
+        const auto next=d.filePath("next.bin");const QByteArray nextContents="new target";
+        QVERIFY(TestData::write(next,nextContents));QVERIFY(QFile::remove(link));QVERIFY(makeSymbolicLink(next,link).isEmpty());
+        const auto retargeted=thumbnailEntry(listed,d.path());
+        QCOMPARE(retargeted.value("bytes").toString().toLongLong(),qint64(nextContents.size()));
+        QCOMPARE(retargeted.value("resolved").toString(),QFileInfo(next).canonicalFilePath());
+        QVERIFY(retargeted.value("stamp")!=after.value("stamp"));
     }
     void stalePageObservationDoesNotRepeatReopen() {
         QTemporaryDir d;const auto path=d.filePath("book.zip");

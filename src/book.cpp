@@ -219,8 +219,9 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
     auto book = std::shared_ptr<Book>(new Book);
     book->path = info.absoluteFilePath(); book->namePolicy = policy;
     book->openOptions = options;book->openOptions.cancel={};book->m_encodedCache->values.setMaxCost(std::clamp(options.fileCacheMiB,0,256)*1024);
-    book->m_fileSize = info.size(); book->m_modifiedMs = info.lastModified().toMSecsSinceEpoch();
-    book->m_fileValid=info.isFile();book->m_resolvedPath=info.canonicalFilePath();
+    const auto target=fileTargetInfo(info);
+    book->m_fileSize = target.size(); book->m_modifiedMs = target.lastModified().toMSecsSinceEpoch();
+    book->m_fileValid=target.isFile();book->m_resolvedPath=info.canonicalFilePath();
     bool nestedFound = false;
     if (isDocumentPath(path)) {
         if (info.suffix().compare("pdf", Qt::CaseInsensitive) == 0 && options.pdfResources) {
@@ -231,7 +232,7 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
                 BookPage page; page.name=info.fileName()+" / "+resource.label;page.document=true;page.pdfResource=true;
                 page.documentPage=resource.page;page.archiveIndex=resource.index;page.filePath=info.absoluteFilePath();
                 page.identity=QString("pdf-image:%1:%2").arg(resource.page).arg(resource.index);
-                page.encodedSize=info.size();page.modifiedMs=book->m_modifiedMs;page.decodedName={page.name,"PDF resource",QCoreApplication::translate("KomaMimic", "画像リソース"),{},false};book->pages.append(page);
+                page.encodedSize=book->m_fileSize;page.modifiedMs=book->m_modifiedMs;page.decodedName={page.name,"PDF resource",QCoreApplication::translate("KomaMimic", "画像リソース"),{},false};book->pages.append(page);
             }
             return {book,{}};
         }
@@ -256,7 +257,7 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
         for (int i = 0; i < document.pages; ++i) {
             BookPage page; page.name = info.fileName(); page.documentPage = i; page.document = true;
             page.identity=QString("document:%1").arg(i);
-            page.filePath = info.absoluteFilePath(); page.encodedSize = info.size(); page.modifiedMs = book->m_modifiedMs;
+            page.filePath = info.absoluteFilePath(); page.encodedSize = book->m_fileSize; page.modifiedMs = book->m_modifiedMs;
             page.decodedName = {page.name, "document", QCoreApplication::translate("KomaMimic", "文書ページ"), {}, false}; book->pages.append(page);
         }
         return {book, {}};
@@ -294,9 +295,10 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
             if (ordinal >= MaxEntries) return {{}, QCoreApplication::translate("KomaMimic", "フォルダの画像数が上限を超えています。")};
             BookPage page;
             page.name = directory.relativeFilePath(file.absoluteFilePath()); page.filePath = file.absoluteFilePath();
-            page.archiveIndex = ordinal++; page.encodedSize = file.size();
-            page.modifiedMs = file.lastModified().toMSecsSinceEpoch();
-            page.resolvedPath=file.isSymLink()?file.canonicalFilePath():QDir(resolvedDirectory).filePath(page.name);
+            const auto target=fileTargetInfo(file);
+            page.archiveIndex = ordinal++; page.encodedSize = target.size();
+            page.modifiedMs = target.lastModified().toMSecsSinceEpoch();
+            page.resolvedPath=file.isSymLink()?target.absoluteFilePath():QDir(resolvedDirectory).filePath(page.name);
             page.decodedName = {page.name, "filesystem", QCoreApplication::translate("KomaMimic", "OSの名前"), {}, false};
             book->pages.append(page);
         }
@@ -545,16 +547,16 @@ bool Book::sourceUnchanged(int index) const {
     if(page.sourceBook) {
         if(!page.sourceBook->sourceUnchanged(page.sourceIndex))return false;
         if(filesystem)return true;
-        const QFileInfo original(physicalBookPath(path));
+        const auto original=fileTargetInfo(QFileInfo(physicalBookPath(path)));
         return original.isFile() && original.size()==m_fileSize && original.lastModified().toMSecsSinceEpoch()==m_modifiedMs;
     }
     if(page.archivedText) return page.archivedText->book->sourceUnchanged(page.archivedText->index);
     if (publication && !page.archivedText) {
-        const QFileInfo original(path);
+        const auto original=fileTargetInfo(QFileInfo(path));
         return original.isFile() && original.size()==m_fileSize && original.lastModified().toMSecsSinceEpoch()==m_modifiedMs;
     }
     const bool separate=filesystem || page.document;
-    const QFileInfo info(separate?page.filePath:physicalBookPath(path));
+    const auto info=fileTargetInfo(QFileInfo(separate?page.filePath:physicalBookPath(path)));
     return info.isFile() && info.size()==(separate?page.encodedSize:m_fileSize) &&
         info.lastModified().toMSecsSinceEpoch()==(separate?page.modifiedMs:m_modifiedMs);
 }
@@ -586,7 +588,7 @@ DataResult Book::encoded(int index, const std::function<bool()> &cancel) const {
         if (!image.error.isEmpty()) return {{}, image.error};
         QByteArray bytes; QBuffer buffer(&bytes); buffer.open(QIODevice::WriteOnly); image.image.save(&buffer, "PNG"); return {bytes, {}};
     }
-    const QFileInfo info(filesystem ? page.filePath : physicalBookPath(path));
+    const auto info=fileTargetInfo(QFileInfo(filesystem ? page.filePath : physicalBookPath(path)));
     if (info.size() != (filesystem ? page.encodedSize : m_fileSize)
         || info.lastModified().toMSecsSinceEpoch() != (filesystem ? page.modifiedMs : m_modifiedMs))
         return {{}, QCoreApplication::translate("KomaMimic", "画像・書庫が変更されています。開き直してください。")};
@@ -669,7 +671,7 @@ ImageResult Book::image(int index, QSize thumbnail, const std::function<bool()> 
     if ((archiveDirectory && isArchiveTextPath(page.name)) || publication)
         return {{}, QCoreApplication::translate("KomaMimic", "文書の画像出力・ページサムネイルは現在未対応です。")};
     if (page.document) {
-        const QFileInfo info(page.filePath);
+        const auto info=fileTargetInfo(QFileInfo(page.filePath));
         if (info.size() != page.encodedSize || info.lastModified().toMSecsSinceEpoch() != page.modifiedMs) return {{}, QCoreApplication::translate("KomaMimic", "文書が変更されています。開き直してください。")};
         auto result=page.pdfResource ? renderPdfResource(page.filePath,page.documentPage,int(page.archiveIndex),thumbnail,openOptions.password) : renderDocument(page.filePath, page.documentPage, thumbnail, openOptions.password,cancelled);
         if(!page.portion.isEmpty()&&!result.image.isNull()){const auto image=result.image;const auto &r=page.portion;result.image=image.copy(QRect(qRound(r.x()*image.width()),qRound(r.y()*image.height()),qRound(r.width()*image.width()),qRound(r.height()*image.height())).intersected(image.rect()));}return result;
@@ -694,8 +696,9 @@ ImageResult Book::coverPreview(const QString &path,const NamePolicy &policy,QSiz
     Utf8ArchiveLocale locale;
     if(!locale.valid())return {{},QCoreApplication::translate("KomaMimic", "書庫のUnicode処理に必要なUTF-8 localeを作成できません。")};
     if(!legacyEncodings().contains(policy.legacyEncoding))return {{},QCoreApplication::translate("KomaMimic", "未対応の名前の文字コードです。")};
-    const QFileInfo before(physicalBookPath(path));const auto bytes=before.size();const auto modified=before.lastModified();
-    const auto suffix=before.suffix().toLower();
+    const QFileInfo file(physicalBookPath(path));const auto before=fileTargetInfo(file);
+    const auto bytes=before.size();const auto modified=before.lastModified();
+    const auto suffix=file.suffix().toLower();
     if(!parseArchiveEntryPath(path).valid() && (suffix=="zip" || suffix=="cbz")) {
         const auto extensions=imageExtensions();const QSet<QString> imageSuffixes(extensions.begin(),extensions.end());
         NameDecoder decoder;
@@ -706,7 +709,7 @@ ImageResult Book::coverPreview(const QString &path,const NamePolicy &policy,QSiz
                 const auto data=readZipEntry(path,names,0,cancel);
                 if(!data.error.isEmpty())return {{},data.error};
                 if(cancel && cancel())return {};
-                const QFileInfo after(physicalBookPath(path));
+                const auto after=fileTargetInfo(QFileInfo(physicalBookPath(path)));
                 if(after.size()!=bytes || after.lastModified()!=modified)return {{},QCoreApplication::translate("KomaMimic", "画像・書庫が変更されています。開き直してください。")};
                 ++BookActivity::encodedReads;++BookActivity::imageRequests;
                 return decodeImage(data.bytes,label,size,0,{},cancel);
