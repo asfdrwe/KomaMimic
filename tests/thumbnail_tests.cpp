@@ -490,26 +490,37 @@ private slots:
         QVERIFY(!refreshed.image.isNull());QCOMPARE(refreshed.image.pixelColor(0,0),QColor(Qt::blue));
     }
     void pageGridDisplaysCacheThenUsesNewerListing() {
-        QTemporaryDir d;const auto path=d.filePath("book.zip");
+        QTemporaryDir d;const auto path=d.filePath("book.zip"),root=d.filePath("cache");
         QVERIFY(TestData::write(path,TestData::zip({{"a.png",TestData::png(TestData::solid(Qt::red))}})));
-        auto cache=std::make_shared<ThumbnailDiskCache>();const auto old=Book::open(path).book;QVERIFY(old);
+        auto cache=std::make_shared<ThumbnailDiskCache>(root);const auto old=Book::open(path).book;QVERIFY(old);
         QVERIFY(!cachedPageThumbnail(old,0,cache).image.isNull());
+        const auto names=QDir(root).entryList({"*.png"},QDir::Files);QCOMPARE(names.size(),1);
+        const auto saved=root+'/'+names.first();QFile png(saved);QVERIFY(png.open(QIODevice::ReadWrite));
+        // Model an existing cache without assuming that two writes have different timestamps.
+        QVERIFY(png.setFileTime(QDateTime::currentDateTimeUtc().addSecs(-60),QFileDevice::FileModificationTime));png.close();
+        const auto cachedAt=QFileInfo(saved).lastModified();
         QVERIFY(TestData::write(path,TestData::zip({{"a.png",TestData::png(TestData::solid(Qt::blue,{39,61}))}})));
-        MainWindow window(d.filePath("settings.ini"));window.show();
+        QVERIFY2(QFileInfo(path).lastModified()>cachedAt,"Fixture ZIP must be newer than its saved thumbnail");
+        MainWindow window(d.filePath("settings.ini"));window.m_thumbnailDiskCache=std::make_shared<ThumbnailDiskCache>(root);window.show();
         window.openBook(path);QTRY_VERIFY(window.renderReady());window.showPageThumbnails();
         auto *grid=window.findChild<ThumbnailGrid *>("pageThumbnails");QVERIFY(grid);
         bool sawOld=false;
         const auto color=[&]{if(!grid->count())return QColor{};auto image=grid->item(0)->icon().pixmap(64,64).toImage();return image.pixelColor(image.rect().center());};
-        // Observe model delivery directly, so a fast Update worker cannot hide
-        // the fact that the initial cache result really was painted first.
+        // Observe delivery directly, even if the updated image follows quickly.
         connect(grid->model(),&QAbstractItemModel::dataChanged,&window,[&]{if(color()==QColor(Qt::red))sawOld=true;});
-        QTRY_COMPARE(color(),QColor(Qt::red));QVERIFY(sawOld);
-        QTRY_COMPARE_WITH_TIMEOUT(color(),QColor(Qt::blue),6000);
+        QTRY_COMPARE_WITH_TIMEOUT(color(),QColor(Qt::blue),6000);QVERIFY(sawOld);
+        // Saving is independent of painting. Complete it before the next update.
+        QTRY_COMPARE(QImage(saved).pixelColor(0,0),QColor(Qt::blue));
+        const auto modified=QFileInfo(saved).lastModified().addMSecs(1);
+        QTRY_VERIFY(QDateTime::currentDateTimeUtc()>=modified);
         QVERIFY(TestData::write(path,TestData::zip({{"a.png",TestData::png(TestData::solid(Qt::green,{43,67}))}})));
+        QFile updated(path);QVERIFY(updated.open(QIODevice::ReadWrite));
+        QVERIFY(updated.setFileTime(modified,QFileDevice::FileModificationTime));updated.close();
+        QVERIFY2(QFileInfo(path).lastModified()>QFileInfo(saved).lastModified(),"Fixture ZIP must be newer than its saved thumbnail");
         QTRY_COMPARE_WITH_TIMEOUT(color(),QColor(Qt::green),6000);
-        window.close();
+        QTRY_COMPARE(QImage(saved).pixelColor(0,0),QColor(Qt::green));window.close();
         const auto fresh=Book::open(path).book;QVERIFY(fresh);
-        auto restarted=std::make_shared<ThumbnailDiskCache>();
+        auto restarted=std::make_shared<ThumbnailDiskCache>(root);
         QCOMPARE(cachedPageThumbnail(fresh,0,restarted,{},false,true).image.pixelColor(0,0),QColor(Qt::green));
     }
     void collectionWarmHitBypassesSlowMiss() {

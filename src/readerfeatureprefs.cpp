@@ -569,6 +569,8 @@ void ReaderFeatures::preferences(const QString &pageName) {
        3600000);
   check(display,QCoreApplication::translate("KomaMimic", "自動再生で大きい画像をスクロールしてからめくる"),"slideshow/scroll",false);
   auto *thumbnails = form("thumbnails", QCoreApplication::translate("KomaMimic", "サムネイル"));
+  spin(thumbnails,QCoreApplication::translate("KomaMimic", "サムネイル生成の同時実行数"),"thumbnails/concurrency",1,1,4);
+  editors["thumbnails/concurrency"]->setToolTip(QCoreApplication::translate("KomaMimic", "1は並列なし。表示対象の表紙・ページサムネイル生成に適用します。キャッシュ読込や読書中の画像・先読みには影響しません。既存キャッシュは再生成しません。"));
   check(thumbnails,QCoreApplication::translate("KomaMimic", "サムネイルを全件先読みする"),"thumbnails/preloadAll",false);
   editors["thumbnails/preloadAll"]->setToolTip(QCoreApplication::translate("KomaMimic", "表紙・ページ一覧で、表示が終わってから残りを順に読み込みます。操作中は表示を優先し、フォルダ・本・モードの移動で取り消します。"));
   spin(thumbnails,QCoreApplication::translate("KomaMimic", "非表示サムネイルのメモリ上限（MiB）"),"thumbnails/memoryMegabytes",128,16,2048);

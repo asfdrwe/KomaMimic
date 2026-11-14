@@ -5,7 +5,7 @@
 ## v1.7.0
 
 - Prioritize existing memory and disk thumbnails to reduce unnecessary regeneration and display waits. Save generated thumbnails directly to the regular cache.
-- Generate up to four visible cover or page thumbnails concurrently while prioritizing cached display and the current reading page.
+- Configure visible cover or page thumbnail generation concurrency from 1 to 4 jobs (default 1, no parallel generation) while prioritizing cached display and the current reading page.
 - Regenerate automatically only when directory-listing information shows that the image or ZIP file is newer than its cached thumbnail. Do not read images or reopen ZIPs to check for changes.
 - Fix unnecessary cover regeneration when switching views through file symlinks, and use target-file attributes on Windows.
 - Select a ZIP/CBZ cover from entry names and retrieve only that image. Reduce unrelated TIFF page-count scans, repeated filename processing, and file-size queries.

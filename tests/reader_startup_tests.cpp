@@ -250,9 +250,15 @@ private slots:
         const auto opened=Book::open(path,{},options);QVERIFY(opened.book);
         auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));cache->configure(true,16);
         QCOMPARE(cachedPageThumbnail(opened.book,1,cache).image.pixelColor(0,0),QColor(Qt::red));
+        const auto names=QDir(cache->directory()).entryList({"*.png"},QDir::Files);QCOMPARE(names.size(),1);
+        QFile png(cache->directory()+'/'+names.first());QVERIFY(png.open(QIODevice::ReadWrite));
+        QVERIFY(png.setFileTime(QDateTime::currentDateTimeUtc().addSecs(-60),QFileDevice::FileModificationTime));png.close();
+        cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));cache->configure(true,16);
+        const auto saved=cachedPageThumbnail(opened.book,1,cache,{},false,true);QCOMPARE(saved.image.pixelColor(0,0),QColor(Qt::red));
         const auto blue=TestData::zip({{"1.png",TestData::png(TestData::solid(Qt::blue,{33,49}))}});
         QVERIFY(TestData::write(path+"/b.zip",blue));
         const auto observed=thumbnailEntry(QFileInfo(path+"/b.zip"),QFileInfo(path).canonicalFilePath());
+        QVERIFY2(observed.value("modified").toString().toLongLong()>saved.cacheCreatedMs,"Fixture ZIP must be newer than its saved thumbnail");
         const auto reads=BookActivity::imageRequests.load(),generated=ThumbnailActivity::generations.load();
         QCOMPARE(cachedPageThumbnail(opened.book,1,cache,{},false,true).image.pixelColor(0,0),QColor(Qt::red));
         QCOMPARE(BookActivity::imageRequests.load(),reads);QCOMPARE(ThumbnailActivity::generations.load(),generated);

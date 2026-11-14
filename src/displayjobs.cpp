@@ -6,7 +6,7 @@
 Q_LOGGING_CATEGORY(displayJobsLog,"komamimic.display",QtWarningMsg)
 
 DisplayJobs::DisplayJobs(QObject *parent):QObject(parent) {
-    for(int lane=0;lane<int(m_pools.size());++lane){m_pools[lane]=std::make_shared<QThreadPool>();m_pools[lane]->setMaxThreadCount(lane==int(Lane::Display)?4:1);}
+    for(int lane=0;lane<int(m_pools.size());++lane){m_pools[lane]=std::make_shared<QThreadPool>();m_pools[lane]->setMaxThreadCount(1);}
     for(auto lane:{Lane::Background,Lane::Update,Lane::Store})m_pools[int(lane)]->setThreadPriority(QThread::LowPriority);
     m_activity.start();m_clock.start();m_idleTimer.setSingleShot(true);
     connect(&m_idleTimer,&QTimer::timeout,this,[this]{pump();});
@@ -14,6 +14,11 @@ DisplayJobs::DisplayJobs(QObject *parent):QObject(parent) {
 DisplayJobs::~DisplayJobs() {
     stop();
     waitForDone();
+}
+void DisplayJobs::setThumbnailConcurrency(int count) {
+    m_thumbnailConcurrency=std::clamp(count,1,4);
+    m_pools[int(Lane::Display)]->setMaxThreadCount(m_thumbnailConcurrency);
+    pump();
 }
 void DisplayJobs::waitForDone() {
     for(auto &pool:m_pools)pool->waitForDone();
@@ -63,7 +68,7 @@ void DisplayJobs::retain(const QString &scope,const QSet<QString> &ids) {
             if(!(*i)->cancelled->load()){++i;continue;}
             m_retired.append(*i);i=m_running[lane].erase(i);retired=true;
         }
-        if(retired){m_pools[lane]=std::make_shared<QThreadPool>();m_pools[lane]->setMaxThreadCount(lane==1?4:1);}
+        if(retired){m_pools[lane]=std::make_shared<QThreadPool>();m_pools[lane]->setMaxThreadCount(lane==1?m_thumbnailConcurrency:1);}
     }
     // Cancellation callbacks run after queue mutation and never run worker code.
     for(const auto &job:removed)job->done(true);
@@ -90,7 +95,7 @@ void DisplayJobs::pump() {
         if(lane!=0 && (!m_running[0].isEmpty() || !m_waiting[0].isEmpty()))continue;
         while(!m_waiting[lane].isEmpty()) {
         const auto thumbnails=[](const auto &job){return job->scope=="covers" || job->scope=="pages";};
-        const int parallel=lane==1 && thumbnails(m_waiting[lane].first()) && std::all_of(m_running[lane].cbegin(),m_running[lane].cend(),thumbnails)?4:1;
+        const int parallel=lane==1 && thumbnails(m_waiting[lane].first()) && std::all_of(m_running[lane].cbegin(),m_running[lane].cend(),thumbnails)?m_thumbnailConcurrency:1;
         if(m_running[lane].size()>=parallel)break;
         auto ready=std::find_if(m_waiting[lane].begin(),m_waiting[lane].end(),[this](const auto &job){return job->readyAt<=m_clock.elapsed();});
         if(ready==m_waiting[lane].end()){m_idleTimer.start(25);break;}

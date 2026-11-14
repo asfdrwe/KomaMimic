@@ -37,6 +37,7 @@
 
 ThumbnailGrid *MainWindow::activeGrid() const { return m_mode == ViewMode::Pages ? m_pages : m_library; }
 void MainWindow::restoreThumbnailSettings() {
+    m_displayJobs->setThumbnailConcurrency(m_settings->value("thumbnails/concurrency",1).toInt());
     cancelThumbnailPreload();m_thumbnailPreload[0].next=0;m_thumbnailPreload[1].next=0;
     const bool follow = m_settings->value("thumbnails/mouseSelection", true).toBool();
     CustomThumbnailSettings custom;

@@ -85,6 +85,12 @@ Use memory first, then saved PNGs. Read the source and generate a thumbnail only
 
 Visible PNG reads run separately from heavy generation, without waiting for writer/maintenance locks or a full cache inventory. Page-thumbnail mode does not render or prefetch the hidden reading image. Reading does not generate or validate thumbnails or scan hidden browser lists.
 
+### Thumbnail generation concurrency
+
+Preferences → Thumbnails → **Thumbnail generation concurrency** accepts 1–4 jobs. The default is 1 (no parallel generation). Keep 1 to limit disk load; increase it when you want parallel generation.
+This controls generation of visible cover and page thumbnails. It does not change cache reading, reading-mode images or prefetch, or explicit bulk operations.
+Saving applies the limit to newly started jobs and keeps it across restarts. Changing this setting does not delete, regenerate, or rewrite existing thumbnails.
+
 ### Preload all thumbnails
 
 Preferences → Thumbnails → **Preload all thumbnails** is off by default.
@@ -141,7 +147,7 @@ Candidates use natural order with files before folders. Sorting the displayed li
 
 ### Saving, retention, and capacity
 
-Generated pixels are available in memory before saving finishes. Visible thumbnail generation can run up to four jobs concurrently. Each worker saves its completed image directly to the regular cache. Atomic PNG replacement keeps the previous image until its replacement succeeds.
+Generated pixels are available in memory before saving finishes. Visible thumbnail generation follows the configured concurrency (1–4 jobs, default 1). Each worker saves its completed image directly to the regular cache. Atomic PNG replacement keeps the previous image until its replacement succeeds.
 
 Unchanged images are retained regardless of last use, age, file count, scrolling, restart, or display thumbnail size. Only capacity overflow, including a reduced configured limit, triggers **oldest-save-time-first eviction (FIFO)**. Reads never change PNG save times. A changed image receives a new save time after its replacement is saved successfully.
 

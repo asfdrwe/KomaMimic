@@ -38,7 +38,11 @@ private slots:
             QVERIFY(TestData::write(folder+"/page.png",pixels));
         }
         checkpoint("fixtures-ready");
-        MainWindow window(d.filePath("settings.ini"));window.resize(680,400);window.show();window.openDirectory(books);
+        // Keep this large persistence fixture's parallel preparation explicit.
+        // Default serial generation is covered by cache_display/thumbnail tests.
+        const auto ini=d.filePath("settings.ini");
+        {QSettings settings(ini,QSettings::IniFormat);settings.setValue("thumbnails/concurrency",4);}
+        MainWindow window(ini);QCOMPARE(window.m_displayJobs->thumbnailConcurrency(),4);window.resize(680,400);window.show();window.openDirectory(books);
         QTRY_VERIFY(window.directoryReady());
         if(pages){window.showPageThumbnails();QTRY_VERIFY(!window.isLoading() && window.pageCount()==220);}
         auto *grid=window.findChild<ThumbnailGrid *>(pages?"pageThumbnails":"zipLibrary");QVERIFY(grid);QCOMPARE(grid->count(),220);

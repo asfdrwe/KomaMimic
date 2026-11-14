@@ -83,13 +83,28 @@ private slots:
         const auto observed=QJsonObject{{"directory",true},{"_sourceModified",QString::number(QFileInfo(source).lastModified().toMSecsSinceEpoch())}};
         QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,0,observed).image.pixelColor(0,0),QColor(Qt::red));QCOMPARE(ThumbnailActivity::generations.load(),generated);
     }
-    void visibleGenerationRunsInParallelAndCacheStillWins() {
+    void visibleGenerationRespectsConcurrencyAndCacheStillWins_data() {
+        QTest::addColumn<QString>("scope");QTest::addColumn<int>("count");
+        for(const auto &scope:{QString("covers"),QString("pages")})for(int count:{0,1,2,3,4})
+            QTest::newRow(qPrintable(scope+QString::number(count)))<<scope<<count;
+    }
+    void visibleGenerationRespectsConcurrencyAndCacheStillWins() {
+        QFETCH(QString,scope);QFETCH(int,count);
         QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.image("saved",[]{return ImageResult{TestData::solid(Qt::blue),{}};});
-        DisplayJobs jobs;std::latch release(1);std::atomic<int> entered=0;int finished=0;bool displayed=false;auto cleanup=qScopeGuard([&]{release.count_down();});
-        for(int i=0;i<2;++i)jobs.submit<int>(DisplayJobs::Lane::Display,"covers",QString::number(i),[&](const auto &){++entered;release.wait();return 1;},[&](int,bool){++finished;});
-        QTRY_COMPARE(entered.load(),2);
-        jobs.submit<ImageResult>(DisplayJobs::Lane::Cache,"covers","saved",[&](const auto &cancel){return cache.lookup("saved",cancel);},[&](ImageResult image,bool cancelled){displayed=!cancelled && image.image.pixelColor(0,0)==QColor(Qt::blue);});
-        QTRY_VERIFY(displayed);QCOMPARE(finished,0);release.count_down();cleanup.dismiss();QTRY_COMPARE(finished,2);
+        DisplayJobs jobs;QCOMPARE(jobs.thumbnailConcurrency(),1);if(count)jobs.setThumbnailConcurrency(count);
+        const int limit=count?count:1;
+        std::latch release(1);std::atomic<int> entered=0;int finished=0;bool displayed=false;auto cleanup=qScopeGuard([&]{release.count_down();});
+        for(int i=0;i<limit+1;++i)jobs.submit<int>(DisplayJobs::Lane::Display,scope,QString::number(i),[&](const auto &){++entered;release.wait();return 1;},[&](int,bool cancelled){QVERIFY(!cancelled);++finished;});
+        QTRY_COMPARE(entered.load(),limit);QTest::qWait(50);QCOMPARE(entered.load(),limit);
+        jobs.submit<ImageResult>(DisplayJobs::Lane::Cache,scope,"saved",[&](const auto &cancel){return cache.lookup("saved",cancel);},[&](ImageResult image,bool cancelled){displayed=!cancelled && image.image.pixelColor(0,0)==QColor(Qt::blue);});
+        QTRY_VERIFY(displayed);QCOMPARE(finished,0);release.count_down();cleanup.dismiss();QTRY_COMPARE(finished,limit+1);
+    }
+    void concurrencyChangesKeepRunningJobs() {
+        DisplayJobs jobs;std::latch release(1);std::atomic<int> entered=0;int finished=0;auto cleanup=qScopeGuard([&]{release.count_down();});
+        for(int i=0;i<3;++i)jobs.submit<int>(DisplayJobs::Lane::Display,"covers",QString::number(i),[&](const auto &cancel){++entered;release.wait();return cancel()?0:1;},[&](int value,bool cancelled){QVERIFY(!cancelled);QCOMPARE(value,1);++finished;});
+        QTRY_COMPARE(entered.load(),1);jobs.setThumbnailConcurrency(2);QTRY_COMPARE(entered.load(),2);
+        jobs.setThumbnailConcurrency(1);QTest::qWait(50);QCOMPARE(entered.load(),2);QCOMPARE(finished,0);
+        release.count_down();cleanup.dismiss();QTRY_COMPARE(finished,3);
     }
     void symbolicLinkCacheRemainsReadable_data() {
         QTest::addColumn<bool>("directory");QTest::newRow("directory")<<true;QTest::newRow("file")<<false;

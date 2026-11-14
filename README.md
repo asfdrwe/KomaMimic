@@ -13,7 +13,8 @@ affiliated with the original project and does not include its code, artwork, or 
 ## ZIP covers and cache reuse in v1.7.0
 
 Existing memory and disk thumbnails take priority. Visible thumbnail generation
-can run concurrently, and generated images are saved directly to the regular cache.
+uses one job by default, with an optional concurrency setting of 1–4. Generated
+images are saved directly to the regular cache.
 Only directory-listing timestamps newer than the cache trigger automatic regeneration;
 source images and ZIP contents are not read just to check for changes. File symlinks
 reuse their saved thumbnails across view changes.
@@ -309,7 +310,7 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 
 ## Changelog
 
-- **v1.7.0**: Prioritize memory and disk thumbnail reuse, save directly to the regular cache, and generate visible thumbnails concurrently. Use directory-listing timestamps for automatic updates, fix file-symlink reuse, and retrieve only the selected ZIP/CBZ cover image with less metadata-processing overhead. Preserve existing thumbnails-v2 caches.
+- **v1.7.0**: Prioritize memory and disk thumbnail reuse, save directly to the regular cache, and configure visible thumbnail generation concurrency (1–4 jobs, default 1). Use directory-listing timestamps for automatic updates, fix file-symlink reuse, and retrieve only the selected ZIP/CBZ cover image with less metadata-processing overhead. Preserve existing thumbnails-v2 caches.
 - **v1.6.0**: Prioritize reading startup and on-demand document loading; improve EPUB covers, writing direction, spread navigation, and Aozora illustrations. Add optional full-list thumbnail preloading (off by default) and reuse decoded thumbnails across view changes. Make Load all files a saved reading option, isolate document rendering from galleries, and require Qt 6.8 or later. Improve CLI page-navigation completion and Windows dependency-cache reuse.
 - **v1.5.0**: Prioritize the current display and trust saved thumbnails without per-use or periodic source checks. Update only when there is concrete change evidence, cancel obsolete work, add bounded folder-cover search, and retain thumbnails-v2 compatibility. Evict by oldest save time only when capacity is exceeded.
 - **v1.4.3**: Stabilize macOS archive-list navigation tests by waiting for the expected filesystem entries and registering the document URL scheme before Qt application startup. Version 1.4.2 is skipped.

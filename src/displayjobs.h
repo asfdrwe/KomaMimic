@@ -33,6 +33,8 @@ public:
             },offscreen);
     }
     bool contains(const QString &id) const;
+    void setThumbnailConcurrency(int count);
+    int thumbnailConcurrency() const { return m_thumbnailConcurrency; }
     void retain(const QString &scope,const QSet<QString> &ids={});
     // Leaving the viewport cancels requests; completed pixels belong to the store.
     void visible(const QString &scope,const QSet<QString> &ids={});
@@ -60,5 +62,6 @@ private:
     QHash<QString,std::shared_ptr<Job>> m_jobs;
     QTimer m_idleTimer;
     QElapsedTimer m_activity,m_clock;
+    int m_thumbnailConcurrency=1;
     bool m_stopping=false;
 };

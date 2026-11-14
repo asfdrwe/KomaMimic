@@ -4,6 +4,14 @@
     <context>
         <name>KomaMimic</name>
         <message>
+            <source>サムネイル生成の同時実行数</source>
+            <translation>Thumbnail generation concurrency</translation>
+        </message>
+        <message>
+            <source>1は並列なし。表示対象の表紙・ページサムネイル生成に適用します。キャッシュ読込や読書中の画像・先読みには影響しません。既存キャッシュは再生成しません。</source>
+            <translation>1 disables parallel generation. Applies to visible cover and page thumbnail generation. Does not affect cache reading, reading-mode images or prefetch. Existing thumbnails are not regenerated.</translation>
+        </message>
+        <message>
             <source>サムネイルを全件先読みする</source>
             <translation>Preload all thumbnails</translation>
         </message>

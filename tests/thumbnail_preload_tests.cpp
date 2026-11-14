@@ -21,7 +21,7 @@ private slots:
     void thumbnailPreloadPreferencesSaveCancelAndRestart() {
         QTemporaryDir d;const auto ini=d.filePath("settings.ini");
         {
-            MainWindow w(ini);
+            MainWindow w(ini);QCOMPARE(w.m_displayJobs->thumbnailConcurrency(),1);
             for(bool save:{false,true}) {
                 bool inspected=false;
                 QTimer::singleShot(0,&w,[&] {
@@ -29,16 +29,48 @@ private slots:
                     QTimer::singleShot(2000,dialog,&QDialog::reject);
                     auto *enabled=dialog->findChild<QCheckBox *>("thumbnails/preloadAll");QVERIFY(enabled);
                     auto *limit=dialog->findChild<QSpinBox *>("thumbnails/memoryMegabytes");QVERIFY(limit);
+                    auto *concurrency=dialog->findChild<QSpinBox *>("thumbnails/concurrency");QVERIFY(concurrency);
+                    QCOMPARE(concurrency->minimum(),1);QCOMPARE(concurrency->maximum(),4);QCOMPARE(concurrency->value(),1);concurrency->setValue(4);
                     QVERIFY(!enabled->isChecked());QVERIFY(!limit->isEnabled());QCOMPARE(limit->value(),128);
                     enabled->setChecked(true);QVERIFY(limit->isEnabled());limit->setValue(64);inspected=true;
                     if(save)dialog->accept();else dialog->reject();
                 });
                 w.command("preferences")->trigger();QVERIFY(inspected);
                 QCOMPARE(w.m_settings->value("thumbnails/preloadAll",false).toBool(),save);
+                QCOMPARE(w.m_displayJobs->thumbnailConcurrency(),save?4:1);
+                QCOMPARE(w.m_settings->value("thumbnails/concurrency",1).toInt(),save?4:1);
             }
         }
         MainWindow restored(ini);QVERIFY(restored.m_settings->value("thumbnails/preloadAll").toBool());
         QCOMPARE(restored.m_settings->value("thumbnails/memoryMegabytes").toInt(),64);
+        QCOMPARE(restored.m_displayJobs->thumbnailConcurrency(),4);
+    }
+    void concurrencyPreferencePreservesCachedPixels_data() {
+        QTest::addColumn<bool>("pages");QTest::newRow("covers")<<false;QTest::newRow("pages")<<true;
+    }
+    void concurrencyPreferencePreservesCachedPixels() {
+        QFETCH(bool,pages);QTemporaryDir d;const auto books=d.filePath("books"),source=books+"/sample.zip",root=d.filePath("cache");
+        QVERIFY(QDir().mkpath(books));QVERIFY(TestData::write(source,TestData::zip({{"page.png",TestData::png(TestData::solid(Qt::blue))}})));
+        {
+            auto cache=std::make_shared<ThumbnailDiskCache>(root);const auto book=Book::open(source).book;QVERIFY(book);
+            QVERIFY(!(pages?cachedPageThumbnail(book,0,cache):cachedCover(source,{},cache)).image.isNull());
+        }
+        const auto names=QDir(root).entryList({"*.png"},QDir::Files);QCOMPARE(names.size(),1);const auto saved=root+'/'+names.first();const auto stamp=QFileInfo(saved).lastModified();
+        const auto reads=BookActivity::imageRequests.load(),generated=ThumbnailActivity::generations.load();
+        MainWindow w(d.filePath("settings.ini"));w.m_thumbnailDiskCache=std::make_shared<ThumbnailDiskCache>(root);w.show();
+        if(pages)w.loadBook(source,MainWindow::ViewMode::Pages);else w.openDirectory(books);
+        auto *grid=pages?w.m_pages:w.m_library;QTRY_VERIFY(grid->count()==1 && grid->item(0)->data(ThumbnailRoleReady).toBool());
+        for(int count:{3,1}) {
+            bool inspected=false;
+            QTimer::singleShot(0,&w,[&] {
+                auto *dialog=w.findChild<QDialog *>("preferencesDialog");QVERIFY(dialog);QTimer::singleShot(2000,dialog,&QDialog::reject);
+                auto *spin=dialog->findChild<QSpinBox *>("thumbnails/concurrency");QVERIFY(spin);spin->setValue(count);inspected=true;dialog->accept();
+            });
+            w.command("preferences")->trigger();QVERIFY(inspected);QCOMPARE(w.m_displayJobs->thumbnailConcurrency(),count);
+            QTest::qWait(150);QVERIFY(grid->item(0)->data(ThumbnailRoleReady).toBool());
+            const auto image=grid->item(0)->icon().pixmap(64,64).toImage();QCOMPARE(image.pixelColor(image.rect().center()),QColor(Qt::blue));
+            QCOMPARE(BookActivity::imageRequests.load(),reads);QCOMPARE(ThumbnailActivity::generations.load(),generated);QCOMPARE(QFileInfo(saved).lastModified(),stamp);
+        }
     }
     void thumbnailPreloadUsesCacheAndRetainsScrollReturn_data() {
         QTest::addColumn<bool>("pages");QTest::addColumn<bool>("warm");QTest::addColumn<bool>("enabled");QTest::addColumn<bool>("disk");QTest::addColumn<int>("budget");
