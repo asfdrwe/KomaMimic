@@ -233,8 +233,8 @@ void ThumbnailGrid::clearItems() { m_cached.clear(); m_sourceImages.clear();m_th
 void ThumbnailGrid::invalidateThumbnails() {
     // Explicit refresh replaces pixels only after a successful generation.
     for (int row = 0; row < count(); ++row) {
-        item(row)->setData(PendingRole,false);
-        item(row)->setData(ThumbnailCoverValidatedRole,false);
+        item(row)->setData(ThumbnailLoadingRole,false);
+        item(row)->setData(ThumbnailGeneratedRole,false);
         item(row)->setData(ThumbnailNextCheckRole,0);
         item(row)->setData(ThumbnailCacheNextCheckRole,0);
         item(row)->setData(ThumbnailRefreshRole,true);
@@ -243,7 +243,7 @@ void ThumbnailGrid::invalidateThumbnails() {
 }
 void ThumbnailGrid::setThumbnail(int row, const QImage &image, const QString &error) {
     if (row < 0 || row >= count()) return;
-    auto *entry = item(row); entry->setData(PendingRole, false); entry->setData(ThumbnailRoleReady, error.isEmpty() || !image.isNull());
+    auto *entry = item(row); entry->setData(ThumbnailLoadingRole, false); entry->setData(ThumbnailRoleReady, error.isEmpty() || !image.isNull());
     entry->setData(ThumbnailRefreshRole,false);
     entry->setData(ThumbnailHasPixelsRole,!image.isNull());
     if (!error.isEmpty()) entry->setToolTip(entry->toolTip() + '\n' + error);

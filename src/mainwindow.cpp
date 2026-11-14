@@ -101,7 +101,6 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
     connect(m_thumbnailPreloadTimer,&QTimer::timeout,this,&MainWindow::preloadThumbnails);
     m_thumbnailDiskCache=std::make_shared<ThumbnailDiskCache>();
     m_thumbnailDiskCache->configure(m_settings->value("cache/thumbnailsEnabled",true).toBool(),m_settings->value("cache/thumbnailMegabytes",512).toInt());
-    m_thumbnailDiskCache->setDeferredWrites(true);
     auto *cacheTimer=new QTimer(this);cacheTimer->setInterval(100);
     connect(cacheTimer,&QTimer::timeout,this,[this] {
         if(m_backgroundCancel->load())return;
@@ -110,23 +109,10 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
             populateDirectory(m_directory,false,false,false,true);
         if(m_features)m_features->requestBackgroundWork();
         const auto cache=m_thumbnailDiskCache;
-        if(cache->enabled() && (m_mode!=ViewMode::Reader || m_readerPresented) &&
-            (cache->recoveryPending() || cache->hasPendingWrites())) {
-            m_displayJobs->submit<bool>(DisplayJobs::Lane::Store,"cache-store","cache-store",
-                [cache](const DisplayJobs::Cancel &cancel){
-                    cache->recoverPending();
-                    QElapsedTimer elapsed;elapsed.start();bool stored=false;
-                    for(int i=0;i<8 && elapsed.elapsed()<20 && !cancel() && cache->hasPendingWrites();++i) {
-                        if(!cache->flushPending(cancel))break;
-                        stored=true;
-                    }
-                    return stored;
-                },[](bool,bool){});
-        }
-        if(m_mode!=ViewMode::Reader && m_cacheMaintenancePending && !cache->hasPendingWrites()) {
+        if(m_mode!=ViewMode::Reader && m_cacheMaintenanceNeeded) {
             m_displayJobs->submit<QString>(DisplayJobs::Lane::Background,"cache-maintain","cache-maintain",
                 [cache](const DisplayJobs::Cancel &cancel){return cache->maintain(cancel);},
-                [this](const QString &,bool cancelled){if(!cancelled)m_cacheMaintenancePending=false;});
+                [this](const QString &,bool cancelled){if(!cancelled)m_cacheMaintenanceNeeded=false;});
         }
     });cacheTimer->start();
     setObjectName("mainWindow");
@@ -929,7 +915,6 @@ void MainWindow::cancelBackgroundWork() {
     if(m_retainedDocument.view)m_retainedDocument.view->suspend();
     m_backgroundCancel->store(true);
     if(m_displayJobs){m_displayJobs->stop();m_displayJobs->waitForDone();}
-    if(m_thumbnailDiskCache)m_thumbnailDiskCache->checkpoint();
     m_thumbnailToken->store(++m_libraryGeneration);
     m_pageThumbnailToken->store(++m_pageGeneration);
     m_renderToken->fetch_add(1); ++m_renderGeneration;

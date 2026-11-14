@@ -85,7 +85,7 @@ private slots:
         for(int i=0;i<book->pages.size();++i)QVERIFY(!cachedPageThumbnail(book,i,cache).image.isNull());
         const auto before=savedThumbnails(cache->directory());QCOMPARE(before.size(),3);
         const auto generations=ThumbnailActivity::generations.load();
-        MainWindow window(d.filePath("settings.ini"));window.m_thumbnailDiskCache=cache;cache->setDeferredWrites(true);window.show();
+        MainWindow window(d.filePath("settings.ini"));window.m_thumbnailDiskCache=cache;window.show();
         const auto ready=[](ThumbnailGrid *grid){if(!grid->count())return false;for(int row:grid->visibleRows())if(!grid->item(row)->data(ThumbnailRoleReady).toBool())return false;return true;};
         window.openDirectory(aliases);QTRY_VERIFY(window.directoryReady() && ready(window.m_library));
         window.openBook(link);QTRY_VERIFY(window.renderReady());window.showPageThumbnails();QTRY_VERIFY(ready(window.m_pages));
@@ -134,7 +134,9 @@ private slots:
         QVERIFY(redInput.size()!=blueInput.size());QVERIFY(TestData::write(source,blueInput));
         QVERIFY(!book->sourceUnchanged(0));
         QCOMPARE(cachedPageThumbnail(book,0,cache).image.pixelColor(0,0),QColor(Qt::red));
-        calls=0;const auto changed=cachedPageThumbnail(book,0,cache,cancel,false,false,true);
+        calls=0;const auto cached=cachedPageThumbnail(book,0,cache,cancel,false,false,true);
+        QCOMPARE(cached.image.pixelColor(0,0),QColor(Qt::red));QCOMPARE(BookActivity::opens.load(),opens);QCOMPARE(ThumbnailActivity::generations.load(),generations);
+        calls=0;const auto changed=cachedPageThumbnail(book,0,cache,cancel,true,false,true);
         QVERIFY2(!changed.image.isNull(),qPrintable(changed.error));QVERIFY(calls<=100);
         QCOMPARE(changed.image.pixelColor(0,0),QColor(Qt::blue));
         QCOMPARE(BookActivity::opens.load(),opens+1);QCOMPARE(ThumbnailActivity::generations.load(),generations+1);
@@ -144,7 +146,7 @@ private slots:
         QCOMPARE(cachedCover(link,{},cache).image.pixelColor(0,0),QColor(Qt::blue));
         QVERIFY(TestData::write(source,redInput));
         QCOMPARE(cachedCover(link,{},cache).image.pixelColor(0,0),QColor(Qt::blue));
-        QCOMPARE(cachedCover(link,{},cache,{},false,0,false,true).image.pixelColor(0,0),QColor(Qt::red));
+        QCOMPARE(cachedCover(link,{},cache,{},true,0,false,true).image.pixelColor(0,0),QColor(Qt::red));
     }
     void cachedFileLinkEntryUsesCurrentTargetMetadata() {
         QTemporaryDir d;const auto source=d.filePath("target.bin"),link=d.filePath("alias.bin");
@@ -181,8 +183,8 @@ private slots:
         observed["modified"]=QString::number(observed.value("modified").toString().toLongLong()+1);
         const auto opens=BookActivity::opens.load(),generations=ThumbnailActivity::generations.load();
         int calls=0;const auto result=cachedPageThumbnail(book,0,cache,[&]{return ++calls>100;},false,false,true,0,observed);
-        QVERIFY(calls<=100);QVERIFY(result.image.isNull());QVERIFY(!result.error.isEmpty());
-        QCOMPARE(BookActivity::opens.load(),opens+1);QCOMPARE(ThumbnailActivity::generations.load(),generations);
+        QVERIFY(calls<=100);QCOMPARE(result.image.pixelColor(0,0),QColor(Qt::red));QVERIFY(result.error.isEmpty());
+        QCOMPARE(BookActivity::opens.load(),opens);QCOMPARE(ThumbnailActivity::generations.load(),generations);
         QCOMPARE(savedThumbnails(cache->directory()),before);
         QCOMPARE(cachedPageThumbnail(book,0,cache).image.pixelColor(0,0),QColor(Qt::red));
     }
@@ -198,7 +200,7 @@ private slots:
         auto *grid=window.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(grid);QTRY_VERIFY(window.directoryReady() && grid->count()==1 && grid->item(0)->data(ThumbnailRoleReady).toBool());
         const auto generations=ThumbnailActivity::generations.load(),checks=ThumbnailActivity::metadataChecks.load(),scans=ThumbnailActivity::folderScans.load();
         QVERIFY(TestData::write(folder+"/99.png",TestData::png(TestData::solid(Qt::blue))));
-        QTRY_VERIFY(ThumbnailActivity::folderScans.load()>scans);QTest::qWait(300);
+        QTest::qWait(1800);QCOMPARE(ThumbnailActivity::folderScans.load(),scans);
         const auto quiet=ThumbnailActivity::folderScans.load();QTest::qWait(1500);QCOMPARE(ThumbnailActivity::folderScans.load(),quiet);
         window.openDirectory(d.path());QTRY_VERIFY(window.directoryReady());window.openDirectory(parent);QTRY_VERIFY(window.directoryReady() && grid->count()==1 && grid->item(0)->data(ThumbnailRoleReady).toBool());
         QTest::qWait(400);QCOMPARE(ThumbnailActivity::folderScans.load(),quiet);
@@ -235,14 +237,14 @@ private slots:
         QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,0,{{"directory",true}}).image.pixelColor(0,0),QColor(Qt::red));
         QVERIFY(TestData::write(folder+"/notes.ini","unrelated"));
         QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,0,{{"directory",true}}).image.pixelColor(0,0),QColor(Qt::red));
-        QCOMPARE(ThumbnailActivity::folderScans.load(),scans+2);QCOMPARE(ThumbnailActivity::metadataChecks.load(),checks);
+        QCOMPARE(ThumbnailActivity::folderScans.load(),scans);QCOMPARE(ThumbnailActivity::metadataChecks.load(),checks);
         QCOMPARE(ThumbnailActivity::generations.load(),gens);QCOMPARE(BookActivity::opens.load(),opens);QCOMPARE(BookActivity::imageRequests.load(),reads);
         QCOMPARE(QFileInfo(cover).lastModified(),created);QVERIFY(saved.open(QIODevice::ReadOnly));QCOMPARE(saved.readAll(),bytes);saved.close();
-        QCOMPARE(cache->stats().entries,2);QVERIFY(!cache->hasPendingWrites());
+        QCOMPARE(cache->stats().entries,2);
         QVERIFY(!QImage(cover).textKeys().contains("komamimic-source-records"));
         QVERIFY(TestData::write(folder+"/00.png",TestData::png(TestData::solid(Qt::blue))));
-        QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,0,{{"directory",true}}).image.pixelColor(0,0),QColor(Qt::blue));
-        QCOMPARE(ThumbnailActivity::generations.load(),gens+1);QCOMPARE(ThumbnailActivity::metadataChecks.load(),checks);
+        QCOMPARE(cachedCover(folder,{},cache,{},true,0,false,true,0,{{"directory",true}}).image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(ThumbnailActivity::generations.load(),gens+1);QCOMPARE(ThumbnailActivity::metadataChecks.load(),checks+1);
     }
     void depthIsBoundedAndNeverInvalidatesWarmCache() {
         QTemporaryDir d;const auto folder=d.filePath("B"),nested=folder+"/C/D";QVERIFY(QDir().mkpath(nested));
@@ -257,7 +259,7 @@ private slots:
         QCOMPARE(ThumbnailActivity::folderScans.load(),scans+3);const int count=cache->stats().entries;
         scans=ThumbnailActivity::folderScans.load();
         QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,0,{{"directory",true}}).image.pixelColor(0,0),QColor(Qt::red));
-        QCOMPARE(ThumbnailActivity::folderScans.load(),scans+1);QCOMPARE(cache->stats().entries,count);
+        QCOMPARE(ThumbnailActivity::folderScans.load(),scans);QCOMPARE(cache->stats().entries,count);
     }
     void invalidEarlierCandidateIsNotReadAgainWithoutChange() {
         QTemporaryDir d;const auto folder=d.filePath("B");QVERIFY(QDir().mkpath(folder));
@@ -266,10 +268,10 @@ private slots:
         QVERIFY(TestData::write(folder+"/00.zip","invalid archive"));
         const auto count=ThumbnailActivity::generations.load();
         QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,0,{{"directory",true}}).image.pixelColor(0,0),QColor(Qt::red));
-        QCOMPARE(ThumbnailActivity::generations.load(),count+1);
+        QCOMPARE(ThumbnailActivity::generations.load(),count);
         QVERIFY(TestData::write(folder+"/99.png",TestData::png(TestData::solid(Qt::blue))));
         QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,0,{{"directory",true}}).image.pixelColor(0,0),QColor(Qt::red));
-        QCOMPARE(ThumbnailActivity::generations.load(),count+1);
+        QCOMPARE(ThumbnailActivity::generations.load(),count);
     }
     void existingV2MetadataIsOptionalAndCacheRemainsReadOnly() {
         QTemporaryDir d;const auto path=d.filePath("a.png");QVERIFY(TestData::write(path,TestData::png(TestData::solid(Qt::red))));
@@ -297,7 +299,7 @@ private slots:
         const auto checks=ThumbnailActivity::metadataChecks.load(),scans=ThumbnailActivity::folderScans.load(),generated=ThumbnailActivity::generations.load();
         const auto opens=BookActivity::opens.load(),reads=BookActivity::imageRequests.load();
         const auto before=cache->stats().entries;
-        cache->setDeferredWrites(true);
+
         MainWindow window(d.filePath("settings.ini"));window.m_thumbnailDiskCache=cache;window.show();window.openDirectory(books);
         auto *grid=window.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(grid);
         QTRY_VERIFY(window.directoryReady() && grid->count()==2);
@@ -312,26 +314,19 @@ private slots:
         QCOMPARE(ThumbnailActivity::generations.load(),generated);QCOMPARE(BookActivity::opens.load(),opens);QCOMPARE(BookActivity::imageRequests.load(),reads);
         window.close();QCOMPARE(cache->stats().entries,before);
     }
-    void changesAreTargetedAndConsumed() {
+    void onlyNewerListedEntriesRefreshVisiblePixels() {
         QTemporaryDir d;const auto books=d.filePath("books");QVERIFY(QDir().mkpath(books));
         const auto a=books+"/a.png",b=books+"/b.png";
         QVERIFY(TestData::write(a,TestData::png(TestData::solid(Qt::red))));QVERIFY(TestData::write(b,TestData::png(TestData::solid(Qt::blue))));
-        MainWindow window(d.filePath("settings.ini"));window.show();window.openDirectory(books);
-        auto *grid=window.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(grid);
+        MainWindow window(d.filePath("settings.ini"));window.m_thumbnailDiskCache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));window.show();window.openDirectory(books);auto *grid=window.m_library;
         QTRY_VERIFY(window.directoryReady() && grid->count()==2 && grid->item(0)->data(ThumbnailRoleReady).toBool() && grid->item(1)->data(ThumbnailRoleReady).toBool());
         const auto color=[&](int row){auto image=grid->item(row)->icon().pixmap(64,64).toImage();return image.pixelColor(image.rect().center());};
-        const auto generated=ThumbnailActivity::generations.load();
-        QVERIFY(TestData::write(a,TestData::png(TestData::solid(Qt::green,{39,61}))));
-        QTRY_COMPARE_WITH_TIMEOUT(color(0),QColor(Qt::green),6000);QCOMPARE(color(1),QColor(Qt::blue));
-        QCOMPARE(ThumbnailActivity::generations.load(),generated+1);
-        const auto settled=ThumbnailActivity::metadataChecks.load();QTest::qWait(2400);
-        QCOMPARE(ThumbnailActivity::metadataChecks.load(),settled);
-        // A notice without a content/attribute change can check, but must not decode.
-        window.m_thumbnailChanges->changed(a);
-        QTRY_VERIFY(grid->item(0)->data(ThumbnailCoverValidatedRole).toBool());QTest::qWait(400);
-        QCOMPARE(ThumbnailActivity::generations.load(),generated+1);
-        const auto quiet=ThumbnailActivity::metadataChecks.load();QTest::qWait(1500);QCOMPARE(ThumbnailActivity::metadataChecks.load(),quiet);
-        window.close();
+        QTRY_COMPARE(QDir(window.m_thumbnailDiskCache->directory()).entryList({"*.png"},QDir::Files).size(),2);QTest::qWait(5);
+        QSignalBlocker notices(window.m_directoryWatcher);window.m_directoryRefreshTimer->stop();
+        const auto generated=ThumbnailActivity::generations.load(),reads=BookActivity::imageRequests.load();
+        QVERIFY(TestData::write(a,TestData::png(TestData::solid(Qt::green,{39,61}))));window.m_thumbnailChanges->changed(a);QTest::qWait(2400);
+        QCOMPARE(color(0),QColor(Qt::red));QCOMPARE(color(1),QColor(Qt::blue));QCOMPARE(ThumbnailActivity::generations.load(),generated);QCOMPARE(BookActivity::imageRequests.load(),reads);
+        window.m_thumbnailChanges->observe(QFileInfo(a),QFileInfo(a).absoluteDir().canonicalPath());QTRY_COMPARE(color(0),QColor(Qt::green));QCOMPARE(color(1),QColor(Qt::blue));QCOMPARE(ThumbnailActivity::generations.load(),generated+1);window.close();
     }
     void readerDoesNoThumbnailWork() {
         QTemporaryDir d;const auto books=d.filePath("books"),path=books+"/book.zip";QVERIFY(QDir().mkpath(books));
@@ -404,38 +399,6 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(window.renderReady(),1000);
         release.count_down();cleanup.dismiss();window.close();
     }
-    void cachedPixelsBypassExistingValidation() {
-        QTemporaryDir d;const auto books=d.filePath("books"),path=books+"/cover.png";
-        QVERIFY(QDir().mkpath(books));QVERIFY(TestData::write(path,TestData::png(TestData::solid(Qt::blue))));
-        auto cache=std::make_shared<ThumbnailDiskCache>();QVERIFY(!cachedCover(path,{},cache).image.isNull());
-        MainWindow window(d.filePath("settings.ini"));window.show();window.openDirectory(books);
-        auto *grid=window.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(grid);
-        QTRY_VERIFY(window.directoryReady() && grid->count()==1 && grid->item(0)->data(ThumbnailRoleReady).toBool());
-        // This fixture does not change files. Late initial watcher/layout
-        // notices must not remove the held validation before the cache probe.
-        QSignalBlocker directoryNotices(window.m_directoryWatcher);
-        QSignalBlocker initialLayout(grid);
-        window.m_directoryRefreshTimer->stop();
-        window.m_displayJobs->retain("covers");
-        bool finished=false,obsolete=false;
-        std::latch release(1);std::atomic<bool> entered=false;auto cleanup=qScopeGuard([&]{release.count_down();});
-        const auto generation=window.m_libraryGeneration;
-        const auto id=QString("covers/%1/0/verify").arg(generation);
-        const bool accepted=window.m_displayJobs->submit<int>(DisplayJobs::Lane::Update,"covers",id,
-            [&](const auto &){entered=true;release.wait();return 0;},[&](int,bool stale){finished=true;obsolete=stale;});
-        QVERIFY(accepted);
-        QTRY_VERIFY2(entered.load(),qPrintable(QString("finished=%1 obsolete=%2 generation=%3 current=%4")
-            .arg(finished).arg(obsolete).arg(generation).arg(window.m_libraryGeneration)));
-        QVERIFY(!finished);QVERIFY(window.m_displayJobs->contains(id));
-        initialLayout.unblock();
-        // Equivalent to an evicted row becoming visible while its old validation
-        // is still running. Keep the real request id to exercise deduplication.
-        grid->item(0)->setData(ThumbnailRoleReady,false);grid->item(0)->setData(ThumbnailNextCheckRole,0);
-        grid->item(0)->setIcon(grid->placeholderIcon());window.m_displayJobs->retain("covers");window.requestThumbnails(grid);
-        QTRY_VERIFY_WITH_TIMEOUT(grid->item(0)->data(ThumbnailRoleReady).toBool(),1000);
-        const auto image=grid->item(0)->icon().pixmap(64,64).toImage();QCOMPARE(image.pixelColor(image.rect().center()),QColor(Qt::blue));
-        release.count_down();cleanup.dismiss();window.close();
-    }
     void knownCacheMissDoesNotQueueAnotherProbeWhileGenerating_data() {
         QTest::addColumn<bool>("pages");QTest::newRow("covers")<<false;QTest::newRow("pages")<<true;
     }
@@ -451,7 +414,7 @@ private slots:
         QTRY_VERIFY(window.requestReady() && grid->count()==1 && grid->item(0)->data(ThumbnailRoleReady).toBool());
         QSignalBlocker layout(grid),notices(window.m_directoryWatcher);window.m_directoryRefreshTimer->stop();
         window.m_displayJobs->retain(pages?"pages":"covers");
-        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("empty-cache"));cache->setDeferredWrites(true);window.m_thumbnailDiskCache=cache;
+        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("empty-cache"));window.m_thumbnailDiskCache=cache;
         std::latch release(1);std::atomic<bool> entered=false;auto cleanup=qScopeGuard([&]{release.count_down();});
         window.m_displayJobs->submit<int>(DisplayJobs::Lane::Display,"test-hold","hold-generation",
             [&](const auto &){entered=true;release.wait();return 0;},[](int,bool){});
@@ -474,39 +437,31 @@ private slots:
         release.count_down();cleanup.dismiss();QTRY_VERIFY(item->data(ThumbnailRoleReady).toBool());
         const auto image=item->icon().pixmap(64,64).toImage();QCOMPARE(image.pixelColor(image.rect().center()),QColor(Qt::blue));window.close();
     }
-    void emptyFolderInvalidatesPersistentPixels_data() {
-        QTest::addColumn<bool>("deferred");QTest::newRow("committed")<<false;QTest::newRow("journal")<<true;
-    }
     void emptyFolderInvalidatesPersistentPixels() {
-        QFETCH(bool,deferred);
         QTemporaryDir d;const auto folder=d.filePath("folder"),source=folder+"/a.png";
         QVERIFY(QDir().mkpath(folder));QVERIFY(TestData::write(source,TestData::png(TestData::solid(Qt::red))));
-        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));cache->setDeferredWrites(deferred);
-        QVERIFY(!cachedCover(folder,{},cache,{},false,0,false,true).image.isNull());if(deferred)QVERIFY(cache->checkpoint());
-        QVERIFY(QFile::remove(source));QVERIFY(cachedCover(folder,{},cache,{},false,0,false,true).image.isNull());
+        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));
+        QVERIFY(!cachedCover(folder,{},cache,{},false,0,false,true).image.isNull());
+        QVERIFY(QFile::remove(source));QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true).image.pixelColor(0,0),QColor(Qt::red));
+        QVERIFY(cachedCover(folder,{},cache,{},true,0,false,true).image.isNull());
         QVERIFY(cachedCover(folder,{},cache,{},false,0,true).image.isNull());
-        auto restart=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));restart->recoverPending();
-        while(restart->hasPendingWrites())QVERIFY(restart->flushPending());
+        auto restart=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));
+
         QVERIFY(cachedCover(folder,{},restart,{},false,0,true).image.isNull());
     }
-    void visibleNestedChangesAndErrorsRecoverWithoutRequests() {
+    void folderNoticeRefreshesOnlyNewerSourceMetadata() {
         QTemporaryDir d;const auto books=d.filePath("books"),folder=books+"/folder",source=folder+"/a.png";
         QVERIFY(QDir().mkpath(folder));QVERIFY(TestData::write(source,TestData::png(TestData::solid(Qt::red))));
-        MainWindow window(d.filePath("settings.ini"));window.show();window.openDirectory(books);
-        auto *grid=window.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(grid);
-        QTRY_VERIFY(window.directoryReady() && grid->count()==1 && grid->item(0)->data(ThumbnailCoverValidatedRole).toBool());
+        MainWindow window(d.filePath("settings.ini"));window.m_thumbnailDiskCache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));window.show();window.openDirectory(books);auto *grid=window.m_library;
+        QTRY_VERIFY(window.directoryReady() && grid->count()==1 && grid->item(0)->data(ThumbnailRoleReady).toBool());
         const auto color=[&]{auto image=grid->item(0)->icon().pixmap(64,64).toImage();return image.pixelColor(image.rect().center());};
-        QCOMPARE(color(),QColor(Qt::red));
+        QTRY_COMPARE(QDir(window.m_thumbnailDiskCache->directory()).entryList({"*.png"},QDir::Files).size(),2);QTest::qWait(5);
+        QCOMPARE(color(),QColor(Qt::red));const auto generated=ThumbnailActivity::generations.load();
         QVERIFY(TestData::write(source,TestData::png(TestData::solid(Qt::green,{39,61}))));
-        QTRY_COMPARE_WITH_TIMEOUT(color(),QColor(Qt::green),6000);
-        QVERIFY(TestData::write(source,"temporarily broken image"));QTest::qWait(2200);
-        QCOMPARE(color(),QColor(Qt::green));
-        QVERIFY(TestData::write(source,TestData::png(TestData::solid(Qt::blue,{43,67}))));
-        QTRY_COMPARE_WITH_TIMEOUT(color(),QColor(Qt::blue),6000);
-        QVERIFY(QFile::remove(source));
-        QTRY_COMPARE_WITH_TIMEOUT(grid->item(0)->icon().pixmap(64,64).toImage(),grid->placeholderIcon(true).pixmap(64,64).toImage(),6000);
-        window.close();
-        auto cache=std::make_shared<ThumbnailDiskCache>();QVERIFY(cachedCover(folder,{},cache,{},false,0,true).image.isNull());
+        QVERIFY(QMetaObject::invokeMethod(window.m_thumbnailWatcher,"directoryChanged",Qt::DirectConnection,Q_ARG(QString,folder)));
+        QTRY_VERIFY2(color()==QColor(Qt::green),qPrintable(QString::fromUtf8(QJsonDocument(QJsonObject{{"dependencies",grid->item(0)->data(ThumbnailDependenciesRole).toJsonObject()},{"observed",window.m_thumbnailChanges->entries.value(source)},{"needsUpdate",window.m_thumbnailChanges->needsUpdate(grid->item(0)->data(ThumbnailDependenciesRole).toJsonObject())}}).toJson(QJsonDocument::Compact))));QCOMPARE(ThumbnailActivity::generations.load(),generated+1);
+        QVERIFY(TestData::write(source,"temporarily broken image"));window.command("thumbRefresh")->trigger();QTest::qWait(1800);QCOMPARE(color(),QColor(Qt::green));
+        window.close();auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));QCOMPARE(cachedCover(folder,{},cache,{},false,0,true).image.pixelColor(0,0),QColor(Qt::green));
     }
     void pageLookupUsesOpenedSnapshotThenRefreshes() {
         QTemporaryDir d;const auto path=d.filePath("book.zip");
@@ -530,26 +485,11 @@ private slots:
         QCOMPARE(cachedPageThumbnail(book,0,cache).image.pixelColor(0,0),QColor(Qt::red));
         QCOMPARE(BookActivity::opens.load(),opens);QCOMPARE(BookActivity::imageRequests.load(),reads);
         QCOMPARE(ThumbnailActivity::metadataChecks.load(),checks);QCOMPARE(ThumbnailActivity::folderScans.load(),scans);
-        const auto refreshed=cachedPageThumbnail(book,0,cache,{},false,false,true);
+        const auto refreshed=cachedPageThumbnail(book,0,cache,{},true,false,true);
         QVERIFY2(refreshed.error.isEmpty(),qPrintable(refreshed.error));
         QVERIFY(!refreshed.image.isNull());QCOMPARE(refreshed.image.pixelColor(0,0),QColor(Qt::blue));
     }
-    void closingPreservesGeneratedPixelsWhileWriterLocked() {
-        QTemporaryDir d;const auto books=d.filePath("books"),source=books+"/a.png";
-        QVERIFY(QDir().mkpath(books));QVERIFY(TestData::write(source,TestData::png(TestData::solid(Qt::blue))));
-        const auto root=ThumbnailDiskCache::defaultDirectory();QVERIFY(QDir().mkpath(root));
-        QLockFile lock(root+"/.lock");QVERIFY(lock.tryLock(0));
-        MainWindow window(d.filePath("settings.ini"));window.show();window.openDirectory(books);
-        auto *grid=window.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(grid);
-        QTRY_VERIFY(window.directoryReady() && grid->count()==1 && grid->item(0)->data(ThumbnailRoleReady).toBool());
-        window.close();lock.unlock();
-        QProcess process;process.start(QCoreApplication::applicationFilePath(),{"--reuse-probe","cover",source,root});
-        QVERIFY(process.waitForFinished(15000));QCOMPARE(process.exitCode(),0);
-        ThumbnailDiskCache restarted(root);restarted.recoverPending();
-        while(restarted.hasPendingWrites())QVERIFY(restarted.flushPending());
-        QVERIFY(QDir(root+"/pending").entryList({"*.png"},QDir::Files).isEmpty());
-    }
-    void pageGridPaintsOldCacheThenUpdatesWithoutInput() {
+    void pageGridDisplaysCacheThenUsesNewerListing() {
         QTemporaryDir d;const auto path=d.filePath("book.zip");
         QVERIFY(TestData::write(path,TestData::zip({{"a.png",TestData::png(TestData::solid(Qt::red))}})));
         auto cache=std::make_shared<ThumbnailDiskCache>();const auto old=Book::open(path).book;QVERIFY(old);
@@ -563,7 +503,8 @@ private slots:
         // Observe model delivery directly, so a fast Update worker cannot hide
         // the fact that the initial cache result really was painted first.
         connect(grid->model(),&QAbstractItemModel::dataChanged,&window,[&]{if(color()==QColor(Qt::red))sawOld=true;});
-        QTRY_COMPARE_WITH_TIMEOUT(color(),QColor(Qt::blue),6000);QVERIFY(sawOld);
+        QTRY_COMPARE(color(),QColor(Qt::red));QVERIFY(sawOld);
+        QTRY_COMPARE_WITH_TIMEOUT(color(),QColor(Qt::blue),6000);
         QVERIFY(TestData::write(path,TestData::zip({{"a.png",TestData::png(TestData::solid(Qt::green,{43,67}))}})));
         QTRY_COMPARE_WITH_TIMEOUT(color(),QColor(Qt::green),6000);
         window.close();
@@ -587,13 +528,12 @@ private slots:
         QTRY_VERIFY_WITH_TIMEOUT(blue(),2000);window.close();
     }
     void unchangedSourcesSurviveRestart_data() {
-        QTest::addColumn<QString>("kind");QTest::addColumn<bool>("deferred");
+        QTest::addColumn<QString>("kind");
         for(const auto &kind:{"folder-image","folder-zip","nested-image","nested-zip","zip-cover","zip-page"})
-            for(bool deferred:{false,true})
-                QTest::newRow(qPrintable(QString(kind)+(deferred?"-deferred":"-sync")))<<QString(kind)<<deferred;
+            QTest::newRow(kind)<<QString(kind);
     }
     void unchangedSourcesSurviveRestart() {
-        QFETCH(QString,kind);QFETCH(bool,deferred);
+        QFETCH(QString,kind);
         QTemporaryDir d;QVERIFY(d.isValid());const auto folder=d.filePath("books");
         const auto content=kind.startsWith("nested")?folder+"/child/grandchild":folder;
         QVERIFY(QDir().mkpath(content));
@@ -604,12 +544,12 @@ private slots:
         const auto path=kind.startsWith("zip-")?file:folder;
         const bool page=kind=="zip-page";
         const auto cachePath=d.filePath("cache");
-        auto cache=std::make_shared<ThumbnailDiskCache>(cachePath);cache->setDeferredWrites(deferred);
+        auto cache=std::make_shared<ThumbnailDiskCache>(cachePath);
         const auto book=page?Book::open(path).book:std::shared_ptr<Book>{};
         if(page)QVERIFY(book);
         const auto warm=page?cachedPageThumbnail(book,0,cache):cachedCover(path,{},cache,{},false,0,false,false,2);
         QCOMPARE(warm.image.pixelColor(0,0),QColor(Qt::red));
-        while(cache->hasPendingWrites())QVERIFY(cache->flushPending());
+
         // Marker pixels distinguish actual disk reuse from a successful decode
         // of the unchanged red source. Preserve the private freshness stamp.
         QMap<QString,QByteArray> saved;
@@ -660,13 +600,12 @@ private slots:
         QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::red));
         QCOMPARE(cachedCover(folder,{},cache,{},false,0,true).image.pixelColor(0,0),QColor(Qt::red));
     }
-    void folderCacheValidatesNestedChanges_data() {
-        QTest::addColumn<bool>("zip");QTest::addColumn<bool>("deferred");
-        QTest::newRow("image-sync")<<false<<false;QTest::newRow("zip-sync")<<true<<false;
-        QTest::newRow("image-deferred")<<false<<true;QTest::newRow("zip-deferred")<<true<<true;
+    void folderCacheRefreshesNestedChangesExplicitly_data() {
+        QTest::addColumn<bool>("zip");
+        QTest::newRow("image")<<false;QTest::newRow("zip")<<true;
     }
-    void folderCacheValidatesNestedChanges() {
-        QFETCH(bool,zip);QFETCH(bool,deferred);
+    void folderCacheRefreshesNestedChangesExplicitly() {
+        QFETCH(bool,zip);
         QTemporaryDir d;QVERIFY(d.isValid());const auto folder=d.filePath("books"),nested=folder+"/a/b";
         QVERIFY(QDir().mkpath(nested));
         const auto suffix=zip?QString(".zip"):QString(".png");const auto path=nested+"/20"+suffix;
@@ -676,60 +615,60 @@ private slots:
             return png;
         };
         QVERIFY(TestData::write(path,encode(Qt::red,{32,48})));
-        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));cache->setDeferredWrites(deferred);
+        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));
         QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,2).image.pixelColor(0,0),QColor(Qt::red));
-        while(cache->hasPendingWrites())QVERIFY(cache->flushPending());
+
         const auto modified=QFileInfo(folder).lastModified();
         QVERIFY(TestData::write(path,encode(Qt::green,{39,61})));
         QCOMPARE(QFileInfo(folder).lastModified(),modified);
         QCOMPARE(cachedCover(folder,{},cache,{},false,0,true).image.pixelColor(0,0),QColor(Qt::red));
-        QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,2).image.pixelColor(0,0),QColor(Qt::green));
+        QCOMPARE(cachedCover(folder,{},cache,{},true,0,false,true,2).image.pixelColor(0,0),QColor(Qt::green));
         // Earlier natural-order candidates and deletion/fallback must be seen
         // even when the top folder's own timestamp has not changed.
         const auto earlier=nested+"/2"+suffix;
         QVERIFY(TestData::write(earlier,encode(Qt::blue,{32,48})));
-        QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,2).image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(cachedCover(folder,{},cache,{},true,0,false,true,2).image.pixelColor(0,0),QColor(Qt::blue));
         QVERIFY(QFile::remove(earlier));
-        QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true,2).image.pixelColor(0,0),QColor(Qt::green));
+        QCOMPARE(cachedCover(folder,{},cache,{},true,0,false,true,2).image.pixelColor(0,0),QColor(Qt::green));
         QCOMPARE(QFileInfo(folder).lastModified(),modified);
-        while(cache->hasPendingWrites())QVERIFY(cache->flushPending());
+
         auto restarted=std::make_shared<ThumbnailDiskCache>(cache->directory());
         QCOMPARE(cachedCover(folder,{},restarted,{},false,0,true).image.pixelColor(0,0),QColor(Qt::green));
     }
     void completedFolderPixelsSaveWithoutRechecking() {
         QTemporaryDir d;QVERIFY(d.isValid());const auto folder=d.filePath("books");QVERIFY(QDir().mkpath(folder));
         const auto path=folder+"/page.png";QVERIFY(TestData::write(path,TestData::png(TestData::solid(Qt::red))));
-        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));cache->setDeferredWrites(true);
-        QVERIFY(!cachedCover(folder,{},cache).image.isNull());QVERIFY(cache->hasPendingWrites());
+        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));
+        QVERIFY(!cachedCover(folder,{},cache).image.isNull());
         QVERIFY(TestData::write(path,TestData::png(TestData::solid(Qt::green,{39,61}))));
-        while(cache->hasPendingWrites())QVERIFY(cache->flushPending());
+
         QCOMPARE(cache->stats().entries,2);
         QCOMPARE(cachedCover(folder,{},cache).image.pixelColor(0,0),QColor(Qt::red));
-        QCOMPARE(cachedCover(folder,{},cache,{},false,0,false,true).image.pixelColor(0,0),QColor(Qt::green));
+        QCOMPARE(cachedCover(folder,{},cache,{},true,0,false,true).image.pixelColor(0,0),QColor(Qt::green));
         QVERIFY(!cachedCover(folder,{},cache).image.isNull());QVERIFY(cache->clear().isEmpty());
-        QVERIFY(!cache->hasPendingWrites());QVERIFY(cachedCover(folder,{},cache,{},false,0,true).image.isNull());
+        QVERIFY(cachedCover(folder,{},cache,{},false,0,true).image.isNull());
     }
     void clearDuringFolderSearchDoesNotRepopulateCache() {
         QTemporaryDir d;QVERIFY(d.isValid());const auto folder=d.filePath("books");QVERIFY(QDir().mkpath(folder+"/child"));
         QVERIFY(TestData::write(folder+"/child/page.png",TestData::png(TestData::solid(Qt::red))));
         int exercised=0;
         for(int checkpoint=1;checkpoint<=64;++checkpoint) {
-            auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));cache->setDeferredWrites(true);
+            auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));
             int checks=0;bool cleared=false;
-            cachedCover(folder,{},cache,[&]{if(++checks==checkpoint){cache->clear();cleared=true;}return false;},false,0,false,false,1);
-            if(cleared){++exercised;QVERIFY(!cache->hasPendingWrites());QCOMPARE(cache->stats().entries,0);}
+            cachedCover(folder,{},cache,[&]{if(++checks==checkpoint){cache->clearMemory();cleared=true;}return false;},false,0,false,false,1);
+            if(cleared){++exercised;QVERIFY(cache->clear().isEmpty());QCOMPARE(cache->stats().entries,0);}
         }
         QVERIFY(exercised>10);
     }
     void textFolderPreviewsRemainCached() {
         QTemporaryDir d;const auto folder=d.filePath("books");QVERIFY(QDir().mkpath(folder));
-        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));cache->setDeferredWrites(true);
+        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("cache"));
         for(const auto &name:{"page.txt","page.md","book.zip"}) {
             QVERIFY(cache->clear().isEmpty());
             const auto path=folder+'/'+name;QByteArray bytes="# Preview\nText body\n";
             if(QString(name).endsWith(".zip"))bytes=TestData::zip({{"page.md",bytes}});
             QVERIFY(TestData::write(path,bytes));QVERIFY(!cachedCover(folder,{},cache).image.isNull());
-            QVERIFY(cache->hasPendingWrites());while(cache->hasPendingWrites())QVERIFY(cache->flushPending());
+
             const auto reads=BookActivity::opens.load(),checks=ThumbnailActivity::metadataChecks.load();
             QVERIFY(QFile::remove(path));
             auto restart=std::make_shared<ThumbnailDiskCache>(cache->directory());
@@ -764,7 +703,7 @@ private slots:
         for(int i=0;i<2;++i)QVERIFY(!cachedPageThumbnail(imageBook,i,writer).image.isNull());
         writer.reset();auto cache=std::make_shared<ThumbnailDiskCache>(cachePath);
         const auto ini=d.filePath("settings.ini");{QSettings settings(ini,QSettings::IniFormat);settings.setValue("thumbnails/preloadAll",preload);settings.setValue("thumbnails/mouseSelection",false);}
-        MainWindow w(ini);w.m_thumbnailDiskCache=cache;cache->setDeferredWrites(true);w.resize(900,600);w.show();
+        MainWindow w(ini);w.m_thumbnailDiskCache=cache;w.resize(900,600);w.show();
         if(documentLoaded) {
             const auto listing=Book::open(textZip).book;QVERIFY(listing);w.m_book=Book::open(listing->entryPath(0)).book;QVERIFY(w.m_book && w.m_book->publication);
             w.m_currentPath=w.m_book->path;w.m_mode=MainWindow::ViewMode::Reader;
@@ -798,11 +737,11 @@ private slots:
         QVERIFY(TestData::write(source,TestData::zip({{"1.png",TestData::png(TestData::solid(Qt::green,{43,67}))}})));
         // An actual directory-entry change supplies the evidence for this old folder PNG.
         QVERIFY(TestData::write(folder+"/note.ini","changed"));
-        QTRY_COMPARE(color(),QColor(Qt::green));QVERIFY(grid->item(0)->data(ThumbnailCoverValidatedRole).toBool());
+        QTRY_COMPARE(color(),QColor(Qt::green));
         window.command("thumbRefresh")->trigger();QTRY_VERIFY(window.directoryReady());
         QTRY_VERIFY(grid->item(0)->data(ThumbnailRoleReady).toBool());QCOMPARE(color(),QColor(Qt::green));
-        QVERIFY(QFile::remove(source));window.openDirectory(books);QTRY_VERIFY(window.directoryReady());
-        QTRY_VERIFY(grid->item(0)->data(ThumbnailCoverValidatedRole).toBool());
+        QVERIFY(QFile::remove(source));window.command("thumbRefresh")->trigger();QTRY_VERIFY(window.directoryReady());
+        QTRY_VERIFY(grid->item(0)->data(ThumbnailGeneratedRole).toBool());
         QCOMPARE(grid->item(0)->icon().pixmap(64,64).toImage(),grid->placeholderIcon(true).pixmap(64,64).toImage());
         window.close();
     }

@@ -4,11 +4,11 @@
 
 ## v1.7.0
 
-- Prevent repeated cache-miss probes from delaying generation of visible thumbnails.
-- Fix cover regeneration when switching between covers and page thumbnails through a file symlink, preserving existing saved images. Detect changes to the target image or ZIP on Windows.
-- Stop repeated file reopening when page-thumbnail verification encounters inconsistent resolved paths or source observations.
-- Select the cover image before loading a ZIP/CBZ entry, reducing repeated archive reads and avoiding page-count scans of unrelated TIFF images. Existing saved thumbnails remain reusable.
-- Reduce cover-selection overhead for ZIP archives with many entries: reuse extension and text-decoding setup and the size captured for each open file, and choose the candidate during name parsing. Preserve filename interpretation and selection order.
+- Prioritize existing memory and disk thumbnails to reduce unnecessary regeneration and display waits. Save generated thumbnails directly to the regular cache.
+- Generate up to four visible cover or page thumbnails concurrently while prioritizing cached display and the current reading page.
+- Regenerate automatically only when directory-listing information shows that the image or ZIP file is newer than its cached thumbnail. Do not read images or reopen ZIPs to check for changes.
+- Fix unnecessary cover regeneration when switching views through file symlinks, and use target-file attributes on Windows.
+- Select a ZIP/CBZ cover from entry names and retrieve only that image. Reduce unrelated TIFF page-count scans, repeated filename processing, and file-size queries.
 
 ## v1.6.0
 

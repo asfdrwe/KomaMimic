@@ -56,7 +56,7 @@ private:
     std::array<std::shared_ptr<QThreadPool>,7> m_pools;
     QList<std::shared_ptr<Job>> m_retired;
     std::array<QList<std::shared_ptr<Job>>,7> m_waiting;
-    std::array<std::shared_ptr<Job>,7> m_running;
+    std::array<QList<std::shared_ptr<Job>>,7> m_running;
     QHash<QString,std::shared_ptr<Job>> m_jobs;
     QTimer m_idleTimer;
     QElapsedTimer m_activity,m_clock;

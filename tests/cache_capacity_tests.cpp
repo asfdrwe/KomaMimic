@@ -33,22 +33,6 @@ private slots:
         cache.image("0",[]{return ImageResult{TestData::solid(Qt::green,{1,1}),{}};},{},true);
         QCOMPARE(cache.stats().entries,20002);
     }
-    void diskEvictionPreservesPendingReplacementPixels() {
-        QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.configure(true,16);
-        QImage noise(768,768,QImage::Format_RGB32);quint32 state=104729;
-        for(int y=0;y<noise.height();++y){auto *row=reinterpret_cast<QRgb *>(noise.scanLine(y));for(int x=0;x<noise.width();++x){state^=state<<13;state^=state>>17;state^=state<<5;row[x]=state|0xff000000;}}
-        QVERIFY(!cache.image("0",[&]{return ImageResult{noise,{}};}).image.isNull());
-        const auto path=d.filePath(QString::fromLatin1(QCryptographicHash::hash("0",QCryptographicHash::Sha256).toHex())+".png");QVERIFY(QFileInfo::exists(path));
-        const auto bytes=QFileInfo(path).size();QVERIFY(bytes>0);const int count=int((16LL*1024*1024)/bytes);QVERIFY(count>1 && count<32);
-        for(int i=1;i<count;++i)QVERIFY(!cache.image(QByteArray::number(i),[&]{return ImageResult{noise,{}};}).image.isNull());
-        QFile oldest(path);QVERIFY(oldest.open(QIODevice::ReadWrite));QVERIFY(oldest.setFileTime(QDateTime::currentDateTime().addSecs(-120),QFileDevice::FileModificationTime));oldest.close();
-        QCOMPARE(cache.stats().entries,count);
-        cache.setDeferredWrites(true);cache.image("new",[&]{return ImageResult{noise,{}};});
-        cache.image("0",[]{return ImageResult{TestData::solid(Qt::green,{768,768}),{}};},{},true);
-        QVERIFY(cache.flushPending());QVERIFY(!QFileInfo::exists(path));QVERIFY(cache.hasPendingWrites());
-        QCOMPARE(cache.lookup("0").image.pixelColor(0,0),QColor(Qt::green));QVERIFY(cache.flushPending());
-        QCOMPARE(ThumbnailDiskCache(d.path()).lookup("0").image.pixelColor(0,0),QColor(Qt::green));
-    }
     void capacityUsesCreationOrder() {
         QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.configure(true,16);
         QImage noise(768,768,QImage::Format_RGB32);quint32 state=104729;

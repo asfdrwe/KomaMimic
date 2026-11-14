@@ -653,7 +653,7 @@ void ReaderFeatures::preferences(const QString &pageName) {
   (*refreshUsage)();
   connect(clearDisk,&QPushButton::clicked,&dialog,[&,disk=w->m_thumbnailDiskCache,refreshUsage] {
     clearDisk->setEnabled(false);usage->setText(QCoreApplication::translate("KomaMimic", "削除中…"));
-    disk->discardPending();
+    disk->clearMemory();
     QPointer<QPushButton> button=clearDisk;QPointer<QLabel> target=usage;
     w->m_displayJobs->submit<QString>(DisplayJobs::Lane::Store,"cache-clear",QUuid::createUuid().toString(),
       [disk](const DisplayJobs::Cancel &){return disk->clear();},
@@ -870,7 +870,7 @@ void ReaderFeatures::preferences(const QString &pageName) {
   w->setFullscreen(fullscreen->isChecked());
   if (w->isFullScreen()) w->setFullscreenChromeVisible(w->m_topChromeVisible, w->m_bottomChromeVisible);
   w->m_thumbnailDiskCache->configure(w->m_settings->value("cache/thumbnailsEnabled",true).toBool(),w->m_settings->value("cache/thumbnailMegabytes",512).toInt());
-  w->m_cacheMaintenancePending=true;
+  w->m_cacheMaintenanceNeeded=true;
   w->m_view->setBackgroundColor(QColor(w->m_settings->value("display/background").toString()));
   w->restoreThumbnailSettings();
   if (!w->m_directory.isEmpty() && (oldCoverSort!=w->m_settings->value("covers/sort",0).toInt()

@@ -65,10 +65,11 @@ void MainWindow::focusCurrentView() {
 void MainWindow::setMode(ViewMode mode) {
     const auto previous=m_mode;
     if(previous!=mode) {
+        if(m_thumbnailWatcher){const auto watched=m_thumbnailWatcher->directories();if(!watched.isEmpty())m_thumbnailWatcher->removePaths(watched);}
         cancelThumbnailPreload();
         for(auto &state:m_thumbnailPreload){state.next=0;state.batch=0;}
         for(auto *grid:{m_library,m_pages})for(int row:grid->visibleRows())grid->item(row)->setData(ThumbnailRefreshRole,false);
-        for(const auto &scope:{"covers","pages","collection","directory-siblings","cache-maintain","cache-usage"})m_displayJobs->retain(scope);
+        for(const auto &scope:{"covers","pages","collection","thumbnail-directory","directory-siblings","cache-maintain","cache-usage"})m_displayJobs->retain(scope);
         if(mode!=ViewMode::Covers) {
             m_displayJobs->retain("directory");
             if(m_directoryLoading) {
@@ -186,17 +187,26 @@ void MainWindow::setThumbnailLayout(ThumbnailGrid::Layout layout, int columns) {
 }
 void MainWindow::watchThumbnail(const QJsonObject &dependencies) {
     if(!m_thumbnailWatcher || m_mode==ViewMode::Reader)return;
-    auto watched=m_thumbnailWatcher->files()+m_thumbnailWatcher->directories();
-    QStringList add;
-    for(auto i=dependencies.begin();i!=dependencies.end();++i)if(!watched.contains(i.key()))add.append(i.key());
+    const auto watched=m_thumbnailWatcher->directories();QStringList add;
+    for(auto i=dependencies.begin();i!=dependencies.end();++i) {
+        const auto directory=i.value().toObject().value("directory").toBool()?i.key():QFileInfo(i.key()).absolutePath();
+        if(directory!=m_directory && !watched.contains(directory) && !add.contains(directory))add.append(directory);
+    }
     if(!add.isEmpty())m_thumbnailWatcher->addPaths(add);
 }
 void MainWindow::initializeDirectoryWatcher() {
     m_thumbnailWatcher=new QFileSystemWatcher(this);
     m_thumbnailWatcher->setObjectName("thumbnailSourceWatcher");
-    auto changed=[this](const QString &path){m_thumbnailChanges->changed(path);};
-    connect(m_thumbnailWatcher,&QFileSystemWatcher::fileChanged,this,changed);
-    connect(m_thumbnailWatcher,&QFileSystemWatcher::directoryChanged,this,changed);
+    connect(m_thumbnailWatcher,&QFileSystemWatcher::directoryChanged,this,[this](const QString &path) {
+        if(m_mode==ViewMode::Reader)return;
+        m_thumbnailChanges->changed(path);
+        // A folder notice refreshes metadata only. Images are read later only
+        // for visible entries whose modification time is newer than the cache.
+        m_displayJobs->submit<QFileInfoList>(DisplayJobs::Lane::Update,"thumbnail-directory",path,
+            [path](const auto &cancel){QFileInfoList result;QDirIterator entries(path,QDir::Files|QDir::Dirs|QDir::Readable|QDir::NoDotAndDotDot);
+                while(entries.hasNext()){if(cancel())return QFileInfoList{};entries.next();auto entry=entries.fileInfo();(void)entry.lastModified();(void)entry.size();result.append(entry);}return result;},
+            [this,path](QFileInfoList entries,bool cancelled){if(cancelled || m_mode==ViewMode::Reader)return;const auto resolved=QDir(path).canonicalPath();for(const auto &entry:entries)m_thumbnailChanges->observe(entry,resolved);});
+    });
     m_directoryWatcher = new QFileSystemWatcher(this);
     m_directoryWatcher->setObjectName("browserDirectoryWatcher");
     m_directoryRefreshTimer = new QTimer(this);
@@ -243,7 +253,7 @@ void MainWindow::populateDirectory(const QString &path, bool navigate, bool hist
     }
     m_archiveDirectory.reset();
     if(navigate) {
-        for(const auto &scope:{"covers","pages","collection","directory-siblings","prefetch","preload","cache-maintain","cache-usage"})m_displayJobs->retain(scope);
+        for(const auto &scope:{"covers","pages","collection","thumbnail-directory","directory-siblings","prefetch","preload","cache-maintain","cache-usage"})m_displayJobs->retain(scope);
         const auto watched=m_thumbnailWatcher->files()+m_thumbnailWatcher->directories();
         if(!watched.isEmpty())m_thumbnailWatcher->removePaths(watched);
         m_forceCoverRefresh=false;
@@ -553,7 +563,6 @@ void MainWindow::populatePages() {
         if(!sourcePath.isEmpty()) {
             m_thumbnailChanges->entries[sourcePath]=QJsonObject{{"directory",false},{"modified",source.value("modified")},{"bytes",source.value("bytes")},{"resolved",source.value("resolved")},
                 {"stamp",QString::fromLatin1(QCryptographicHash::hash(m_book->thumbnailSource(index),QCryptographicHash::Sha256).toHex())}};
-            m_thumbnailChanges->entrySerials[sourcePath]=m_thumbnailChanges->serial;
         }
         const QString name = page.name + (page.documentPage ? QString(" [%1]").arg(page.documentPage+1) : QString{});
         const QString title = (m_settings->value("thumbnails/numbers",false).toBool()?QString::number(index+1)+"  ":QString{})+name;
@@ -583,11 +592,11 @@ void MainWindow::requestThumbnails(ThumbnailGrid *grid) {
     QSet<QString> needed;
     for(int row:rows) {
         const auto id=scope+QString("/%1/%2").arg(generation).arg(row);
-        needed.insert(id);needed.insert(id+"/generate");needed.insert(id+"/verify");
+        needed.insert(id);needed.insert(id+"/generate");
     }
     m_displayJobs->visible(scope,needed);
     if(m_backgroundCancel->load() || (pages && !m_book))return;
-    for(int row:rows)requestThumbnail(grid,row);
+    for(int row:rows){watchThumbnail(grid->item(row)->data(ThumbnailDependenciesRole).toJsonObject());requestThumbnail(grid,row);}
     if(thumbnailPreloadReady(grid) && !m_thumbnailPreloadTimer->isActive())m_thumbnailPreloadTimer->start(200);
 }
 void MainWindow::cancelThumbnailPreload() {
@@ -604,7 +613,7 @@ bool MainWindow::thumbnailPreloadReady(ThumbnailGrid *grid) const {
     for(int row:rows) {
         const auto id=scope+QString("/%1/%2").arg(state.generation).arg(row);
         if(!grid->item(row)->data(ThumbnailRoleReady).toBool() || m_displayJobs->contains(id) ||
-           m_displayJobs->contains(id+"/generate") || m_displayJobs->contains(id+"/verify"))return false;
+           m_displayJobs->contains(id+"/generate"))return false;
     }
     return true;
 }
@@ -627,34 +636,31 @@ void MainWindow::requestThumbnail(ThumbnailGrid *grid,int row,bool preload) {
     if(ready && item->data(DirectoryRole).toBool() && !item->data(ThumbnailHasPixelsRole).toBool() && item->data(ThumbnailSearchDepthRole).toInt()!=maximum) {
         ready=false;item->setData(ThumbnailRoleReady,false);item->setData(ThumbnailNextCheckRole,0);item->setData(ThumbnailCacheNextCheckRole,0);
     }
-    const bool refresh=item->data(ThumbnailRefreshRole).toBool();
+    const bool explicitRefresh=item->data(ThumbnailRefreshRole).toBool();
     const auto deps=item->data(ThumbnailDependenciesRole).toJsonObject();
     const bool changed=ready && m_thumbnailChanges->needsUpdate(deps);
+    const bool refresh=explicitRefresh || changed;
     if(ready && !changed && !refresh)return;
-    // The first miss already queued its source request. Repeating cache probes
-    // after their cooldown can keep the higher-priority lane nonempty forever
-    // on slow storage, preventing that generation from starting.
-    if(m_displayJobs->contains(id) || m_displayJobs->contains(id+"/generate"))return;
-    // An evicted preview may still hit cache while validation is in progress.
-    if(ready && m_displayJobs->contains(id+"/verify"))return;
-    if(!ready && item->data(ThumbnailCacheNextCheckRole).toLongLong()>QDateTime::currentMSecsSinceEpoch())return;
-    if(item->data(ThumbnailNextCheckRole).toLongLong()>QDateTime::currentMSecsSinceEpoch())return;
+    if(ready && (m_displayJobs->contains(id+"/generate")))return;
     const int page=item->data(PageRole).toInt();
     const auto path=pages?QJsonDocument::fromJson(m_book->thumbnailSource(page)).object().value("path").toString():item->data(PathRole).toString();
     const auto book=m_book;const auto policies=m_thumbnailNamePolicies;const auto cache=m_thumbnailDiskCache;
     const auto physical=QFileInfo(physicalBookPath(path)).absoluteFilePath();
     auto observed=m_thumbnailChanges->entries.value(physical);
-    if(m_thumbnailChanges->entrySerials.value(physical)<m_thumbnailChanges->notices.value(physical))observed["_refresh"]=true;
-    auto work=[pages,path,page,book,policies,cache,refresh,observed,maximum](bool cachedOnly,bool verify,const DisplayJobs::Cancel &cancel) {
-        if(pages)return cachedPageThumbnail(book,page,cache,cancel,refresh,cachedOnly,verify,maximum,observed);
+    if(changed && item->data(DirectoryRole).toBool()) {
+        qint64 modified=0;for(auto i=deps.begin();i!=deps.end();++i)if(!i.value().toObject().value("directory").toBool())modified=std::max(modified,m_thumbnailChanges->entries.value(i.key()).value("modified").toString().toLongLong());
+        observed["_sourceModified"]=QString::number(modified);
+    }
+    auto work=[pages,path,page,book,policies,cache,refresh=explicitRefresh,changed,observed,maximum](bool cachedOnly,bool updateFromEntry,const DisplayJobs::Cancel &cancel,bool memoryOnly=false,quint64 *availability=nullptr) {
+        if(pages)return cachedPageThumbnail(book,page,cache,cancel,refresh,cachedOnly,changed || updateFromEntry,maximum,observed,memoryOnly,availability);
         if(cachedOnly) {
             for(const auto &policy:policies->previews) {
-                auto hit=cachedCover(path,policy,cache,cancel,refresh,0,true);
+                auto hit=cachedCover(path,policy,cache,cancel,refresh,0,true,false,0,{},memoryOnly,availability);
                 if(!hit.image.isNull() || !hit.error.isEmpty() || cancel())return hit;
             }
             return ImageResult{};
         }
-        return cachedCover(path,policies->resolve(path),cache,cancel,refresh,0,false,verify,maximum,observed);
+        return cachedCover(path,policies->resolve(path),cache,cancel,refresh,0,false,changed || updateFromEntry,maximum,observed);
     };
     auto current=[this,grid,pages,generation,row,preload] {
         return !m_backgroundCancel->load() && m_mode!=ViewMode::Reader && generation==(pages?m_pageGeneration:m_libraryGeneration) && row<grid->count() && (!preload || (grid->isVisible() && m_settings->value("thumbnails/preloadAll",false).toBool()));
@@ -662,11 +668,12 @@ void MainWindow::requestThumbnail(ThumbnailGrid *grid,int row,bool preload) {
     const auto serial=m_thumbnailChanges->serial;
     auto apply=[this,grid,row,path,current,serial,maximum,refresh](ImageResult result,bool cancelled,bool checked) {
         if(!current())return;
-        auto *entry=grid->item(row);entry->setData(PendingRole,false);
+        auto *entry=grid->item(row);entry->setData(ThumbnailLoadingRole,false);
         if(cancelled){entry->setData(ThumbnailRefreshRole,false);return;}
         const bool success=result.error.isEmpty();
         const bool hadPreview=entry->data(ThumbnailRoleReady).toBool();
         auto records=thumbnailDependencies(result,path);
+        const auto physical=QFileInfo(physicalBookPath(path)).absoluteFilePath();auto target=records.value(physical).toObject();target["directory"]=entry->data(DirectoryRole).toBool();records[physical]=target;
         if(!success && hadPreview && result.image.isNull()) {
             const auto previous=entry->data(ThumbnailDependenciesRole).toJsonObject();
             for(auto i=previous.begin();i!=previous.end();++i)if(!records.contains(i.key()) || records.value(i.key()).toObject().value("cacheStamp").toString().isEmpty())records[i.key()]=i.value();
@@ -677,18 +684,26 @@ void MainWindow::requestThumbnail(ThumbnailGrid *grid,int row,bool preload) {
         if(success && !result.image.isNull())entry->setData(ThumbnailCoverStampRole,stamp);
         if(checked) {
             for(auto i=result.thumbnailEntries.begin();i!=result.thumbnailEntries.end();++i)if(m_thumbnailChanges->notices.value(i.key())<=serial) {
-                m_thumbnailChanges->entries[i.key()]=i.value().toObject();m_thumbnailChanges->entrySerials[i.key()]=serial;
+                m_thumbnailChanges->entries[i.key()]=i.value().toObject();
             }
             m_thumbnailChanges->acknowledge(records,serial);
             // A completed failed attempt is not retried without new evidence.
             entry->setData(ThumbnailRoleReady,true);entry->setData(ThumbnailRefreshRole,false);entry->setData(ThumbnailSearchDepthRole,maximum);
         }
         entry->setData(ThumbnailDependenciesRole,records);
-        entry->setData(ThumbnailCoverValidatedRole,checked);
+        entry->setData(ThumbnailGeneratedRole,checked);
         watchThumbnail(records);
         entry->setData(ThumbnailNextCheckRole,!checked && !success?QDateTime::currentMSecsSinceEpoch()+1000:0);
     };
-    item->setData(PendingRole,true);
+    if(!ready && !refresh) {
+        quint64 available=0;auto hit=work(true,false,[]{return false;},true,&available);
+        if(!hit.image.isNull()){apply(std::move(hit),false,false);return;}
+        const bool sameMiss=available==item->data(ThumbnailCacheMissVersionRole).toULongLong();
+        if(sameMiss && (m_displayJobs->contains(id+"/generate") || item->data(ThumbnailCacheNextCheckRole).toLongLong()>QDateTime::currentMSecsSinceEpoch()))return;
+    }
+    if(m_displayJobs->contains(id))return;
+    if(item->data(ThumbnailNextCheckRole).toLongLong()>QDateTime::currentMSecsSinceEpoch())return;
+    item->setData(ThumbnailLoadingRole,true);
     if(preload) {
         const auto backgroundScope=scope+"-preload";
         m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Background,backgroundScope,backgroundScope,
@@ -715,22 +730,19 @@ void MainWindow::requestThumbnail(ThumbnailGrid *grid,int row,bool preload) {
             [apply](ImageResult result,bool cancelled){apply(std::move(result),cancelled,true);});
         return;
     }
-    if(changed) {
-        m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Update,scope,id+"/verify",
-            [work](const auto &cancel){return work(false,true,cancel);},
-            [apply](ImageResult result,bool cancelled){apply(std::move(result),cancelled,true);});
-        return;
-    }
-    m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Cache,scope,id,
-        [work](const auto &cancel){return work(true,false,cancel);},
-        [this,grid,row,current,id,scope,work,apply](ImageResult result,bool cancelled) {
+    struct CacheProbe { ImageResult image;quint64 availability=0; };
+    m_displayJobs->submit<CacheProbe>(DisplayJobs::Lane::Cache,scope,id,
+        [work](const auto &cancel){CacheProbe probe;probe.image=work(true,false,cancel,false,&probe.availability);return probe;},
+        [this,grid,row,current,id,scope,work,apply](CacheProbe probe,bool cancelled) {
+            auto result=std::move(probe.image);
             if(cancelled || !current()){apply({},true,false);return;}
             if(!result.error.isEmpty() || !result.image.isNull()) {
                 if(!grid->item(row)->data(ThumbnailRoleReady).toBool())apply(std::move(result),false,false);
                 return;
             }
+            grid->item(row)->setData(ThumbnailCacheMissVersionRole,QVariant::fromValue(probe.availability));
             grid->item(row)->setData(ThumbnailCacheNextCheckRole,QDateTime::currentMSecsSinceEpoch()+1000);
-            if(m_displayJobs->contains(id+"/generate") || m_displayJobs->contains(id+"/verify"))return;
+            if(m_displayJobs->contains(id+"/generate"))return;
             if(!grid->isVisible() || !grid->visibleRows().contains(row))return;
             m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Display,scope,id+"/generate",
                 [work](const auto &cancel){return work(false,false,cancel);},

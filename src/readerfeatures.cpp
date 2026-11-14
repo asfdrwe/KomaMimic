@@ -1756,7 +1756,11 @@ void ReaderFeatures::requestCollectionCover() {
       const auto policies=w->m_thumbnailNamePolicies;const auto cache=w->m_thumbnailDiskCache;
       const auto physical=QFileInfo(physicalBookPath(chosen.path)).absoluteFilePath();
       auto observed=w->m_thumbnailChanges->entries.value(physical);
-      if(w->m_thumbnailChanges->entrySerials.value(physical)<w->m_thumbnailChanges->notices.value(physical))observed["_refresh"]=true;
+      if(changed && observed.value("directory").toBool()) {
+        qint64 modified=0;const auto dependencies=m_collectionDependencies.value(key);
+        for(auto i=dependencies.begin();i!=dependencies.end();++i)if(!i.value().toObject().value("directory").toBool())modified=std::max(modified,w->m_thumbnailChanges->entries.value(i.key()).value("modified").toString().toLongLong());
+        observed["_sourceModified"]=QString::number(modified);
+      }
       const int maximum=std::clamp(w->m_settings->value("thumbnails/folderDepth",0).toInt(),0,8);
       auto work=[chosen,policies,spine,cache,observed,maximum](bool cachedOnly,const DisplayJobs::Cancel &cancel) {
         if(cachedOnly) {
@@ -1778,12 +1782,12 @@ void ReaderFeatures::requestCollectionCover() {
         if(!success && m_collectionDependencies.contains(key))deps=m_collectionDependencies.value(key);
         if(validated) {
           for(auto i=result.thumbnailEntries.begin();i!=result.thumbnailEntries.end();++i)if(w->m_thumbnailChanges->notices.value(i.key())<=serial) {
-            w->m_thumbnailChanges->entries[i.key()]=i.value().toObject();w->m_thumbnailChanges->entrySerials[i.key()]=serial;
+            w->m_thumbnailChanges->entries[i.key()]=i.value().toObject();
           }
           w->m_thumbnailChanges->acknowledge(deps,serial);
         }
         if(!success && m_collectionIcons.contains(key))return;
-        m_collectionDependencies[key]=deps;w->watchThumbnail(deps);
+        m_collectionDependencies[key]=deps;if(result.image.isNull())w->watchThumbnail(deps);
         m_collectionIcons[key]=ThumbnailGrid::thumbnailIcon(result.image,false);
         m_collectionIconOrder.removeAll(key);m_collectionIconOrder.append(key);
         const auto update=[&](QListWidget *target) {

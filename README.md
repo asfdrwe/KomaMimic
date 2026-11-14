@@ -12,15 +12,15 @@ affiliated with the original project and does not include its code, artwork, or 
 
 ## ZIP covers and cache reuse in v1.7.0
 
-Switching between covers and page thumbnails through a file symlink reuses the
-existing cover. Page-thumbnail source checks stop if reopening cannot resolve
-inconsistent source information.
+Existing memory and disk thumbnails take priority. Visible thumbnail generation
+can run concurrently, and generated images are saved directly to the regular cache.
+Only directory-listing timestamps newer than the cache trigger automatic regeneration;
+source images and ZIP contents are not read just to check for changes. File symlinks
+reuse their saved thumbnails across view changes.
 
-For ZIP/CBZ cover generation, KomaMimic selects the cover from the archive's name
-information and loads only that image entry. It avoids page-count scans of other
-TIFF images and reduces repeated metadata reads and filename-processing setup.
-Filename interpretation and cover order are preserved. Existing `thumbnails-v2`
-images remain reusable; clearing the thumbnail cache is unnecessary.
+ZIP/CBZ covers are selected from entry names before retrieving the chosen image.
+Unrelated TIFF page-count scans, repeated filename processing, and repeated file-size
+queries are reduced. Existing `thumbnails-v2` images remain reusable.
 
 ## Reading and thumbnails
 
@@ -34,11 +34,11 @@ images first, then the remaining images, retaining them within a configurable
 offscreen memory limit. Decoded thumbnails are also reused when returning to
 folders and views.
 
-Saved cover and page thumbnails appear before source checks. Missing visible
-thumbnails are generated first; source changes are checked only when directory
-information or relevant notifications provide evidence. Leaving a folder or view
-cancels unfinished work while completed images still get saved. Reading prioritizes
-the current page, then prefetch.
+Cover and page thumbnails use memory first, then saved PNGs. Only a visible
+cache miss reads the source and generates a thumbnail. Folder change notifications
+refresh listing metadata; only a newer image or ZIP timestamp triggers regeneration.
+Use F6 for manual regeneration when needed. Leaving a view cancels unfinished work.
+Reading prioritizes the current page and configured prefetch.
 
 Folder-cover search defaults to the target folder's direct files. Existing
 `thumbnails-v2` images remain usable without clearing or migrating the cache.
@@ -309,7 +309,7 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 
 ## Changelog
 
-- **v1.7.0**: Fix unnecessary cover regeneration through file symlinks and repeated reopening during page-thumbnail source checks. Generate ZIP/CBZ covers from the selected image entry, avoid unrelated TIFF page-count scans, and reduce filename-processing and file-size-query overhead. Preserve existing thumbnails-v2 caches.
+- **v1.7.0**: Prioritize memory and disk thumbnail reuse, save directly to the regular cache, and generate visible thumbnails concurrently. Use directory-listing timestamps for automatic updates, fix file-symlink reuse, and retrieve only the selected ZIP/CBZ cover image with less metadata-processing overhead. Preserve existing thumbnails-v2 caches.
 - **v1.6.0**: Prioritize reading startup and on-demand document loading; improve EPUB covers, writing direction, spread navigation, and Aozora illustrations. Add optional full-list thumbnail preloading (off by default) and reuse decoded thumbnails across view changes. Make Load all files a saved reading option, isolate document rendering from galleries, and require Qt 6.8 or later. Improve CLI page-navigation completion and Windows dependency-cache reuse.
 - **v1.5.0**: Prioritize the current display and trust saved thumbnails without per-use or periodic source checks. Update only when there is concrete change evidence, cancel obsolete work, add bounded folder-cover search, and retain thumbnails-v2 compatibility. Evict by oldest save time only when capacity is exceeded.
 - **v1.4.3**: Stabilize macOS archive-list navigation tests by waiting for the expected filesystem entries and registering the document URL scheme before Qt application startup. Version 1.4.2 is skipped.

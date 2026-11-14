@@ -65,7 +65,7 @@ private slots:
         if(warm)for(int i=0;i<40;++i)QVERIFY(!(pages?cachedPageThumbnail(book,i,cache):cachedCover(paths[i],{},cache)).image.isNull());
         {QSettings s(ini,QSettings::IniFormat);if(enabled)s.setValue("thumbnails/preloadAll",true);s.setValue("thumbnails/columns",2);s.setValue("thumbnails/memoryMegabytes",budget);s.setValue("thumbnails/mouseSelection",false);}
         const auto reads=BookActivity::imageRequests.load(),gens=ThumbnailActivity::generations.load();
-        MainWindow w(ini);w.m_thumbnailDiskCache=cache;cache->setDeferredWrites(true);w.resize(480,320);w.show();
+        MainWindow w(ini);w.m_thumbnailDiskCache=cache;w.resize(480,320);w.show();
         if(pages)w.loadBook(zip,MainWindow::ViewMode::Pages);else w.openDirectory(books);
         auto *grid=pages?w.m_pages:w.m_library;
         QTRY_VERIFY(grid->count()==40 && !w.isLoading() && (pages || w.directoryReady()));grid->doItemsLayout();
@@ -88,7 +88,7 @@ private slots:
         grid->scrollToItem(grid->item(39),QAbstractItemView::PositionAtBottom);QTRY_VERIFY(grid->visibleRows().contains(39));QVERIFY(visibleReady());
         grid->scrollToItem(grid->item(0),QAbstractItemView::PositionAtTop);QTRY_VERIFY(grid->visibleRows().contains(0));QVERIFY(allReady());
         QTest::qWait(250);QCOMPARE(BookActivity::imageRequests.load(),afterReads);QCOMPARE(ThumbnailActivity::generations.load(),afterGens);
-        if(!disk){QVERIFY(!cache->hasPendingWrites());QCOMPARE(cache->stats().entries,0);}
+        if(!disk){QCOMPARE(cache->stats().entries,0);}
     }
     void thumbnailMemoryLimitAndDisablePreserveVisibleImages() {
         ThumbnailGrid grid;grid.resize(400,280);

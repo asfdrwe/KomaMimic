@@ -13,8 +13,7 @@ QJsonObject thumbnailDependencies(const ImageResult &result,const QString &fallb
 struct ThumbnailChanges {
     quint64 serial=0;
     QHash<QString,QJsonObject> entries;
-    QHash<QString,quint64> notices,entrySerials;
-    QHash<QString,QPair<QJsonObject,QJsonObject>> checked;
+    QHash<QString,quint64> notices;
     void observe(const QFileInfo &entry,const QString &resolvedDirectory={});
     void changed(const QString &path);
     bool needsUpdate(const QJsonObject &dependencies) const;
@@ -30,11 +29,11 @@ struct ThumbnailNamePolicies {
 
 ImageResult cachedCover(const QString &path,const NamePolicy &policy,
                         const std::shared_ptr<ThumbnailDiskCache> &cache,
-                        const std::function<bool()> &cancel={},bool refresh=false,int depth=0,bool cachedOnly=false,bool verify=false,int maxDepth=0,const QJsonObject &observed={});
+                        const std::function<bool()> &cancel={},bool refresh=false,int depth=0,bool cachedOnly=false,bool updateFromEntry=false,int maxDepth=0,const QJsonObject &observed={},bool memoryOnly=false,quint64 *availability=nullptr);
 ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int page,
                                 const std::shared_ptr<ThumbnailDiskCache> &cache,
-                                const std::function<bool()> &cancel={},bool refresh=false,bool cachedOnly=false,bool verify=false,int maxDepth=0,const QJsonObject &observed={});
+                                const std::function<bool()> &cancel={},bool refresh=false,bool cachedOnly=false,bool updateFromEntry=false,int maxDepth=0,const QJsonObject &observed={},bool memoryOnly=false,quint64 *availability=nullptr);
 ImageResult cachedCollectionCover(const QString &path,const NamePolicy &policy,
                              const QJsonObject &metadata,bool spine,
                              const std::shared_ptr<ThumbnailDiskCache> &cache,
-                             const std::function<bool()> &cancel={},bool cachedOnly=false,bool verify=false,int maxDepth=0,const QJsonObject &observed={});
+                             const std::function<bool()> &cancel={},bool cachedOnly=false,bool updateFromEntry=false,int maxDepth=0,const QJsonObject &observed={});

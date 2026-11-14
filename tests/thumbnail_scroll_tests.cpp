@@ -54,8 +54,8 @@ private slots:
             const auto generation=pages?window.m_pageGeneration:window.m_libraryGeneration;
             for(int row:rows)if(!grid->item(row)->data(ThumbnailRoleReady).toBool()) {
                 const auto *item=grid->item(row);const auto id=QString("%1/%2/%3").arg(pages?"pages":"covers").arg(generation).arg(row);
-                missing.append(QString("row=%1 pending=%2 cache=%3 generate=%4 verify=%5 cache-next=%6 next=%7 tooltip=%8")
-                    .arg(row).arg(item->data(PendingRole).toBool()).arg(window.m_displayJobs->contains(id))
+                missing.append(QString("row=%1 loading=%2 cache=%3 generate=%4 verify=%5 cache-next=%6 next=%7 tooltip=%8")
+                    .arg(row).arg(item->data(ThumbnailLoadingRole).toBool()).arg(window.m_displayJobs->contains(id))
                     .arg(window.m_displayJobs->contains(id+"/generate")).arg(window.m_displayJobs->contains(id+"/verify"))
                     .arg(item->data(ThumbnailCacheNextCheckRole).toLongLong()).arg(item->data(ThumbnailNextCheckRole).toLongLong()).arg(item->toolTip()));
             }

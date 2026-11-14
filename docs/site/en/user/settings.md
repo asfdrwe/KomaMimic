@@ -73,13 +73,13 @@ See [Differences from MangaMeeya](compatibility.md) for compatibility and sortin
 
 ## Reuse and regeneration
 
-In v1.5.0, saved thumbnails are trusted by default. They are not checked against their sources on every use or periodically. Redisplay, scrolling, revisiting a folder, or restarting alone does not reopen source images or ZIPs.
+Use memory first, then saved PNGs. Read the source and generate a thumbnail only when both are missing. Saved thumbnails are trusted by default. They are not checked against their sources on every use or periodically. Redisplay, scrolling, revisiting a folder, or restarting alone does not reopen source images or ZIPs.
 
 | Situation | Priority |
 |---|---|
 | A visible cover or page has cached pixels | Display them before source checks |
 | A visible thumbnail has no cache | Generate and display it; save afterward |
-| Relevant change evidence exists | Keep the saved image visible, then check at lower priority |
+| A folder change notification arrives | Refresh listing metadata; regenerate only images or ZIPs newer than their cache |
 | Folder, book, or view changes | Cancel unfinished old requests and prioritize the destination |
 | Reading | Current display, then prefetch, then saving previously completed thumbnails |
 
@@ -125,11 +125,7 @@ cancelled when returning to reading.
 
 ### Checking changes
 
-Reuse the names, sizes, modification times, and other information already obtained for the current directory listing. Only relevant listing differences, OS notifications, or changes made in the app trigger checks. Unchanged ZIPs are not opened, original images are not decoded, and full content hashes are not calculated just to validate a cache.
-
-Adding files without changing the selected cover source or its attributes does not probe the old source again, regenerate the image, rewrite the PNG, or update its save time. Replace the image only when the selected source or its content needs updating.
-
-Deep changes that the existing format cannot identify, or changes missed by notifications, are not exhaustively tracked. Use `F6` for an explicit refresh when needed. Font or script changes do not automatically invalidate all cached images.
+Folder change notifications refresh directory-listing information. Regenerate only when the listed image or ZIP file has a modification time newer than the cached PNG’s save time. Do not open source images or ZIP contents to check for changes. If an update is not identified this way, use `F6` for manual regeneration.
 
 ### Folder-cover search depth
 
@@ -145,13 +141,11 @@ Candidates use natural order with files before folders. Sorting the displayed li
 
 ### Saving, retention, and capacity
 
-Generated pixels are displayed before persistence finishes. Completed images remain pending across folder or view changes and are saved below current-display and reading-prefetch priority. Saving does not recheck the source. Keep the previous PNG until its replacement is saved successfully; temporary generation or write failures do not delete it first.
-
-Pending images spill to disk at the memory limit; contention and write failures are retried. Normal shutdown journals unfinished saves for recovery on the next launch. Journals and atomic-write temporary files need extra space beyond the completed-cache limit. A full or unwritable disk, or an abrupt exit before journaling, can still require regeneration.
+Generated pixels are available in memory before saving finishes. Visible thumbnail generation can run up to four jobs concurrently. Each worker saves its completed image directly to the regular cache. Atomic PNG replacement keeps the previous image until its replacement succeeds.
 
 Unchanged images are retained regardless of last use, age, file count, scrolling, restart, or display thumbnail size. Only capacity overflow, including a reduced configured limit, triggers **oldest-save-time-first eviction (FIFO)**. Reads never change PNG save times. A changed image receives a new save time after its replacement is saved successfully.
 
-Explicit cache deletion, confirmed source changes or removal, and corruption found while reading the cache can also cause replacement or deletion. Suspected changes alone do not delete an image first.
+Explicit cache deletion, F6 refresh, and capacity eviction are exceptions. If a cached PNG cannot be read, try another saved copy before generating from the source.
 
 ### Compatibility and text covers
 

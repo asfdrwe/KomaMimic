@@ -253,9 +253,13 @@ private slots:
         const auto blue=TestData::zip({{"1.png",TestData::png(TestData::solid(Qt::blue,{33,49}))}});
         QVERIFY(TestData::write(path+"/b.zip",blue));
         const auto observed=thumbnailEntry(QFileInfo(path+"/b.zip"),QFileInfo(path).canonicalFilePath());
+        const auto reads=BookActivity::imageRequests.load(),generated=ThumbnailActivity::generations.load();
+        QCOMPARE(cachedPageThumbnail(opened.book,1,cache,{},false,true).image.pixelColor(0,0),QColor(Qt::red));
+        QCOMPARE(BookActivity::imageRequests.load(),reads);QCOMPARE(ThumbnailActivity::generations.load(),generated);
         const auto result=cachedPageThumbnail(opened.book,1,cache,{},false,false,true,0,observed);
         QVERIFY2(result.error.isEmpty(),qPrintable(result.error));
-        QCOMPARE(result.image.pixelColor(0,0),QColor(Qt::blue));
+        QCOMPARE(result.image.pixelColor(0,0),QColor(Qt::blue));QCOMPARE(ThumbnailActivity::generations.load(),generated+1);
+        QCOMPARE(opened.book->image(0).image.pixelColor(0,0),QColor(Qt::red));
     }
     void oldContainerThumbnailsRemainReusable() {
         for(bool folder:{false,true}) {

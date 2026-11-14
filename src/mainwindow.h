@@ -94,6 +94,7 @@ protected:
 private:
     friend class ReaderFeatures;
     friend class ThumbnailTests;
+    friend class CacheDisplayTests;
     friend class ThumbnailScrollTests;
     friend class ThumbnailPreloadTests;
     friend class ReaderStartupTests;
@@ -177,7 +178,7 @@ private:
     std::shared_ptr<ThumbnailChanges> m_thumbnailChanges;
     QFileSystemWatcher *m_thumbnailWatcher=nullptr;
     void watchThumbnail(const QJsonObject &dependencies);
-    bool m_cacheMaintenancePending = false;
+    bool m_cacheMaintenanceNeeded = false;
     bool m_renderDirty = true, m_pagesDirty = true;
     bool m_readerPresented=false;
     std::shared_ptr<ThumbnailDiskCache> m_thumbnailDiskCache;
