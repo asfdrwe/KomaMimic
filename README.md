@@ -10,7 +10,19 @@ JavaScript image readers and filters through Script API 1.
 KomaMimic is an independent implementation inspired by MangaMeeya. It is not
 affiliated with the original project and does not include its code, artwork, or DLLs.
 
-## Reading and thumbnails in v1.6.0
+## ZIP covers and cache reuse in v1.7.0
+
+Switching between covers and page thumbnails through a file symlink reuses the
+existing cover. Page-thumbnail source checks stop if reopening cannot resolve
+inconsistent source information.
+
+For ZIP/CBZ cover generation, KomaMimic selects the cover from the archive's name
+information and loads only that image entry. It avoids page-count scans of other
+TIFF images and reduces repeated metadata reads and filename-processing setup.
+Filename interpretation and cover order are preserved. Existing `thumbnails-v2`
+images remain reusable; clearing the thumbnail cache is unnecessary.
+
+## Reading and thumbnails
 
 Reading opens the current page or document section first and cancels obsolete
 work on navigation. EPUB covers, writing direction, spread order, and illustrated
@@ -297,6 +309,7 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 
 ## Changelog
 
+- **v1.7.0**: Fix unnecessary cover regeneration through file symlinks and repeated reopening during page-thumbnail source checks. Generate ZIP/CBZ covers from the selected image entry, avoid unrelated TIFF page-count scans, and reduce filename-processing and file-size-query overhead. Preserve existing thumbnails-v2 caches.
 - **v1.6.0**: Prioritize reading startup and on-demand document loading; improve EPUB covers, writing direction, spread navigation, and Aozora illustrations. Add optional full-list thumbnail preloading (off by default) and reuse decoded thumbnails across view changes. Make Load all files a saved reading option, isolate document rendering from galleries, and require Qt 6.8 or later. Improve CLI page-navigation completion and Windows dependency-cache reuse.
 - **v1.5.0**: Prioritize the current display and trust saved thumbnails without per-use or periodic source checks. Update only when there is concrete change evidence, cancel obsolete work, add bounded folder-cover search, and retain thumbnails-v2 compatibility. Evict by oldest save time only when capacity is exceeded.
 - **v1.4.3**: Stabilize macOS archive-list navigation tests by waiting for the expected filesystem entries and registering the document URL scheme before Qt application startup. Version 1.4.2 is skipped.

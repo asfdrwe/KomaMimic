@@ -2,12 +2,12 @@
 
 [日本語](../changelog.md) | English
 
-## Unreleased
+## v1.7.0
 
-- Reduce cover-selection overhead for large ZIP archives by reusing extension and text-decoding setup and choosing the candidate during name parsing, and reusing the size captured for each open file, preserving filename interpretation and selection order.
-- Select the cover image before loading a ZIP/CBZ entry, reducing repeated archive reads and avoiding page-count scans of unrelated TIFF images. Existing saved thumbnails remain reusable.
 - Fix cover regeneration when switching between covers and page thumbnails through a file symlink, preserving existing saved images.
 - Stop repeated file reopening when page-thumbnail verification encounters inconsistent resolved paths or source observations.
+- Select the cover image before loading a ZIP/CBZ entry, reducing repeated archive reads and avoiding page-count scans of unrelated TIFF images. Existing saved thumbnails remain reusable.
+- Reduce cover-selection overhead for ZIP archives with many entries: reuse extension and text-decoding setup and the size captured for each open file, and choose the candidate during name parsing. Preserve filename interpretation and selection order.
 
 ## v1.6.0
 
