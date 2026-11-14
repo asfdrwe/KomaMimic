@@ -3,6 +3,8 @@
 #include <QByteArray>
 #include <QString>
 #include <QStringList>
+#include <memory>
+#include <atomic>
 
 struct NamePolicy {
     QString legacyEncoding = "CP932";
@@ -25,12 +27,26 @@ struct ArchiveName {
     qint64 offset = 0;
     qint64 size = 0;
     qint64 compressedSize = -1; // ZIP only; other formats retain their existing reader.
+    qint64 endOffset = -1; // Next physical ZIP entry or central directory.
 };
 struct DecodedName {
     QString text, encoding, origin, warning;
     bool assumed = false;
 };
 QStringList legacyEncodings();
-bool decodeStrict(const QByteArray &bytes, const QString &encoding, QString &text);
+struct NameDecodeActivity {inline static std::atomic<quint64> converterOpens{0};};
+// One worker/request owns a decoder; no ICU state is shared between workers.
+class NameDecoder {
+public:
+    NameDecoder();
+    ~NameDecoder();
+    NameDecoder(const NameDecoder &)=delete;
+    NameDecoder &operator=(const NameDecoder &)=delete;
+    bool decode(const QByteArray &bytes,const QString &encoding,QString &text);
+private:
+    struct Impl;
+    std::unique_ptr<Impl> m_impl;
+};
+bool decodeStrict(const QByteArray &bytes, const QString &encoding, QString &text,NameDecoder *decoder=nullptr);
 QString escapedName(const QByteArray &bytes);
-DecodedName decodeName(const ArchiveName &name, const NamePolicy &policy);
+DecodedName decodeName(const ArchiveName &name, const NamePolicy &policy,NameDecoder *decoder=nullptr);

@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <clocale>
 #include <QScopeGuard>
+#include "scriptreader.h"
+#include <QtConcurrent>
 
 namespace {
 void le16(QByteArray &b,quint16 n){char v[2];qToLittleEndian(n,v);b.append(v,2);}
@@ -59,10 +61,103 @@ QByteArray zip(const QVector<Entry> &entries,bool zip64=false) {
     if(zip64){const auto end=bytes.size();le32(bytes,0x06064b50);le64(bytes,44);le16(bytes,45);le16(bytes,45);le32(bytes,0);le32(bytes,0);le64(bytes,entries.size());le64(bytes,entries.size());le64(bytes,central.size());le64(bytes,start);le32(bytes,0x07064b50);le32(bytes,0);le64(bytes,end);le32(bytes,1);}
     le32(bytes,0x06054b50);le16(bytes,0);le16(bytes,0);le16(bytes,zip64?65535:quint16(entries.size()));le16(bytes,zip64?65535:quint16(entries.size()));le32(bytes,zip64?0xffffffff:quint32(central.size()));le32(bytes,zip64?0xffffffff:quint32(start));le16(bytes,0);return bytes;
 }
+QByteArray reverseDirectory(QByteArray bytes) {
+    const auto end=bytes.size()-22;const auto offset=qFromLittleEndian<quint32>(bytes.constData()+end+16);
+    const auto size=qFromLittleEndian<quint32>(bytes.constData()+end+12);QVector<QByteArray> records;
+    for(qsizetype at=offset;at<offset+size;) {
+        const auto length=46+qFromLittleEndian<quint16>(bytes.constData()+at+28)+qFromLittleEndian<quint16>(bytes.constData()+at+30)+qFromLittleEndian<quint16>(bytes.constData()+at+32);
+        records.append(bytes.mid(at,length));at+=length;
+    }
+    QByteArray reversed;for(auto i=records.crbegin();i!=records.crend();++i)reversed+=*i;
+    bytes.replace(offset,size,reversed);return bytes;
+}
 }
 class ZipCoverTests : public QObject {
     Q_OBJECT
 private slots:
+    void reusedDecoderKeepsStrictValidationAndReset() {
+        struct Sample {QString encoding,key;QByteArray bytes;};
+        const QList<Sample> samples{
+            {"CP932","jp",QByteArray::fromHex("955c")+".png"},{"CP932","jp",QByteArray::fromHex("81")},
+            {"windows-932","jp","plain.png"},{"UTF-8","utf8",QString::fromUtf8("日本語.png").toUtf8()},
+            {"UTF-8","utf8",QByteArray::fromHex("e381")},{"UTF-8","utf8","next.png"},
+            {"UTF-8","utf8",QByteArray("a\0b",3)},{"UTF-8","utf8",{}},
+            {"UTF-16LE","utf16",QByteArray::fromHex("4100")},{"UTF-16LE","utf16",QByteArray::fromHex("41")},
+            {"UTF-16LE","utf16",QByteArray::fromHex("70006c00610069006e00")},
+            {"ISO-2022-JP","stateful",QByteArray::fromHex("1b2442467c4b5c1b2842")},
+            {"ISO-2022-JP","stateful",QByteArray::fromHex("1b244246")},{"ISO-2022-JP","stateful","plain.png"},
+            {"not-a-codec","invalid","x"},{"not-a-codec","invalid","y"},
+            {"GBK","gbk",QByteArray::fromHex("d6d0cec4")},{"CP949","kr",QByteArray::fromHex("c7d1b1db")},
+            {"Big5","big5",QByteArray::fromHex("a4a4a4e5")},{"CP437","cp437",QByteArray::fromHex("82")}
+        };
+        NameDecoder decoder;QSet<QString> opened;
+        for(int repeat=0;repeat<3;++repeat)for(const auto &sample:samples) {
+            QString expected="unchanged",actual=expected;
+            const bool valid=decodeStrict(sample.bytes,sample.encoding,expected);
+            const auto before=NameDecodeActivity::converterOpens.load();
+            QCOMPARE(decodeStrict(sample.bytes,sample.encoding,actual,&decoder),valid);QCOMPARE(actual,expected);
+            QCOMPARE(NameDecodeActivity::converterOpens.load()-before,opened.contains(sample.key)?quint64(0):quint64(1));opened.insert(sample.key);
+        }
+    }
+    void independentDecodersCanRunOnSeparateWorkers() {
+        const auto work=[](const QString &name){NameDecoder decoder;for(int i=0;i<500;++i){QString value;if(decodeStrict(QByteArray::fromHex("e381"),"UTF-8",value,&decoder))return false;if(!decodeStrict(name.toUtf8(),"UTF-8",value,&decoder)||value!=name)return false;}return true;};
+        auto first=QtConcurrent::run(work,QString::fromUtf8("日本語の名前.png"));
+        auto second=QtConcurrent::run(work,QString::fromUtf8("別の名前と長さ.bmp"));QVERIFY(first.result());QVERIFY(second.result());
+    }
+    void streamingSelectionRetainsOneNameAndChecksAllOffsets_data() {
+        QTest::addColumn<bool>("legacy");QTest::newRow("utf8")<<false;QTest::newRow("legacy")<<true;
+    }
+    void streamingSelectionRetainsOneNameAndChecksAllOffsets() {
+        QFETCH(bool,legacy);QTemporaryDir d;const auto path=d.filePath("sample.zip");QVector<Entry> entries;
+        for(int i=999;i>=0;--i){Entry entry{QString("%1.png").arg(i).toUtf8(),TestData::png(TestData::solid(Qt::red))};if(legacy)entry.flags=0;entries.append(entry);}
+        QVERIFY(TestData::write(path,zip(entries)));const auto ext=imageExtensions();QSet<QString> suffixes(ext.begin(),ext.end());
+        NameDecoder decoder;const auto before=NameDecodeActivity::converterOpens.load();
+        const auto selected=selectZipCover(path,{},suffixes,decoder);
+        QVERIFY2(selected.archive.error.isEmpty(),qPrintable(selected.archive.error));QCOMPARE(selected.archive.entries.size(),1);QCOMPARE(selected.label,QString("0.png"));
+        QCOMPARE(NameDecodeActivity::converterOpens.load()-before,quint64(1));
+        QCOMPARE(selected.archive.entries.first().endOffset,selected.archive.directoryOffset);
+        const auto pixels=readZipEntry(path,selected.archive,0);QVERIFY2(pixels.error.isEmpty(),qPrintable(pixels.error));
+        auto invalid=zip(entries);const auto end=invalid.size()-22;const auto central=qFromLittleEndian<quint32>(invalid.constData()+end+16);
+        const auto second=central+46+entries.first().name.size();qToLittleEndian<quint32>(0,invalid.data()+second+42);
+        QVERIFY(TestData::write(path,invalid));QVERIFY(!selectZipCover(path,{},suffixes,decoder).archive.error.isEmpty());
+    }
+    void reorderedDirectoryKeepsPhysicalTieAndBoundary() {
+        QTemporaryDir d;const auto path=d.filePath("sample.zip");
+        const auto red=TestData::png(TestData::solid(Qt::red)),blue=TestData::png(TestData::solid(Qt::blue));
+        QVERIFY(TestData::write(path,reverseDirectory(zip({{"same.png",red},{"same.png",blue}}))));
+        const auto ext=imageExtensions();const QSet<QString> suffixes(ext.begin(),ext.end());NameDecoder decoder;
+        const auto selected=selectZipCover(path,{},suffixes,decoder);QVERIFY(selected.archive.error.isEmpty());QCOMPARE(selected.archive.entries.size(),1);
+        QCOMPARE(selected.archive.entries.first().offset,qint64(0));QCOMPARE(selected.archive.entries.first().endOffset,qint64(30+8+red.size()));
+        const auto preview=Book::coverPreview(path);QVERIFY2(!preview.image.isNull(),qPrintable(preview.error));QCOMPARE(preview.image.pixelColor(0,0),QColor(Qt::red));
+        auto broken=reverseDirectory(zip({{"1.png",red},{"ignored.bin",blue}}));const auto end=broken.size()-22;
+        const auto central=qFromLittleEndian<quint32>(broken.constData()+end+16);const auto second=central+46+11;
+        qToLittleEndian<quint32>(quint32(red.size()+1),broken.data()+second+20);QVERIFY(TestData::write(path,broken));
+        const auto bad=selectZipCover(path,{},suffixes,decoder);QVERIFY(bad.archive.error.isEmpty());const auto reads=ArchiveReadActivity::previewBytes.load();
+        QVERIFY(!readZipEntry(path,bad.archive,0).error.isEmpty());QCOMPARE(ArchiveReadActivity::previewBytes.load(),reads);
+    }
+    void extensionSnapshotIsRefreshedForNextCover() {
+        const auto cleanup=qScopeGuard([]{configureScriptReaders({});});QVERIFY(configureScriptReaders({}).isEmpty());
+        QTemporaryDir d;const auto path=d.filePath("sample.zip"),scripts=d.filePath("reader");QVERIFY(QDir().mkpath(scripts));
+        QVERIFY(TestData::write(path,zip({{"1.cvrtst",TestData::png(TestData::solid(Qt::red))},{"2.png",TestData::png(TestData::solid(Qt::blue))}})));
+        QCOMPARE(Book::coverPreview(path).image.pixelColor(0,0),QColor(Qt::blue));
+        QVERIFY(TestData::write(scripts+"/manifest.json",R"({"apiVersion":1,"id":"cover-extension-test","extensions":["cvrtst"],"magic":"53414d504c45","script":"decode.js"})"));
+        QVERIFY(TestData::write(scripts+"/decode.js","function decode(){return {width:1,height:1,pixels:new Uint8Array([255,0,0,255]).buffer};}"));
+        QVERIFY(configureScriptReaders({scripts}).isEmpty());QCOMPARE(Book::coverPreview(path).image.pixelColor(0,0),QColor(Qt::red));
+        QVERIFY(configureScriptReaders({}).isEmpty());QCOMPARE(Book::coverPreview(path).image.pixelColor(0,0),QColor(Qt::blue));
+    }
+    void longEntryNamesAreNotTruncated_data() {
+        QTest::addColumn<bool>("unicode");QTest::newRow("ascii")<<false;QTest::newRow("utf8")<<true;
+    }
+    void longEntryNamesAreNotTruncated() {
+        QFETCH(bool,unicode);QTemporaryDir d;const auto path=d.filePath("sample.zip");
+        const QString label="1"+(unicode?QString::fromUtf8("あ").repeated(600):QString(1200,'x'))+".png";
+        QVERIFY(label.toUtf8().size()>1024);
+        QVERIFY(TestData::write(path,zip({{label.toUtf8(),TestData::png(TestData::solid(Qt::red))},{"2.png",TestData::png(TestData::solid(Qt::blue))}})));
+        const auto ext=imageExtensions();NameDecoder decoder;const auto selected=selectZipCover(path,{},QSet<QString>(ext.begin(),ext.end()),decoder);
+        QVERIFY2(selected.archive.error.isEmpty(),qPrintable(selected.archive.error));QCOMPARE(selected.label,label);QCOMPARE(selected.archive.entries.size(),1);
+        QCOMPARE(selected.archive.entries.first().rawName,label.toUtf8());
+        const auto result=Book::coverPreview(path);QVERIFY2(!result.image.isNull(),qPrintable(result.error));QCOMPARE(result.image.pixelColor(0,0),QColor(Qt::red));
+    }
     void selectedPayloadOnly_data() {
         QTest::addColumn<bool>("last");QTest::addColumn<bool>("deflate");QTest::addColumn<bool>("descriptor");QTest::addColumn<bool>("wide");
         QTest::newRow("stored-first")<<false<<false<<false<<false;
@@ -187,6 +282,23 @@ private slots:
         const auto names=readZipNames(path,{},false,ZipNamesMode::Cover);QVERIFY(names.error.isEmpty());
         QVERIFY(!readZipEntry(path,names,0).error.isEmpty());QVERIFY(!readZipEntry(path,names,0,{},"wrong").error.isEmpty());
         const auto result=readZipEntry(path,names,0,{},"sample");QVERIFY2(result.error.isEmpty(),qPrintable(result.error));QCOMPARE(result.bytes,entry.bytes);
+    }
+    void truncatedSourceIsRejectedAfterSizeSnapshot_data() {
+        QTest::addColumn<bool>("metadata");QTest::newRow("metadata")<<true;QTest::newRow("payload")<<false;
+    }
+    void truncatedSourceIsRejectedAfterSizeSnapshot() {
+        QFETCH(bool,metadata);QTemporaryDir d;const auto path=d.filePath("sample.zip");
+        Entry entry{"1.png",TestData::png(TestData::solid(Qt::red))};entry.flags=0;
+        QVERIFY(TestData::write(path,zip({entry})));int calls=0;bool resized=false;
+        const auto truncate=[&] {if(++calls==2){QFile file(path);resized=file.open(QIODevice::WriteOnly)&&file.resize(0);}return false;};
+        if(metadata) {
+            const auto names=readZipNames(path,truncate,true,ZipNamesMode::Cover);
+            QVERIFY(resized);QVERIFY(!names.error.isEmpty());
+        } else {
+            const auto names=readZipNames(path,{},true,ZipNamesMode::Cover);QVERIFY(names.error.isEmpty());
+            const auto result=readZipEntry(path,names,0,truncate);
+            QVERIFY(resized);QVERIFY(!result.error.isEmpty());QVERIFY(result.bytes.isEmpty());
+        }
     }
     void cancellationStopsMetadataAndPayload() {
         QTemporaryDir d;const auto path=d.filePath("sample.zip");QByteArray payload(2*1024*1024,char(0));quint32 random=139;

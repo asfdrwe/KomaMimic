@@ -697,18 +697,13 @@ ImageResult Book::coverPreview(const QString &path,const NamePolicy &policy,QSiz
     const QFileInfo before(physicalBookPath(path));const auto bytes=before.size();const auto modified=before.lastModified();
     const auto suffix=before.suffix().toLower();
     if(!parseArchiveEntryPath(path).valid() && (suffix=="zip" || suffix=="cbz")) {
-        const auto names=readZipNames(path,cancel,false,ZipNamesMode::Cover,policy);
+        const auto extensions=imageExtensions();const QSet<QString> imageSuffixes(extensions.begin(),extensions.end());
+        NameDecoder decoder;
+        const auto selection=selectZipCover(path,policy,imageSuffixes,decoder,cancel);
+        const auto &names=selection.archive;const auto &label=selection.label;
         if(names.error.isEmpty()) {
-            int selected=-1;QString label;
-            for(int i=0;i<names.entries.size();++i) {
-                if(cancel && cancel())return {};
-                const auto &entry=names.entries[i];if(entry.fileType!=0100000 && entry.fileType!=0)continue;
-                const auto decoded=decodeName(entry,policy).text;
-                if(!isImagePath(decoded) && !isImagePath(QString::fromLatin1(entry.rawName)) && !isArchiveTextPath(decoded) && !isArchiveTextPath(QString::fromLatin1(entry.rawName)))continue;
-                if(selected<0 || naturalLess(decoded,label)){selected=i;label=decoded;}
-            }
-            if(selected>=0 && !isArchiveTextPath(label)) {
-                const auto data=readZipEntry(path,names,selected,cancel);
+            if(!names.entries.isEmpty() && !isArchiveTextPath(label)) {
+                const auto data=readZipEntry(path,names,0,cancel);
                 if(!data.error.isEmpty())return {{},data.error};
                 if(cancel && cancel())return {};
                 const QFileInfo after(physicalBookPath(path));
