@@ -3,9 +3,19 @@
 #include "filenames.h"
 #include <QVector>
 #include <functional>
+#include <atomic>
+struct ArchiveReadActivity {
+    inline static std::atomic<quint64> metadataBytes{0},previewBytes{0},previewEntries{0};
+};
 struct ArchiveNames {
     QVector<ArchiveName> entries;
     QString error;
+    qint64 directoryOffset=-1;
 };
-ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cancel={},bool strictLocal=true);
+enum class ZipNamesMode { Complete, Cover };
+ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cancel={},bool strictLocal=true,
+                         ZipNamesMode mode=ZipNamesMode::Complete,const NamePolicy &policy={});
+struct ZipEntryData {QByteArray bytes;QString error;};
+ZipEntryData readZipEntry(const QString &path,const ArchiveNames &names,int index,
+                         const std::function<bool()> &cancel={},const QString &password={});
 ArchiveNames readLhaNames(const QString &path,const std::function<bool()> &cancel={});

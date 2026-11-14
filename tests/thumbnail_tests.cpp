@@ -107,7 +107,8 @@ private slots:
         QTemporaryDir d;const auto real=d.filePath("real"),aliases=d.filePath("aliases");QVERIFY(QDir().mkpath(real));
         const auto name=image?QString("page.png"):QString("book.zip"),source=real+'/'+name,link=aliases+'/'+name;
         const auto red=TestData::png(TestData::solid(Qt::red));
-        QVERIFY(TestData::write(source,image?red:TestData::zip({{"1.png",red}})));
+        auto redInput=red;if(!image)redInput=TestData::zip({{"1.png",red}});
+        QVERIFY(TestData::write(source,redInput));
         if(!directory)QVERIFY(QDir().mkpath(aliases));
         const auto error=directory?makeSymbolicLink(real,aliases,true):makeSymbolicLink(source,link);
         if(!error.isEmpty())QSKIP(qPrintable("Cannot create a symbolic link: "+error));
@@ -125,7 +126,8 @@ private slots:
         QCOMPARE(observed.value("resolved"),QJsonDocument::fromJson(book->thumbnailSource(0)).object().value("resolved"));
         // Old pixels remain available before a concrete change is verified.
         const auto blue=TestData::png(TestData::solid(Qt::blue,{43,67}));
-        QVERIFY(TestData::write(source,image?blue:TestData::zip({{"1.png",blue}})));
+        auto blueInput=blue;if(!image)blueInput=TestData::zip({{"1.png",blue}});
+        QVERIFY(TestData::write(source,blueInput));
         QCOMPARE(cachedPageThumbnail(book,0,cache).image.pixelColor(0,0),QColor(Qt::red));
         calls=0;const auto changed=cachedPageThumbnail(book,0,cache,cancel,false,false,true);
         QVERIFY2(!changed.image.isNull(),qPrintable(changed.error));QVERIFY(calls<=100);

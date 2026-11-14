@@ -51,6 +51,7 @@ struct OpenOptions {
     bool pdfResources = false;
     // Internal concatenated-folder/nested-archive reading and image-only entry view.
     bool archiveAsPages = false, archiveImagesOnly = false;
+    bool previewOnly = false; // Internal cover request: prepare only the selected image.
     int depth = 0, fileCacheMiB=32;
     std::function<bool()> cancel;
     QString password;
@@ -66,6 +67,8 @@ public:
     struct OpenResult;
     static OpenResult fromPages(const QVector<BookPage> &pages);
     static OpenResult open(const QString &path, const NamePolicy &policy = {}, const OpenOptions &options = {});
+    static ImageResult coverPreview(const QString &path,const NamePolicy &policy={},QSize size={320,480},
+                                    const std::function<bool()> &cancel={});
     std::shared_ptr<const Book> reinterpretNames(const NamePolicy &policy) const;
     ImageResult image(int index, QSize thumbnail = {}, const std::function<bool()> &cancel = {},qint64 retainBytes=0) const;
     // Cover-list previews, including the first page of a text document.

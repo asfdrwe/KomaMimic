@@ -225,8 +225,7 @@ ImageResult cover(const QString &path,const NamePolicy &policy,const std::shared
             else result=decodeImage(file.read(MaxEncodedBytes+1),QFileInfo(path).fileName(),ThumbnailSize,0,{},cancel);
         } else if(QFileInfo(path).suffix().compare("epub",Qt::CaseInsensitive)==0)result=epubCover(path,ThumbnailSize,cancel);
         else {
-            OpenOptions options;options.cancel=cancel;const auto opened=Book::open(path,policy,options);
-            result=opened.book?opened.book->preview(0,ThumbnailSize,cancel):ImageResult{{},opened.error};
+            result=Book::coverPreview(path,policy,ThumbnailSize,cancel);
         }
         if(!result.image.isNull())result.image.setText("komamimic-cover-stamp",stamp);
         result.thumbnailEntries={{physical,info}};

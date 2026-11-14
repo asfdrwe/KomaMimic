@@ -42,11 +42,11 @@ Rerun timed-out suites individually to distinguish contention from a genuine han
 
 ## Test scopes
 
-`full` registers 26 CTest entries (27 when Node.js is available): 23 Qt suites (compatibility, reader, UI,
+`full` registers 27 CTest entries (28 when Node.js is available): 24 Qt suites (zip_cover, compatibility, reader, UI,
 feature, format, PDF, CLI, script, PIC, document, power, evolution, cache, cache_capacity, i18n,
 archive_text, legacy_settings, thumbnail, thumbnail_scroll, thumbnail_preload, reader_startup, document_behavior and document_surface), the C-locale format check, and the Python
 single-instance IPC and distribution checks.
-`platform` registers 19 CTest entries (20 when Node.js is available): compatibility, CLI, UI, PDF, script,
+`platform` registers 20 CTest entries (21 when Node.js is available): zip_cover, compatibility, CLI, UI, PDF, script,
 document, power, cache, cache_capacity, i18n, legacy_settings, thumbnail, thumbnail_scroll, thumbnail_preload, reader_startup, document_behavior, document_surface, single-instance IPC, and
 distribution. Some Qt suites run only selected platform integration functions.
 This is the Windows-fast CI default. Its cache suite selects cancellation,
@@ -68,6 +68,12 @@ timeout; the cache suite has a 300-second budget. Scroll cases log elapsed
 time at fixture, book-load, outward-scroll, persistence and return-check milestones.
 Each suite uses a distinct application name for native Windows/macOS cache isolation.
 The platform cache selection verifies that 300 cache hits preserve unsaved images.
+
+`zip_cover_tests`は両scopeで表紙専用のZIP取得を検査する。stored／deflate、data descriptor、
+ZIP64、自然順と同名、UTF-8／CP932／local Unicode extra／強制文字コード、CRC・暗号化、
+取消、コメント・SFXを含む。選択外のTIFFを読まないこと、独自メタデータ解析と選択画像取得の
+読込byte数、キャッシュhit時の元ZIPアクセスなしも確認する。カウンタは該当コード経路の
+読込量であり、物理ディスクの転送量を表すものではない。
 
 シンボリックリンクの回帰条件は両scopeの`thumbnail_tests`で実行する。ファイルリンクでの
 表紙・ページ往復、旧表紙PNGの内容・保存日時の維持、ファイル／ディレクトリリンクの

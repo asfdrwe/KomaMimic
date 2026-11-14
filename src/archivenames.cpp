@@ -1,11 +1,17 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "archivenames.h"
+#include "media.h"
+#include <archive.h>
+#include <archive_entry.h>
 #include <QCoreApplication>
 #include <QFile>
 #include <QtEndian>
 #include <zlib.h>
 #include <algorithm>
 #include <limits>
+#include <memory>
+#include <cstring>
+#include <cerrno>
 
 namespace {
 constexpr quint64 MaxMetadata = 64 * 1024 * 1024;
@@ -17,6 +23,7 @@ QByteArray readAt(QFile &f, quint64 offset, quint64 length) {
     if (offset > quint64(f.size()) || length > quint64(f.size()) - offset || length > MaxMetadata) return {};
     if (!f.seek(qint64(offset))) return {};
     const auto b = f.read(qint64(length));
+    ArchiveReadActivity::metadataBytes+=quint64(b.size());
     return quint64(b.size()) == length ? b : QByteArray{};
 }
 QString unicodeExtra(const QByteArray &extra, const QByteArray &raw, QString &warning) {
@@ -40,20 +47,25 @@ QString unicodeExtra(const QByteArray &extra, const QByteArray &raw, QString &wa
 ArchiveNames failure(const QString &message) { return {{}, message}; }
 }
 
-ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cancel,bool strictLocal) {
+ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cancel,bool strictLocal,ZipNamesMode mode,const NamePolicy &policy) {
     if(cancel && cancel())return failure(QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。"));
     QFile file(path);
-    if (!file.open(QIODevice::ReadOnly)) return failure(file.errorString());
+    if (!file.open(QIODevice::ReadOnly|(mode==ZipNamesMode::Cover?QIODevice::Unbuffered:QIODevice::NotOpen))) return failure(file.errorString());
     const quint64 fileSize = quint64(file.size());
-    const quint64 tailSize = std::min<quint64>(fileSize, 65557);
-    const auto tail = readAt(file, fileSize - tailSize, tailSize);
-    qsizetype e = tail.size() - 22;
-    for (; e >= 0; --e) {
-        if (u32(tail, e) == 0x06054b50 && e + 22 + u16(tail, e + 20) == tail.size()) break;
+    quint64 tailSize = std::min<quint64>(fileSize, mode==ZipNamesMode::Cover?22:65557);
+    auto tail = readAt(file, fileSize - tailSize, tailSize);
+    const auto findEnd=[&] {
+        for(qsizetype at=tail.size()-22;at>=0;--at)
+            if(u32(tail,at)==0x06054b50 && at+22+u16(tail,at+20)==tail.size())return at;
+        return qsizetype(-1);
+    };
+    auto e=findEnd();
+    if(e<0 && mode==ZipNamesMode::Cover && tailSize<fileSize) {
+        tailSize=std::min<quint64>(fileSize,65557);tail=readAt(file,fileSize-tailSize,tailSize);e=findEnd();
     }
     if (e < 0) return failure(QCoreApplication::translate("KomaMimic", "ZIPの終端headerがありません（分割ZIPは未対応です）。"));
     const quint64 end = fileSize - tailSize + quint64(e);
-    if (u16(tail, e + 4) || u16(tail, e + 6)) return failure(QCoreApplication::translate("KomaMimic", "分割ZIPは未対応です。"));
+    if (u16(tail, e + 4) || u16(tail, e + 6) || u16(tail,e+8)!=u16(tail,e+10)) return failure(QCoreApplication::translate("KomaMimic", "分割ZIPは未対応です。"));
     quint64 count = u16(tail, e + 10), directorySize = u32(tail, e + 12), directoryOffset = u32(tail, e + 16);
     if (count == 65535 || directorySize == 0xffffffff || directoryOffset == 0xffffffff) {
         if (end < 20) return failure(QCoreApplication::translate("KomaMimic", "ZIP64 locatorがありません。"));
@@ -61,7 +73,7 @@ ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cance
         if (locator.size() != 20 || u32(locator, 0) != 0x07064b50 || u32(locator, 4) || u32(locator, 16) != 1)
             return failure(QCoreApplication::translate("KomaMimic", "ZIP64 locatorが不正、または分割ZIPです。"));
         const auto record = readAt(file, u64(locator, 8), 56);
-        if (record.size() != 56 || u32(record, 0) != 0x06064b50 || u32(record, 16) || u32(record, 20))
+        if (record.size() != 56 || u32(record, 0) != 0x06064b50 || u32(record, 16) || u32(record, 20) || u64(record,24)!=u64(record,32))
             return failure(QCoreApplication::translate("KomaMimic", "ZIP64終端headerが不正です。"));
         count = u64(record, 32); directorySize = u64(record, 40); directoryOffset = u64(record, 48);
     }
@@ -71,6 +83,7 @@ ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cance
     const auto directory=readAt(file,directoryOffset,directorySize);
     if(quint64(directory.size())!=directorySize)return failure(QCoreApplication::translate("KomaMimic", "ZIPの名前情報が切れています。"));
     ArchiveNames result;
+    result.directoryOffset=qint64(directoryOffset);
     quint64 cursor = directoryOffset;
     for (quint64 i = 0; i < count; ++i) {
         if(cancel && cancel())return failure(QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。"));
@@ -90,36 +103,42 @@ ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cance
         // Only Unix/macOS creators encode POSIX mode in the upper word.
         name.fileType=(host==3 || host==19)?(attributes>>16)&0170000:0;
         if(!name.fileType)name.fileType=(name.rawName.endsWith('/') || (attributes&0x10))?0040000:0100000;
-        quint64 offset = u32(fixed, 42), size = u32(fixed, 24);
+        quint64 offset = u32(fixed, 42), size = u32(fixed, 24), packed = u32(fixed, 20);
         const QByteArray extra = name.rawHeader.mid(46 + nameSize, extraSize);
-        bool zip64Offset = offset != 0xffffffff, zip64Size = size != 0xffffffff;
+        bool zip64Offset = offset != 0xffffffff, zip64Size = size != 0xffffffff, zip64Packed=packed!=0xffffffff;
         for (qsizetype p = 0; p + 4 <= extra.size();) {
             const quint16 type = u16(extra, p), length = u16(extra, p + 2); p += 4;
             if (length > extra.size() - p) break;
             if (type == 1) {
                 qsizetype z = p;
                 if (size == 0xffffffff && z + 8 <= p + length) { size = u64(extra, z); z += 8; zip64Size = true; }
-                if (u32(fixed, 20) == 0xffffffff) z += 8;
+                if (packed == 0xffffffff && z + 8 <= p + length) { packed=u64(extra,z);z+=8;zip64Packed=true; }
                 if (offset == 0xffffffff && z + 8 <= p + length) { offset = u64(extra, z); zip64Offset = true; }
             }
             p += length;
         }
-        if (!zip64Offset || !zip64Size || offset > quint64(std::numeric_limits<qint64>::max())
+        if (!zip64Offset || !zip64Size || !zip64Packed || packed>quint64(std::numeric_limits<qint64>::max()) || offset > quint64(std::numeric_limits<qint64>::max())
             || size > quint64(std::numeric_limits<qint64>::max())) return failure(QCoreApplication::translate("KomaMimic", "ZIP64 entryが不正です。"));
         name.offset = qint64(offset); name.size = qint64(size);
-        const auto local = readAt(file, offset, 30);
+        name.compressedSize=qint64(packed);
+        const QString extraName = unicodeExtra(extra, name.rawName, name.warning);
+        // Central Unicode/UTF-8 (or forced byte decoding) fixes the ordering.
+        // Otherwise local Unicode extra may change even an ASCII filename;
+        // retain that legacy name fallback, but read only its header bytes.
+        const bool localNeeded=mode==ZipNamesMode::Complete || (!policy.force && !(name.zipFlags&0x800) && extraName.isEmpty());
+        const auto local = localNeeded?readAt(file, offset, 30):QByteArray{};
         quint16 localNameSize=0,localExtraSize=0;
-        if(local.size()!=30 || u32(local,0)!=0x04034b50)name.error=QCoreApplication::translate("KomaMimic", "ZIPのlocal headerが不正です。");
-        else {
+        if(localNeeded && (local.size()!=30 || u32(local,0)!=0x04034b50))name.error=QCoreApplication::translate("KomaMimic", "ZIPのlocal headerが不正です。");
+        else if(localNeeded) {
             localNameSize=u16(local,26);localExtraSize=u16(local,28);
-            name.localHeader=readAt(file,offset,30+quint64(localNameSize)+localExtraSize);
+            name.localHeader=mode==ZipNamesMode::Cover?local+readAt(file,offset+30,quint64(localNameSize)+localExtraSize):
+                readAt(file,offset,30+quint64(localNameSize)+localExtraSize);
             if(name.localHeader.size()!=30+localNameSize+localExtraSize)name.error=QCoreApplication::translate("KomaMimic", "ZIPのlocal名前情報が切れています。");
         }
         if(strictLocal && !name.error.isEmpty())return failure(name.error);
         const auto localName = name.localHeader.mid(30, localNameSize);
-        if (localName != name.rawName || (local.size()==30 && ((u16(local, 6) ^ name.zipFlags) & 0x800)))
+        if (localNeeded && (localName != name.rawName || (local.size()==30 && ((u16(local, 6) ^ name.zipFlags) & 0x800))))
             name.warning += QCoreApplication::translate("KomaMimic", " local/centralの名前・Unicode宣言が異なります。centralを優先します。");
-        const QString extraName = unicodeExtra(extra, name.rawName, name.warning);
         const QString localExtraName = unicodeExtra(name.localHeader.mid(30 + localNameSize), localName, name.warning);
         if (name.zipFlags & 0x800) {
             name.hasDeclaredName = decodeStrict(name.rawName, "UTF-8", name.declaredName);
@@ -140,6 +159,104 @@ ArchiveNames readZipNames(const QString &path,const std::function<bool()> &cance
     for (qsizetype i = 1; i < result.entries.size(); ++i)
         if (result.entries[i - 1].offset == result.entries[i].offset) return failure(QCoreApplication::translate("KomaMimic", "同じlocal headerを指す重複ZIP entryは読めません。"));
     return result;
+}
+
+ZipEntryData readZipEntry(const QString &path,const ArchiveNames &names,int index,const std::function<bool()> &cancel,const QString &password) {
+    const auto invalid=[] {return QCoreApplication::translate("KomaMimic", "ZIPのlocal headerが不正です。");};
+    const auto cancelled=[&] {return cancel && cancel();};
+    if(cancelled())return {{},QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。")};
+    if(index<0 || index>=names.entries.size())return {{},invalid()};
+    const auto &selected=names.entries[index];
+    if(!selected.error.isEmpty())return {{},selected.error};
+    if(selected.size<0 || selected.size>MaxEncodedBytes || selected.compressedSize<0 || selected.compressedSize>2*MaxEncodedBytes)
+        return {{},QCoreApplication::translate("KomaMimic", "画像の入力上限を超えています。")};
+    // Present libarchive with a seekable, single-entry view. Its local header
+    // and compressed data map to the original file; its tiny central directory
+    // maps to memory. Other entries' headers and payloads are never visited.
+    struct View {
+        QFile file;QByteArray tail,buffer=QByteArray(64*1024,char(0));
+        qint64 start=0,span=0,position=0;
+        std::function<bool()> cancel;
+        qint64 size() const {return span+tail.size();}
+        bool stopped(archive *a) const {
+            if(cancel && cancel()){archive_set_error(a,ECANCELED,"Archive read cancelled");return true;}return false;
+        }
+    } view;
+    view.file.setFileName(path);view.cancel=cancel;view.start=selected.offset;
+    if(!view.file.open(QIODevice::ReadOnly|QIODevice::Unbuffered))return {{},view.file.errorString()};
+    const auto limit=index+1<names.entries.size()?std::min(names.entries[index+1].offset,names.directoryOffset):names.directoryOffset;
+    if(view.start<0 || limit<view.start || limit>view.file.size())return {{},invalid()};
+    const auto fixed=readAt(view.file,quint64(view.start),30);
+    if(fixed.size()!=30 || u32(fixed,0)!=0x04034b50 || selected.rawHeader.size()<46 ||
+       u16(fixed,8)!=u16(selected.rawHeader,10) || ((u16(fixed,6)^selected.zipFlags)&0x49))return {{},invalid()};
+    const qint64 headerSize=30+qint64(u16(fixed,26))+u16(fixed,28);
+    if(headerSize>limit-view.start || selected.compressedSize>limit-view.start-headerSize)return {{},invalid()};
+    const qint64 payloadEnd=headerSize+selected.compressedSize;
+    view.span=payloadEnd+((selected.zipFlags&8)?std::min<qint64>(24,limit-view.start-payloadEnd):0);
+    view.tail=selected.rawHeader;
+    qToLittleEndian<quint32>(0,view.tail.data()+42);
+    QByteArray end(22,char(0));qToLittleEndian<quint32>(0x06054b50,end.data());
+    qToLittleEndian<quint16>(1,end.data()+8);qToLittleEndian<quint16>(1,end.data()+10);
+    qToLittleEndian<quint32>(quint32(view.tail.size()),end.data()+12);
+    qToLittleEndian<quint32>(quint32(view.span),end.data()+16);view.tail+=end;
+    std::unique_ptr<archive,decltype(&archive_read_free)> reader(archive_read_new(),archive_read_free);
+    if(!reader)return {{},QCoreApplication::translate("KomaMimic", "書庫リーダを作成できません。")};
+    archive_read_support_filter_none(reader.get());archive_read_support_format_zip_seekable(reader.get());
+    archive_read_set_format_option(reader.get(),"zip","hdrcharset","CP437");
+    archive_read_set_format_option(reader.get(),"zip","mac-ext","0");
+    if(!password.isEmpty())archive_read_add_passphrase(reader.get(),password.toUtf8().constData());
+    archive_read_set_seek_callback(reader.get(),[](archive *a,void *opaque,la_int64_t offset,int whence)->la_int64_t {
+        auto &v=*static_cast<View*>(opaque);if(v.stopped(a))return ARCHIVE_FATAL;
+        const auto base=whence==SEEK_SET?0:whence==SEEK_CUR?v.position:v.size();
+        if(offset< -base || offset>v.size()-base)return ARCHIVE_FATAL;
+        v.position=base+offset;return v.position;
+    });
+    const auto opened=archive_read_open2(reader.get(),&view,nullptr,
+        [](archive *a,void *opaque,const void **buffer)->la_ssize_t {
+            auto &v=*static_cast<View*>(opaque);if(v.stopped(a))return ARCHIVE_FATAL;
+            if(v.position>=v.size())return 0;
+            qint64 count=0;
+            if(v.position<v.span) {
+                if(!v.file.seek(v.start+v.position))return ARCHIVE_FATAL;
+                count=v.file.read(v.buffer.data(),std::min<qint64>(v.buffer.size(),v.span-v.position));
+                if(count<=0)return ARCHIVE_FATAL;
+                ArchiveReadActivity::previewBytes+=quint64(count);
+                *buffer=v.buffer.constData();
+            } else {
+                count=std::min<qint64>(v.buffer.size(),v.size()-v.position);
+                *buffer=v.tail.constData()+v.position-v.span;
+            }
+            v.position+=count;return count;
+        },[](archive *a,void *opaque,la_int64_t distance)->la_int64_t {
+            auto &v=*static_cast<View*>(opaque);if(v.stopped(a))return 0;
+            const auto count=std::clamp<qint64>(distance,0,v.size()-v.position);v.position+=count;return count;
+        },nullptr);
+    const auto diagnostic=[&] {const auto message=archive_error_string(reader.get());return message?QString::fromUtf8(message):invalid();};
+    if(opened!=ARCHIVE_OK)return {{},diagnostic()};
+    archive_entry *entry=nullptr;const auto status=archive_read_next_header(reader.get(),&entry);
+    if(status!=ARCHIVE_OK && status!=ARCHIVE_WARN)return {{},diagnostic()};
+    if(archive_entry_is_encrypted(entry)>0 && password.isEmpty())return {{},QCoreApplication::translate("KomaMimic", "書庫のパスワードが必要です。")};
+    ++ArchiveReadActivity::previewEntries;
+    QByteArray bytes;char buffer[64*1024];la_ssize_t count;
+    while((count=archive_read_data(reader.get(),buffer,sizeof buffer))>0) {
+        if(cancelled())return {{},QCoreApplication::translate("KomaMimic", "書庫読込を取り消しました。")};
+        if(count>MaxEncodedBytes-bytes.size())return {{},QCoreApplication::translate("KomaMimic", "画像の入力上限を超えています。")};
+        bytes.append(buffer,count);
+    }
+    if(count<0)return {{},diagnostic()};
+    // AE-2 uses authenticated encryption instead of the central CRC field.
+    bool authenticated=false;
+    if(u16(selected.rawHeader,10)==99) {
+        const auto extra=selected.rawHeader.mid(46+u16(selected.rawHeader,28),u16(selected.rawHeader,30));
+        for(qsizetype p=0;p+4<=extra.size();) {
+            const auto type=u16(extra,p),length=u16(extra,p+2);p+=4;if(length>extra.size()-p)break;
+            if(type==0x9901 && length>=7 && u16(extra,p)==2)authenticated=true;
+            p+=length;
+        }
+    }
+    if(bytes.size()!=selected.size || (!authenticated && quint32(crc32(0,reinterpret_cast<const Bytef*>(bytes.constData()),uInt(bytes.size())))!=u32(selected.rawHeader,16)))
+        return {{},invalid()};
+    return {bytes,{}};
 }
 
 ArchiveNames readLhaNames(const QString &path,const std::function<bool()> &cancel) {

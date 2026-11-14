@@ -424,6 +424,8 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
         for (auto &page : book->pages) page.identity = "archive-file:" + page.archiveEntryId;
         return {book, {}};
     }
+    // Covers need the selected file's first page, not every TIFF/script frame.
+    if(options.previewOnly && book->pages.size()>1)book->pages.resize(1);
     // Reading sequences contain image/PDF pages. Text documents stay individual
     // publications and are never paginated into an alternate raster reader.
     QVector<BookPage> expanded;
@@ -433,7 +435,7 @@ Book::OpenResult Book::open(const QString &path, const NamePolicy &policy, const
         if (options.cancel && options.cancel()) return {{}, QCoreApplication::translate("KomaMimic", "読み込みを取り消しました。")};
         int count = 1;
         QString pageError=page.error;
-        if(!page.sourceBook && (suffix=="tiff" || suffix=="tif" || scriptMultipageExtensions().contains(suffix))) {
+        if(!options.previewOnly && !page.sourceBook && (suffix=="tiff" || suffix=="tif" || scriptMultipageExtensions().contains(suffix))) {
             if(book->filesystem && (suffix=="tiff" || suffix=="tif") && !scriptMultipageExtensions().contains(suffix)) {
                 QImageReader reader(page.filePath);
                 count=std::clamp(reader.imageCount(),1,10000);
@@ -686,6 +688,42 @@ ImageResult Book::image(int index, QSize thumbnail, const std::function<bool()> 
         if (!thumbnail.isEmpty()) value = value.scaled(thumbnail, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     };
     crop(image.image); for (auto &frame : image.frames) crop(frame); return image;
+}
+ImageResult Book::coverPreview(const QString &path,const NamePolicy &policy,QSize size,const std::function<bool()> &cancel) {
+    if(cancel && cancel())return {};
+    Utf8ArchiveLocale locale;
+    if(!locale.valid())return {{},QCoreApplication::translate("KomaMimic", "書庫のUnicode処理に必要なUTF-8 localeを作成できません。")};
+    if(!legacyEncodings().contains(policy.legacyEncoding))return {{},QCoreApplication::translate("KomaMimic", "未対応の名前の文字コードです。")};
+    const QFileInfo before(physicalBookPath(path));const auto bytes=before.size();const auto modified=before.lastModified();
+    const auto suffix=before.suffix().toLower();
+    if(!parseArchiveEntryPath(path).valid() && (suffix=="zip" || suffix=="cbz")) {
+        const auto names=readZipNames(path,cancel,false,ZipNamesMode::Cover,policy);
+        if(names.error.isEmpty()) {
+            int selected=-1;QString label;
+            for(int i=0;i<names.entries.size();++i) {
+                if(cancel && cancel())return {};
+                const auto &entry=names.entries[i];if(entry.fileType!=0100000 && entry.fileType!=0)continue;
+                const auto decoded=decodeName(entry,policy).text;
+                if(!isImagePath(decoded) && !isImagePath(QString::fromLatin1(entry.rawName)) && !isArchiveTextPath(decoded) && !isArchiveTextPath(QString::fromLatin1(entry.rawName)))continue;
+                if(selected<0 || naturalLess(decoded,label)){selected=i;label=decoded;}
+            }
+            if(selected>=0 && !isArchiveTextPath(label)) {
+                const auto data=readZipEntry(path,names,selected,cancel);
+                if(!data.error.isEmpty())return {{},data.error};
+                if(cancel && cancel())return {};
+                const QFileInfo after(physicalBookPath(path));
+                if(after.size()!=bytes || after.lastModified()!=modified)return {{},QCoreApplication::translate("KomaMimic", "画像・書庫が変更されています。開き直してください。")};
+                ++BookActivity::encodedReads;++BookActivity::imageRequests;
+                return decodeImage(data.bytes,label,size,0,{},cancel);
+            }
+        }
+        if(cancel && cancel())return {};
+    }
+    // Documents and non-ZIP formats keep their established source/resource
+    // handling. Do not enumerate unrelated TIFF frames for an image cover.
+    OpenOptions options;options.cancel=cancel;options.previewOnly=!parseArchiveEntryPath(path).valid();
+    const auto opened=Book::open(path,policy,options);
+    return opened.book?opened.book->preview(0,size,cancel):ImageResult{{},opened.error};
 }
 ImageResult Book::preview(int index, QSize size, const std::function<bool()> &cancel) const {
     if (cancel && cancel()) return {{}, QCoreApplication::translate("KomaMimic", "画像読込を取り消しました。")};

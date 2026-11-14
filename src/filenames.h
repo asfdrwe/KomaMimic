@@ -24,6 +24,7 @@ struct ArchiveName {
     QString error;
     qint64 offset = 0;
     qint64 size = 0;
+    qint64 compressedSize = -1; // ZIP only; other formats retain their existing reader.
 };
 struct DecodedName {
     QString text, encoding, origin, warning;
