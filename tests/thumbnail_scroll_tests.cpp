@@ -48,7 +48,10 @@ private slots:
                 if(!grid->item(row)->data(ThumbnailRoleReady).toBool())return false;
             return true;
         };
-        QTRY_VERIFY(allVisibleReady());
+        // macOS CI completed the initial ZIP page fill in 7.65 s. Allow cold
+        // setup time here; retain the 5 s scroll and return checks below.
+        QTRY_VERIFY_WITH_TIMEOUT(allVisibleReady(),10000);
+        checkpoint("initial-visible-ready");
         for(int row=0;row<=185;row+=5) {
             grid->scrollToItem(grid->item(row),QAbstractItemView::PositionAtTop);grid->requestVisible();
             QTRY_VERIFY(allVisibleReady());

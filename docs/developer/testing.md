@@ -65,7 +65,10 @@ reuse in fresh processes, nested source changes, explicit refresh, and cached di
 while generation is busy. `thumbnail_scroll_tests` separately runs the 220-folder/
 220-page ZIP scroll-and-persistence cases in both scopes. Each has its own 180-second
 timeout; the cache suite has a 300-second budget. Scroll cases log elapsed
-time at fixture, book-load, outward-scroll, persistence and return-check milestones.
+time at fixture, book-load, initial-visible, outward-scroll, persistence and return-check
+milestones. Initial visible thumbnails have a 10-second preparation budget; each
+scroll step and the return check retain their 5-second limits. The suite budget
+remains 180 seconds.
 Each suite uses a distinct application name for native Windows/macOS cache isolation.
 The platform cache selection verifies that 300 cache hits preserve unsaved images.
 
