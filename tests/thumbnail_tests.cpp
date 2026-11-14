@@ -436,6 +436,44 @@ private slots:
         const auto image=grid->item(0)->icon().pixmap(64,64).toImage();QCOMPARE(image.pixelColor(image.rect().center()),QColor(Qt::blue));
         release.count_down();cleanup.dismiss();window.close();
     }
+    void knownCacheMissDoesNotQueueAnotherProbeWhileGenerating_data() {
+        QTest::addColumn<bool>("pages");QTest::newRow("covers")<<false;QTest::newRow("pages")<<true;
+    }
+    void knownCacheMissDoesNotQueueAnotherProbeWhileGenerating() {
+        QFETCH(bool,pages);QTemporaryDir d;const auto books=d.filePath("books");QVERIFY(QDir().mkpath(books));
+        const auto path=books+(pages?"/book.zip":"/page.png");const auto pixels=TestData::png(TestData::solid(Qt::blue));
+        auto input=pixels;
+        if(pages){const QVector<TestData::ZipEntry> entries{{"page.png",pixels}};input=TestData::zip(entries);}
+        QVERIFY(TestData::write(path,input));
+        MainWindow window(d.filePath("settings.ini"));window.show();
+        if(pages)window.loadBook(path,MainWindow::ViewMode::Pages);else window.openDirectory(books);
+        auto *grid=pages?window.m_pages:window.m_library;
+        QTRY_VERIFY(window.requestReady() && grid->count()==1 && grid->item(0)->data(ThumbnailRoleReady).toBool());
+        QSignalBlocker layout(grid),notices(window.m_directoryWatcher);window.m_directoryRefreshTimer->stop();
+        window.m_displayJobs->retain(pages?"pages":"covers");
+        auto cache=std::make_shared<ThumbnailDiskCache>(d.filePath("empty-cache"));cache->setDeferredWrites(true);window.m_thumbnailDiskCache=cache;
+        std::latch release(1);std::atomic<bool> entered=false;auto cleanup=qScopeGuard([&]{release.count_down();});
+        window.m_displayJobs->submit<int>(DisplayJobs::Lane::Display,"test-hold","hold-generation",
+            [&](const auto &){entered=true;release.wait();return 0;},[](int,bool){});
+        QTRY_VERIFY(entered.load());
+        auto *item=grid->item(0);item->setData(ThumbnailRoleReady,false);item->setData(ThumbnailNextCheckRole,0);item->setData(ThumbnailCacheNextCheckRole,0);
+        const auto scope=pages?QString("pages"):QString("covers");
+        const auto id=scope+QString("/%1/0").arg(pages?window.m_pageGeneration:window.m_libraryGeneration);
+        window.requestThumbnails(grid);QTRY_VERIFY(window.m_displayJobs->contains(id+"/generate"));
+        // A slow viewport cache pass can outlive the miss-probe cooldown.
+        // Expire it deterministically while the real source request is queued.
+        for(int attempt=0;attempt<3;++attempt) {
+            item->setData(ThumbnailCacheNextCheckRole,0);window.requestThumbnails(grid);
+            QVERIFY2(!window.m_displayJobs->contains(id),"A known miss must not refill the high-priority cache queue ahead of its queued generation");
+        }
+        bool hit=false;cache->image("other-row",[]{return ImageResult{TestData::solid(Qt::green),{}};});
+        window.m_displayJobs->submit<ImageResult>(DisplayJobs::Lane::Cache,"other-row","other-row",
+            [cache](const auto &cancel){return cache->lookup("other-row",cancel);},
+            [&](ImageResult result,bool cancelled){hit=!cancelled && !result.image.isNull() && result.image.pixelColor(0,0)==QColor(Qt::green);});
+        QTRY_VERIFY(hit);QVERIFY(!item->data(ThumbnailRoleReady).toBool());
+        release.count_down();cleanup.dismiss();QTRY_VERIFY(item->data(ThumbnailRoleReady).toBool());
+        const auto image=item->icon().pixmap(64,64).toImage();QCOMPARE(image.pixelColor(image.rect().center()),QColor(Qt::blue));window.close();
+    }
     void emptyFolderInvalidatesPersistentPixels_data() {
         QTest::addColumn<bool>("deferred");QTest::newRow("committed")<<false;QTest::newRow("journal")<<true;
     }

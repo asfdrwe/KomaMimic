@@ -67,8 +67,9 @@ while generation is busy. `thumbnail_scroll_tests` separately runs the 220-folde
 timeout; the cache suite has a 300-second budget. Scroll cases log elapsed
 time at fixture, book-load, initial-visible, outward-scroll, persistence and return-check
 milestones. Initial visible thumbnails have a 10-second preparation budget; each
-scroll step and the return check retain their 5-second limits. The suite budget
-remains 180 seconds.
+scroll step and the return check retain their 5-second limits. Failures include
+missing rows, pending cache/generation/validation jobs, visibility and viewport
+state. The suite budget remains 180 seconds.
 Each suite uses a distinct application name for native Windows/macOS cache isolation.
 The platform cache selection verifies that 300 cache hits preserve unsaved images.
 
@@ -135,6 +136,7 @@ pendingの再起動復元とclear、FIFO容量整理と読込時の日時不変�
 旧要求を降格・再開しないこと、遅れて終わった旧生成が新画像を上書きしないことも検査する。
 
 thumbnail群は実際の属性検査・走査・生成・Book open／画像読込の回数を観測する。
+表紙・ページの生成待ちでcache missの再検索を重ねないことと、待機中も別項目のcache hitを表示できることを検査する。
 画像ZIP、TXT入りZIP、EPUBのフォルダ往復では、保存PNGの復号回数とRAM hitを区別して確認する。
 文書のBook状態を保持したまま表紙一覧へ戻るケースと、native文書描画から画像一覧へ戻るケースを分ける。
 未変更の再表示・待機・再訪で回数が増えないこと、変更がある対象だけ更新し、通知を

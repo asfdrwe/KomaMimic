@@ -94,6 +94,7 @@ protected:
 private:
     friend class ReaderFeatures;
     friend class ThumbnailTests;
+    friend class ThumbnailScrollTests;
     friend class ThumbnailPreloadTests;
     friend class ReaderStartupTests;
     friend class DocumentBehaviorTests;

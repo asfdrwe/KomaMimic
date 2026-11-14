@@ -3,6 +3,7 @@
 #include "thumbnailcache.h"
 #include "thumbnailgrid.h"
 #include "thumbnailsource.h"
+#include "displayjobs.h"
 #include <QElapsedTimer>
 #include <QScrollBar>
 #include <algorithm>
@@ -48,13 +49,27 @@ private slots:
                 if(!grid->item(row)->data(ThumbnailRoleReady).toBool())return false;
             return true;
         };
-        // macOS CI completed the initial ZIP page fill in 7.65 s. Allow cold
-        // setup time here; retain the 5 s scroll and return checks below.
-        QTRY_VERIFY_WITH_TIMEOUT(allVisibleReady(),10000);
+        const auto visibleState=[&](const QString &phase) {
+            const auto rows=grid->visibleRows();QStringList missing;
+            const auto generation=pages?window.m_pageGeneration:window.m_libraryGeneration;
+            for(int row:rows)if(!grid->item(row)->data(ThumbnailRoleReady).toBool()) {
+                const auto *item=grid->item(row);const auto id=QString("%1/%2/%3").arg(pages?"pages":"covers").arg(generation).arg(row);
+                missing.append(QString("row=%1 pending=%2 cache=%3 generate=%4 verify=%5 cache-next=%6 next=%7 tooltip=%8")
+                    .arg(row).arg(item->data(PendingRole).toBool()).arg(window.m_displayJobs->contains(id))
+                    .arg(window.m_displayJobs->contains(id+"/generate")).arg(window.m_displayJobs->contains(id+"/verify"))
+                    .arg(item->data(ThumbnailCacheNextCheckRole).toLongLong()).arg(item->data(ThumbnailNextCheckRole).toLongLong()).arg(item->toolTip()));
+            }
+            return QString("phase=%1 elapsed=%2 mode=%3 loading=%4 visible=%5 shown=%6 viewport=%7x%8 scroll=%9 missing={%10}")
+                .arg(phase).arg(elapsed.elapsed()).arg(int(window.viewMode())).arg(window.isLoading()).arg(rows.size()).arg(grid->isVisible())
+                .arg(grid->viewport()->width()).arg(grid->viewport()->height()).arg(grid->verticalScrollBar()->value()).arg(missing.join("; "));
+        };
+        // Keep the existing preparation budget; report missing rows and their
+        // request states rather than treating every initial failure as slowness.
+        QTRY_VERIFY2_WITH_TIMEOUT(allVisibleReady(),qPrintable(visibleState("initial")),10000);
         checkpoint("initial-visible-ready");
         for(int row=0;row<=185;row+=5) {
             grid->scrollToItem(grid->item(row),QAbstractItemView::PositionAtTop);grid->requestVisible();
-            QTRY_VERIFY(allVisibleReady());
+            QTRY_VERIFY2(allVisibleReady(),qPrintable(visibleState(QString("outward:%1").arg(row))));
         }
         checkpoint("outward-scroll-ready");
         QTest::qWait(200);
@@ -74,7 +89,8 @@ private slots:
         // The normal scroll event must suffice: no extra request or F6 after
         // the returning images complete and trigger bounded icon eviction.
         grid->scrollToItem(grid->item(frontier-3),QAbstractItemView::PositionAtTop);
-        QTRY_VERIFY_WITH_TIMEOUT(allVisibleReady(),5000);QTest::qWait(200);QVERIFY(allVisibleReady());
+        QTRY_VERIFY2_WITH_TIMEOUT(allVisibleReady(),qPrintable(visibleState("return")),5000);
+        QTest::qWait(200);QVERIFY2(allVisibleReady(),qPrintable(visibleState("return-settled")));
         for(int row:grid->visibleRows()) {
             const auto image=grid->item(row)->icon().pixmap(64,64).toImage();
             QCOMPARE(image.pixelColor(image.rect().center()),QColor(Qt::blue));

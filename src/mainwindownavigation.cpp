@@ -631,8 +631,12 @@ void MainWindow::requestThumbnail(ThumbnailGrid *grid,int row,bool preload) {
     const auto deps=item->data(ThumbnailDependenciesRole).toJsonObject();
     const bool changed=ready && m_thumbnailChanges->needsUpdate(deps);
     if(ready && !changed && !refresh)return;
-    if(m_displayJobs->contains(id))return;
-    if(ready && (m_displayJobs->contains(id+"/generate") || m_displayJobs->contains(id+"/verify")))return;
+    // The first miss already queued its source request. Repeating cache probes
+    // after their cooldown can keep the higher-priority lane nonempty forever
+    // on slow storage, preventing that generation from starting.
+    if(m_displayJobs->contains(id) || m_displayJobs->contains(id+"/generate"))return;
+    // An evicted preview may still hit cache while validation is in progress.
+    if(ready && m_displayJobs->contains(id+"/verify"))return;
     if(!ready && item->data(ThumbnailCacheNextCheckRole).toLongLong()>QDateTime::currentMSecsSinceEpoch())return;
     if(item->data(ThumbnailNextCheckRole).toLongLong()>QDateTime::currentMSecsSinceEpoch())return;
     const int page=item->data(PageRole).toInt();

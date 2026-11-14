@@ -4,6 +4,7 @@
 
 ## v1.7.0
 
+- Prevent repeated cache-miss probes from delaying generation of visible thumbnails.
 - Fix cover regeneration when switching between covers and page thumbnails through a file symlink, preserving existing saved images. Detect changes to the target image or ZIP on Windows.
 - Stop repeated file reopening when page-thumbnail verification encounters inconsistent resolved paths or source observations.
 - Select the cover image before loading a ZIP/CBZ entry, reducing repeated archive reads and avoiding page-count scans of unrelated TIFF images. Existing saved thumbnails remain reusable.
