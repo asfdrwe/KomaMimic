@@ -5,6 +5,7 @@
 #include <QApplication>
 #include <QBuffer>
 #include <QFile>
+#include <QStandardPaths>
 #include <QTemporaryDir>
 #include <QThreadPool>
 #include <QtTest>
@@ -48,6 +49,15 @@ template<class Suite> int isolatedTestMain(int argc, char **argv) {
     QApplication app(argc, argv);
     QCoreApplication::setOrganizationName("KomaMimicTests");
     QCoreApplication::setApplicationName("Regression");
+    const auto cache=QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
+    const auto inside=[&](const QString &root) {
+        const auto relative=QDir(root).relativeFilePath(cache);
+        return !root.isEmpty() && !QDir::isAbsolutePath(relative) && relative!=".." && !relative.startsWith("../");
+    };
+    if(!inside(qEnvironmentVariable("HOME")) && !inside(qEnvironmentVariable("XDG_CACHE_HOME"))) {
+        qCritical().noquote()<<"OS cache directory is outside the test environment:"<<cache;
+        return 2;
+    }
     QThreadPool::globalInstance()->setMaxThreadCount(3);
     int result;
     { Suite suite; result = QTest::qExec(&suite, argc, argv); }

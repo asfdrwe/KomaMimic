@@ -11,6 +11,8 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QScopeGuard>
+#include <QStandardPaths>
+#include <cstdio>
 #include <QTimer>
 #include <QUuid>
 
@@ -194,5 +196,13 @@ private slots:
         QVERIFY(QJsonDocument::fromJson(received.trimmed()).isObject());
     }
 };
-ISOLATED_TEST_MAIN(CliTests)
+int main(int argc,char **argv) {
+    if(argc==2 && QByteArray(argv[1])=="--standard-paths") {
+        QCoreApplication app(argc,argv);
+        QCoreApplication::setOrganizationName("KomaMimic");QCoreApplication::setApplicationName("KomaMimic");
+        const auto data=QJsonDocument(QJsonObject{{"cache",QStandardPaths::writableLocation(QStandardPaths::CacheLocation)}}).toJson();
+        return std::fwrite(data.constData(),1,size_t(data.size()),stdout)==size_t(data.size())?0:2;
+    }
+    return isolatedTestMain<CliTests>(argc,argv);
+}
 #include "cli_tests.moc"

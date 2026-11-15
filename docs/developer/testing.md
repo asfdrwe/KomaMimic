@@ -4,6 +4,18 @@ Qt Test and Python 3.9+ are required. The Windows SDK setup helper needs Python
 3.10+. The examples below are for Linux/macOS. Keep test builds separate from the
 application-only builds in the README.
 
+CTestは`tests/isolated_test.py`を通し、テストごとの一時領域へ`HOME`、XDG系変数、
+`TMPDIR`／`TMP`／`TEMP`を向ける。macOSでは`CFFIXED_USER_HOME`、Windowsでは
+`USERPROFILE`、`APPDATA`、`LOCALAPPDATA`、`HOMEDRIVE`、`HOMEPATH`も設定する。
+子プロセスは同じ環境を継承し、通常アプリの保存先を共有しない。本体コードへの追加はない。
+Qt試験の共通起動処理と単一起動試験は、実際のQtのキャッシュ先が一時領域内か検査し、
+環境変数による分離が効いていなければ、通常キャッシュに触れず失敗とする。
+
+単一起動試験は、別環境のインスタンスを動かしたまま、テスト用の設定ファイルと通信先で
+二重起動防止・要求転送・`--new-window`・終了要求を検査する。同じテスト内の通信には
+共通の一時`TMPDIR`を使い、別の設定パスから作られる通信名とロックで分離する。
+Unixの通信ソケットにはパス長上限があるため、実行元の`TMPDIR`には短いパスを使う。
+
 ```sh
 python3 tools/check_source.py
 cmake -S . -B build-test -G Ninja \

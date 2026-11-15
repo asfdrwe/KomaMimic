@@ -1,4 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
+find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
+function(add_isolated_test name)
+    add_test(NAME ${name} COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/isolated_test.py" ${ARGN})
+endfunction()
+
 add_library(test_support STATIC test_support.cpp)
 target_link_libraries(test_support PUBLIC reader_ui Qt6::Test)
 target_include_directories(test_support PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
@@ -24,7 +30,7 @@ foreach(suite IN LISTS suites)
     target_link_libraries(${suite}_tests PRIVATE test_support)
     set_target_properties(${suite}_tests PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
     add_dependencies(${suite}_tests komamimic-script-worker)
-    add_test(NAME ${suite}_tests COMMAND ${suite}_tests ${${suite}_functions}
+    add_isolated_test(${suite}_tests "$<TARGET_FILE:${suite}_tests>" ${${suite}_functions}
         -o -,txt -o ${suite}_tests.qtest.txt,txt)
     set_tests_properties(${suite}_tests PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
@@ -69,7 +75,7 @@ target_compile_definitions(cli_tests PRIVATE
     KOMAMIMIC_EXECUTABLE="$<TARGET_FILE:komamimic>")
 
 if(TARGET format_tests)
-    add_test(NAME format_tests_c_locale COMMAND format_tests
+    add_isolated_test(format_tests_c_locale "$<TARGET_FILE:format_tests>"
         -o -,txt -o format_tests_c_locale.qtest.txt,txt)
     set_tests_properties(format_tests_c_locale PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1;LC_ALL=C;LANG=C"
@@ -102,20 +108,17 @@ target_link_libraries(document_probe PRIVATE reader_ui)
 set_target_properties(document_probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 add_dependencies(document_tests document_probe)
 
-find_package(Python3 3.9 REQUIRED COMPONENTS Interpreter)
-
 # Smoke-test real secondary-process IPC with a private configuration.
 # The offscreen runner cannot validate the compositor's focus-stealing policy.
-add_test(NAME single_instance_tests
-    COMMAND "${Python3_EXECUTABLE}"
+add_isolated_test(single_instance_tests "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/test_single_instance.py"
-    --executable "$<TARGET_FILE:komamimic>")
+    --executable "$<TARGET_FILE:komamimic>" --paths-probe "$<TARGET_FILE:cli_tests>")
 set_tests_properties(single_instance_tests PROPERTIES
     ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1"
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     TIMEOUT 120)
 
-add_test(NAME distribution_tests COMMAND "${Python3_EXECUTABLE}"
+add_isolated_test(distribution_tests "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/test_distribution.py"
     --worker "$<TARGET_FILE:komamimic-script-worker>" --probe "$<TARGET_FILE:validation_probe>")
 set_tests_properties(distribution_tests PROPERTIES
@@ -126,6 +129,6 @@ set_tests_properties(distribution_tests PROPERTIES
 # Native WebEngine cases remain part of document_behavior_tests on every build.
 find_program(KOMAMIMIC_NODE_EXECUTABLE NAMES node nodejs)
 if(KOMAMIMIC_NODE_EXECUTABLE)
-    add_test(NAME document_layout_tests COMMAND "${KOMAMIMIC_NODE_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/document_layout_tests.js")
+    add_isolated_test(document_layout_tests "${KOMAMIMIC_NODE_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/document_layout_tests.js")
     set_tests_properties(document_layout_tests PROPERTIES TIMEOUT 30)
 endif()
