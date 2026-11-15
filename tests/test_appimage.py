@@ -378,6 +378,40 @@ sys.exit(7 if case == 'exit-error' else 0)
             self.assertEqual(report['poppler'], str(root / 'usr/share/poppler'))
             self.assertIsNone(report['sandbox'])
 
+    @unittest.skipUnless(os.name == 'posix', 'requires POSIX executable scripts')
+    def test_launcher_fcitx_fallback_preserves_explicit_input_methods(self):
+        cases = [
+            ('fcitx', {'QT_IM_MODULE': 'fcitx'}, 'fcitx;ibus'),
+            ('fcitx-empty-list', {'QT_IM_MODULE': 'fcitx', 'QT_IM_MODULES': ''}, 'fcitx;ibus'),
+            ('explicit-list', {'QT_IM_MODULE': 'fcitx', 'QT_IM_MODULES': 'compose;ibus'}, 'compose;ibus'),
+            ('list-only', {'QT_IM_MODULES': 'ibus;compose'}, 'ibus;compose'),
+            ('ibus', {'QT_IM_MODULE': 'ibus'}, None),
+            ('compose', {'QT_IM_MODULE': 'compose'}, None),
+            ('none', {'QT_IM_MODULE': 'none'}, None),
+            ('unset', {}, None),
+            ('empty', {'QT_IM_MODULE': ''}, None),
+        ]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / 'App Dir 日本語'
+            (root / 'usr/bin').mkdir(parents=True)
+            program = root / 'usr/bin/komamimic'
+            program.write_text('#!' + sys.executable + '\nimport json, os\n'
+                               'print(json.dumps({key: os.environ.get(key) for key in '
+                               '("QT_IM_MODULE", "QT_IM_MODULES")}))\n')
+            program.chmod(0o755)
+            (root / 'AppRun').write_text(appimage.APP_RUN)
+            (root / 'AppRun').chmod(0o755)
+            for name, variables, expected in cases:
+                with self.subTest(name=name):
+                    env = dict(os.environ)
+                    for key in ('QT_IM_MODULE', 'QT_IM_MODULES'):
+                        env.pop(key, None)
+                    env.update(variables)
+                    report = json.loads(subprocess.check_output([str(root / 'AppRun')],
+                                                               env=env, text=True))
+                    self.assertEqual(report['QT_IM_MODULE'], variables.get('QT_IM_MODULE'))
+                    self.assertEqual(report['QT_IM_MODULES'], expected)
+
     def test_download_rejects_modified_packaging_tool(self):
         with tempfile.TemporaryDirectory() as temporary:
             with patch('urllib.request.urlopen', return_value=io.BytesIO(b'wrong bytes')):

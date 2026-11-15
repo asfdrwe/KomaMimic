@@ -31,6 +31,11 @@ export APPDIR="$HERE"
 export LD_LIBRARY_PATH="$HERE/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 export QT_PLUGIN_PATH="$HERE/usr/plugins"
 export QT_QPA_PLATFORM_PLUGIN_PATH="$HERE/usr/plugins/platforms"
+# Try the bundled IBus bridge when the requested Fcitx plugin is unavailable.
+# Qt gives an explicitly configured QT_IM_MODULES list priority.
+if [ -z "${QT_IM_MODULES:-}" ] && [ "${QT_IM_MODULE:-}" = fcitx ]; then
+    export QT_IM_MODULES="fcitx;ibus"
+fi
 export QTWEBENGINEPROCESS_PATH="$HERE/usr/libexec/QtWebEngineProcess"
 export QTWEBENGINE_RESOURCES_PATH="$HERE/usr/share/qt6/resources"
 export QTWEBENGINE_LOCALES_PATH="$HERE/usr/translations/qtwebengine_locales"

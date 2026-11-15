@@ -2,6 +2,10 @@
 
 [日本語](../changelog.md) | English
 
+## v1.7.2
+
+- Fixed text input in the Linux AppImage when the Fcitx Qt plugin is unavailable. When Fcitx is requested, also try the bundled IBus plugin. Preserve explicit input-module preference lists and other input-method selections.
+
 ## v1.7.1
 
 - Removed the 128 MiB total uncompressed size limit for EPUB loading. The 32 MiB limit per entry remains.

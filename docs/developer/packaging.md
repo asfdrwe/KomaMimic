@@ -37,6 +37,10 @@ See the [AppImage workflow](ci.md#linux-appimage-generation-on-rocky-8).
 `tools/build_appimage.py` deploys dependencies and resources after CMake install,
 checks relative RPATHs and glibc requirements, compresses with checksum-pinned tools,
 and checks the candidate, including real WebEngine layout under Xvfb/xcb.
+生成するAppRunは、`QT_IM_MODULE=fcitx`で`QT_IM_MODULES`が未指定または空の場合にだけ、
+`QT_IM_MODULES=fcitx;ibus`を設定する。Qtは利用可能な候補を順に試し、同梱IBusプラグインから
+FcitxのIBus互換経路も使える。既存の候補順・他の入力方式の指定は保持する。
+この指定はAppImage内のプロセスにだけ適用し、端末起動・デスクトップエントリの両方で有効。
 The host supplies the graphics stack and GNU C++/unwind runtimes so a bundled
 older runtime cannot prevent newer Mesa drivers from loading. The payload's
 C++ ABI requirements are limited to the Ubuntu 22.04 baseline.
