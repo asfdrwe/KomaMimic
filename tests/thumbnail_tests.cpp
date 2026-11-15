@@ -215,7 +215,13 @@ private slots:
         QTRY_VERIFY(window.directoryReady() && grid->count()==1 && grid->item(0)->data(ThumbnailRoleReady).toBool());QVERIFY(!grid->item(0)->data(ThumbnailHasPixelsRole).toBool());
         bool edited=false;QTimer::singleShot(0,&window,[&]{auto *dialog=window.findChild<QDialog *>("preferencesDialog");if(!dialog)return;auto *depth=dialog->findChild<QSpinBox *>("thumbnails/folderDepth");if(!depth){dialog->reject();return;}QCOMPARE(depth->value(),0);depth->setValue(1);edited=true;dialog->accept();});
         window.command("preferences")->trigger();QVERIFY(edited);
-        QTRY_VERIFY_WITH_TIMEOUT(grid->item(0)->data(ThumbnailHasPixelsRole).toBool(),5000);window.close();
+        QTRY_VERIFY_WITH_TIMEOUT(grid->item(0)->data(ThumbnailHasPixelsRole).toBool(),5000);
+        // Visible pixels precede persistence. Finish the disk fixture before
+        // closing the producer, which cancels unfinished work.
+        auto persisted=std::make_shared<ThumbnailDiskCache>(window.m_thumbnailDiskCache->directory());
+        const auto cover=grid->item(0)->data(PathRole).toString();
+        QTRY_VERIFY(!cachedCover(cover,{},persisted,{},false,0,true).image.isNull());
+        window.close();
         {QSettings saved(settings,QSettings::IniFormat);QCOMPARE(saved.value("thumbnails/folderDepth").toInt(),1);saved.setValue("thumbnails/folderDepth",0);}
         const auto scans=ThumbnailActivity::folderScans.load(),gens=ThumbnailActivity::generations.load();
         MainWindow reopened(settings);reopened.show();reopened.openDirectory(parent);auto *again=reopened.findChild<ThumbnailGrid *>("zipLibrary");QVERIFY(again);

@@ -14,7 +14,6 @@
 #include <QStandardPaths>
 #include <cstdio>
 #include <QTimer>
-#include <QUuid>
 
 class CliTests : public QObject {
     Q_OBJECT
@@ -137,10 +136,12 @@ private slots:
         QTemporaryDir d; const auto config=d.filePath("settings.ini");
         QLocalServer probe;
         probe.setSocketOptions(QLocalServer::UserAccessOption);
-        const auto name="komamimic-test-"+QUuid::createUuid().toString(QUuid::WithoutBraces);
+        const auto key=QFileInfo(config).absoluteDir().canonicalPath()+"/"+QFileInfo(config).fileName();
+        const auto name="komamimic-"+QString::fromLatin1(QCryptographicHash::hash(key.toUtf8(),QCryptographicHash::Sha256).toHex().left(32));
         if(!probe.listen(name)) {
             const auto fallback=run({"--config",config,"--execute","quit"});
-            QCOMPARE(fallback.code,0); QVERIFY2(fallback.error.contains("IPC"),fallback.error.constData());
+            QCOMPARE(fallback.code,0); QVERIFY2(fallback.error.contains("IPC"),
+                qPrintable("probe="+probe.errorString()+"; temporary="+QDir::tempPath()+"; stderr="+QString::fromUtf8(fallback.error)));
             QSKIP("IPC sockets unavailable: standalone fallback verified; IPC round trip not exercised");
         }
         probe.close(); QLocalServer::removeServer(name);
@@ -165,11 +166,10 @@ private slots:
         QTemporaryDir d; const auto config=d.filePath("settings.ini");
         QLocalServer server;
         server.setSocketOptions(QLocalServer::UserAccessOption);
-        const auto probeName="komamimic-test-"+QUuid::createUuid().toString(QUuid::WithoutBraces);
-        if(!server.listen(probeName))QSKIP("IPC sockets unavailable; delayed server publication not exercised");
-        server.close();QLocalServer::removeServer(probeName);
         const auto key=QFileInfo(config).absoluteDir().canonicalPath()+"/"+QFileInfo(config).fileName();
         const auto name="komamimic-"+QString::fromLatin1(QCryptographicHash::hash(key.toUtf8(),QCryptographicHash::Sha256).toHex().left(32));
+        if(!server.listen(name))QSKIP("IPC sockets unavailable; delayed server publication not exercised");
+        server.close();QLocalServer::removeServer(name);
         QLockFile lock(config+".instance.lock");QVERIFY(lock.tryLock(0));
         QByteArray received;bool listening=false;
         connect(&server,&QLocalServer::newConnection,this,[&] {
