@@ -2,9 +2,10 @@
 
 [日本語](../changelog.md) | English
 
-## Unreleased
+## v1.7.1
 
 - Removed the 128 MiB total uncompressed size limit for EPUB loading. The 32 MiB limit per entry remains.
+- Isolated automated tests from normal settings and caches, and corrected macOS test conditions.
 
 ## v1.7.0
 

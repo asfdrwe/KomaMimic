@@ -10,6 +10,11 @@ JavaScript image readers and filters through Script API 1.
 KomaMimic is an independent implementation inspired by MangaMeeya. It is not
 affiliated with the original project and does not include its code, artwork, or DLLs.
 
+## Changes in v1.7.1
+
+Remove the 128 MiB total uncompressed size limit for EPUB loading; the 32 MiB
+limit per entry remains. Isolate automated tests from normal settings and caches.
+
 ## ZIP covers and cache reuse in v1.7.0
 
 Existing memory and disk thumbnails take priority. Visible thumbnail generation
@@ -310,6 +315,7 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 
 ## Changelog
 
+- **v1.7.1**: Remove the 128 MiB total uncompressed size limit for EPUBs and isolate automated tests from normal settings and caches.
 - **v1.7.0**: Prioritize memory and disk thumbnail reuse, save directly to the regular cache, and configure visible thumbnail generation concurrency (1–4 jobs, default 1). Use directory-listing timestamps for automatic updates, fix file-symlink reuse, and retrieve only the selected ZIP/CBZ cover image with less metadata-processing overhead. Preserve existing thumbnails-v2 caches.
 - **v1.6.0**: Prioritize reading startup and on-demand document loading; improve EPUB covers, writing direction, spread navigation, and Aozora illustrations. Add optional full-list thumbnail preloading (off by default) and reuse decoded thumbnails across view changes. Make Load all files a saved reading option, isolate document rendering from galleries, and require Qt 6.8 or later. Improve CLI page-navigation completion and Windows dependency-cache reuse.
 - **v1.5.0**: Prioritize the current display and trust saved thumbnails without per-use or periodic source checks. Update only when there is concrete change evidence, cancel obsolete work, add bounded folder-cover search, and retain thumbnails-v2 compatibility. Evict by oldest save time only when capacity is exceeded.

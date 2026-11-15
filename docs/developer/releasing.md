@@ -5,18 +5,16 @@ the existing Build and Rocky/Ubuntu AppImage workflows, assembles their verified
 outputs, uploads them to a draft, checks the uploaded assets, and publishes the
 complete Release. It never creates or moves Git tags.
 
-## v1.7.0のタグ作成前
+## v1.7.1のタグ作成前
 
-v1.7.0では、ファイルのシンボリックリンク経由での不要な表紙再生成と、
-ページの変更検査で開き直しを繰り返す問題を修正します。
-ZIP/CBZの表紙は名前一覧から選んだ画像だけを取得し、他のTIFFのページ数調査を省きます。
-名前解析の準備とファイルサイズ情報を再利用し、項目数が多い書庫の処理負担も減らします。
-名前の解釈と表紙の選択順、Qtの下限6.8は維持します。
+v1.7.1では、EPUBの展開後合計128 MiBの読込制限を撤廃し、
+自動テストの実行環境を通常利用から分離します。macOSのテスト条件も修正します。
+EPUBの1項目32 MiBの上限とQtの下限6.8は維持します。
 詳細は[更新履歴](../site/changelog.md)と[仕様](specification.md)を参照してください。
 
-版番号`1.7.0`を`CMakeLists.txt`・両vcpkg manifest・READMEへ揃え、
-日英サイトの更新履歴をv1.7.0へ確定します。開発者向け更新履歴は共通履歴を参照します。
-Release validatorはこれらとタグ`v1.7.0`の一致を検証します。
+版番号`1.7.1`を`CMakeLists.txt`・両vcpkg manifest・READMEへ揃え、
+日英サイトの更新履歴をv1.7.1へ確定します。開発者向け更新履歴は共通履歴を参照します。
+Release validatorはこれらとタグ`v1.7.1`の一致を検証します。
 版番号更新のcommitが`main`へ反映されるまでタグをpushしません。
 既存タグは移動・変更しません。
 
@@ -27,7 +25,7 @@ Release validatorはこれらとタグ`v1.7.0`の一致を検証します。
 版番号更新commitをpushし、BuildとPagesを確認してから、`main`で
 **Release → Run workflow**を手動実行します。この実行は成果物を組み立てて検証し、
 GitHub Releaseは公開しません。成果物・依存ライセンス表示・対応ソース・checksumを確認し、
-成功後に管理者が対象commitへ注釈付き`v1.7.0`タグを作成してpushします。
+成功後に管理者が対象commitへ注釈付き`v1.7.1`タグを作成してpushします。
 既存の公開タグを再試行のために移動しません。
 
 ## Version and tag checks
