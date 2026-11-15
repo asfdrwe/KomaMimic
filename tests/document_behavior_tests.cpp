@@ -69,6 +69,69 @@ private slots:
         QVERIFY(!publicationResource(*p,"image.png").isEmpty());QCOMPARE(PublicationActivity::payloadReads.load(),before+1);
         QVERIFY(!publicationResource(*p,"image.png").isEmpty());QCOMPARE(PublicationActivity::payloadReads.load(),before+1);
     }
+    void epubResourceSizeLimits_data() {
+        QTest::addColumn<bool>("lazy");
+        QTest::addColumn<bool>("oversizedEntry");
+        QTest::newRow("total-over-128-MiB-lazy") << true << false;
+        QTest::newRow("total-over-128-MiB-eager") << false << false;
+        QTest::newRow("entry-over-32-MiB-lazy") << true << true;
+        QTest::newRow("entry-over-32-MiB-eager") << false << true;
+    }
+    void epubResourceSizeLimits() {
+        QFETCH(bool,lazy);
+        QFETCH(bool,oversizedEntry);
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const auto path=directory.filePath("size-limits.epub");
+        const QByteArray payload(32*1024*1024+(oversizedEntry?1:0),'x');
+        QVector<TestData::ZipEntry> entries{
+            {"mimetype","application/epub+zip"},
+            {"META-INF/container.xml","<container><rootfiles><rootfile full-path=\"book.opf\"/></rootfiles></container>"},
+            {"book.opf","<package><manifest><item id=\"body\" href=\"body.xhtml\" media-type=\"application/xhtml+xml\"/></manifest><spine><itemref idref=\"body\"/></spine></package>"},
+            {"body.xhtml","<html><head></head><body><p>Size limit sample.</p></body></html>"}
+        };
+        const int count=oversizedEntry?1:4;
+        for(int n=0;n<count;++n)entries.append({QString("payload-%1.bin").arg(n).toUtf8(),payload});
+        qint64 total=0;
+        for(const auto &entry:entries)total+=entry.bytes.size();
+        if(!oversizedEntry)QVERIFY(total>128*1024*1024);
+        QVERIFY(TestData::write(path,TestData::zip(entries)));
+
+        const auto bytes=PublicationActivity::payloadBytes.load();
+        const auto loads=PublicationActivity::sectionLoads.load();
+        OpenOptions options;options.deferDocuments=lazy;
+        const auto opened=Book::open(path,{},options);
+        if(oversizedEntry) {
+            QVERIFY(!opened.book);
+            QVERIFY(!opened.error.isEmpty());
+            return;
+        }
+        QVERIFY2(opened.book,qPrintable(opened.error));
+        const auto p=opened.book->publication;
+        QVERIFY(p);
+        QCOMPARE(p->sections.size(),1);
+        if(lazy) {
+            QVERIFY(p->archive);
+            QVERIFY(p->sections.first().html.isEmpty());
+            QCOMPARE(PublicationActivity::sectionLoads.load(),loads);
+            for(int n=0;n<count;++n)QVERIFY(!p->resources.contains(QString("payload-%1.bin").arg(n)));
+            QVERIFY(PublicationActivity::payloadBytes.load()-bytes<10000);
+        } else {
+            QVERIFY(!p->archive);
+            for(int n=0;n<count;++n)QCOMPARE(p->resources.value(QString("payload-%1.bin").arg(n)),payload);
+            QVERIFY(PublicationActivity::payloadBytes.load()-bytes>128*1024*1024);
+        }
+        const auto section=loadPublicationSection(*p,0);
+        QVERIFY2(section.error.isEmpty(),qPrintable(section.error));
+        QVERIFY(section.plain.contains("Size limit sample."));
+        if(lazy)QVERIFY(PublicationActivity::payloadBytes.load()-bytes<10000);
+        QString error;
+        QCOMPARE(publicationResource(*p,"payload-3.bin",{},&error),payload);
+        QVERIFY2(error.isEmpty(),qPrintable(error));
+        const auto reads=PublicationActivity::payloadReads.load();
+        QCOMPARE(publicationResource(*p,"payload-3.bin",{},&error),payload);
+        QCOMPARE(PublicationActivity::payloadReads.load(),reads);
+    }
     void cancellationReachesDocumentReaders() {
         QTemporaryDir d;const auto path=d.filePath("sample.epub");QVERIFY(TestData::write(path,epub(false,{},QByteArray(2*1024*1024,'x'))));
         OpenOptions options;options.deferDocuments=true;int checks=0;options.cancel=[&]{++checks;return true;};

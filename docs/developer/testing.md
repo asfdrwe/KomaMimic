@@ -59,6 +59,11 @@ generation. These permission-based rows skip when the OS/account can still read
 the restricted fixture. Concurrent-writer failures log the worker, key, null-image
 state and error after all workers have joined.
 
+`document_behavior_tests`は両scopeで、展開後合計128 MiBを超えるEPUBを遅延読込・全件読込の
+両方で開けることを検査する。32 MiBちょうどの項目を取得でき、32 MiBを超える項目は
+両経路で拒否する。遅延読込では未要求リソースの展開がなく、要求した本文・リソースの取得と
+キャッシュ再利用が成功することも確認する。
+
 `thumbnail_tests` checks source-access counts, visible-image eviction, folder and ZIP
 reuse in fresh processes, nested source changes, explicit refresh, and cached display
 while generation is busy. `thumbnail_scroll_tests` separately runs the 220-folder/

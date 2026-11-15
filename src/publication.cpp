@@ -332,7 +332,6 @@ bool unpack(const QString &path, Publication &p,
     archive_read_free(a);
     return false;
   }
-  qint64 total = 0, declared=0;
   int count = 0, status = ARCHIVE_OK;
   archive_entry *entry = nullptr;
   while ((status = archive_read_next_header(a, &entry)) == ARCHIVE_OK) {
@@ -352,8 +351,6 @@ bool unpack(const QString &path, Publication &p,
                 "ます。");
       break;
     }
-    declared+=archive_entry_size(entry);
-    if(declared>128*1024*1024){p.error=QCoreApplication::translate("KomaMimic", "EPUBの展開上限（項目32 MiB／合計128 MiB）を超えたか、ZIPが壊れています。");break;}
     if(lazy) {
       p.archive->entries.insert(key,archive_entry_size(entry));
       if(key!="mimetype" && key!="META-INF/container.xml" && key!="META-INF/encryption.xml") {
@@ -368,16 +365,13 @@ bool unpack(const QString &path, Publication &p,
     while ((read = archive_read_data(a, buffer, sizeof buffer)) > 0) {
       if (cancel && cancel()) { p.error = QCoreApplication::translate("KomaMimic", "EPUBの読み込みを中止しました。"); break; }
       PublicationActivity::payloadBytes+=read;
-      total += read;
-      if (total > 128 * 1024 * 1024 || bytes.size() + read > 32 * 1024 * 1024)
+      if (bytes.size() + read > 32 * 1024 * 1024)
         break;
       bytes.append(buffer, read);
     }
     if (!p.error.isEmpty()) break;
-    if (read < 0 || total > 128 * 1024 * 1024 ||
-        bytes.size() > 32 * 1024 * 1024 || read > 0) {
-      p.error = QCoreApplication::translate("KomaMimic", "EPUBの展開上限（項目32 MiB／合計128 "
-                "MiB）を超えたか、ZIPが壊れています。");
+    if (read < 0 || bytes.size() > 32 * 1024 * 1024 || read > 0) {
+      p.error = QCoreApplication::translate("KomaMimic", "EPUBの項目上限（32 MiB）を超えたか、ZIPが壊れています。");
       break;
     }
     p.resources.insert(key, bytes);

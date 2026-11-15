@@ -37,6 +37,9 @@ are not overwritten. Changing text size and zooming images are separate actions.
 
 ## Limitations
 
+EPUB loading has no limit on the total uncompressed size. Each internal file,
+such as an image or chapter, is limited to 32 MiB uncompressed, with up to 10,000 files.
+
 Fonts and font sizes cannot be changed in fixed layouts or text embedded in images.
 DRM-encrypted text/images cannot be read. Book JavaScript is not executed, and
 external sites or images outside the document's scope are not fetched automatically.

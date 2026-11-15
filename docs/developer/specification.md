@@ -138,6 +138,11 @@ raw resource cacheは32 MiB、解析済みsectionは16 MiBに制限する。取�
 resourceのchunk読込、XML走査へ伝播する。WebEngineのresource供給もGUI threadで
 読込・変換せず、jobとviewの寿命に従う取消付きworkerへ渡す。
 
+EPUBの展開後合計サイズによる読込制限は設けない。Readerの遅延読込と、検査・独立preview用の
+全件読込の両方に適用する。ZIP内の1項目は展開後32 MiBまで、ファイル数は10,000件までとし、
+不正パス・重複・暗号化等の既存検査を維持する。遅延読込では合計サイズが大きくても
+未要求の本文・画像等を展開せず、要求されたリソースだけを容量制限付きキャッシュへ保持する。
+
 文書controllerは未組版sectionを仮のlocationとして保持し、現在sectionと現在の見開きに
 必要な相方だけを組版する。ページ表はrevisionで同期し、未確定の総数は「…」。表示に
 不要なiframeは外し、現在表示と直近のsectionだけを残す。固定・可変の属性を区別し、

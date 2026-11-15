@@ -2,6 +2,10 @@
 
 [日本語](../changelog.md) | English
 
+## Unreleased
+
+- Removed the 128 MiB total uncompressed size limit for EPUB loading. The 32 MiB limit per entry remains.
+
 ## v1.7.0
 
 - Prioritize existing memory and disk thumbnails to reduce unnecessary regeneration and display waits. Save generated thumbnails directly to the regular cache.

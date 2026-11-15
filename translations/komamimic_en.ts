@@ -3298,8 +3298,8 @@ Order: crop (original image pixels) → trim margins → rotate/flip → tone �
         </message>
         <message>
             <location filename="../src/publication.cpp" line="262" />
-            <source>EPUBの展開上限（項目32 MiB／合計128 MiB）を超えたか、ZIPが壊れています。</source>
-            <translation>EPUB exceeds extraction limits (32 MiB per entry / 128 MiB total), or the ZIP is corrupt.</translation>
+            <source>EPUBの項目上限（32 MiB）を超えたか、ZIPが壊れています。</source>
+            <translation>EPUB entry exceeds the 32 MiB limit, or the ZIP is corrupt.</translation>
         </message>
         <message>
             <location filename="../src/publication.cpp" line="269" />
