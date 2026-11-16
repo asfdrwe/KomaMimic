@@ -2,6 +2,10 @@
 
 [日本語](../changelog.md) | English
 
+## Unreleased
+
+- Also try the bundled IBus input plugin when launching the Linux AppImage from a menu with input-method variables unset or empty. Preserve explicit preference lists and other input-method selections.
+
 ## v1.7.2
 
 - Fixed text input in the Linux AppImage when the Fcitx Qt plugin is unavailable. When Fcitx is requested, also try the bundled IBus plugin. Preserve explicit input-module preference lists and other input-method selections.

@@ -150,6 +150,56 @@ sys.exit(7 if case == 'exit-error' else 0)
                 self.assertEqual(json.loads(report.read_text()), arguments)
             self.assertFalse((root / 'INJECTED').exists())
 
+    @unittest.skipUnless(sys.platform.startswith('linux') and shutil.which('gio')
+                         and shutil.which('desktop-file-validate'), 'requires Linux desktop tools')
+    def test_desktop_launch_uses_input_fallback_without_terminal_environment(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            home = root / 'Home 日本語 space'
+            executable = home / '.local/bin/KomaMimic-1.7.2-linux-x86_64.AppImage'
+            executable.parent.mkdir(parents=True)
+            # Stand in for the AppImage runtime, then execute the real generated AppRun.
+            executable.write_text('#!' + sys.executable + '\nimport os, sys\n'
+                                  'launcher = os.environ["KOMA_TEST_APPRUN"]\n'
+                                  'os.execv(launcher, [launcher, *sys.argv[1:]])\n')
+            executable.chmod(0o755)
+            app = root / 'App Dir 日本語'
+            (app / 'usr/bin').mkdir(parents=True)
+            (app / 'AppRun').write_text(appimage.APP_RUN)
+            (app / 'AppRun').chmod(0o755)
+            program = app / 'usr/bin/komamimic'
+            program.write_text('#!' + sys.executable + '\nimport json, os, sys\n'
+                               'from pathlib import Path\n'
+                               'Path(os.environ["KOMA_TEST_REPORT"]).write_text(json.dumps(dict('
+                               'args=sys.argv[1:], module=os.environ.get("QT_IM_MODULE"), '
+                               'modules=os.environ.get("QT_IM_MODULES"))))\n')
+            program.chmod(0o755)
+            shutil.copy2(appimage.ROOT / 'assets/komamimic.desktop', app / 'komamimic.desktop')
+            shutil.copy2(appimage.ROOT / 'assets/icons/komamimic-256.png', app / 'komamimic.png')
+            destination = root / 'export'
+            destination.mkdir()
+            appimage.desktop_integration(app, executable, destination)
+            desktop = destination / 'komamimic.desktop'
+            subprocess.run(['desktop-file-validate', str(desktop)], check=True)
+            report = root / 'launch.json'
+            env = dict(os.environ, HOME=str(home), KOMA_TEST_REPORT=str(report),
+                       KOMA_TEST_APPRUN=str(app / 'AppRun'),
+                       XDG_CACHE_HOME=str(root / 'cache'), XDG_DATA_HOME=str(home / '.local/share'),
+                       XDG_CONFIG_HOME=str(root / 'config'))
+            for key in ('QT_IM_MODULE', 'QT_IM_MODULES'):
+                env.pop(key, None)
+            files = [str(root / '日本語 & space.cbz')]
+            Path(files[0]).write_bytes(b'file argument fixture')
+            subprocess.run(['gio', 'launch', str(desktop), *files], env=env,
+                           cwd=root, capture_output=True, text=True, check=True, timeout=10)
+            deadline = time.monotonic() + 5
+            while not report.exists() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            result = json.loads(report.read_text())
+            self.assertEqual(result['args'], files)
+            self.assertIsNone(result['module'])
+            self.assertEqual(result['modules'], 'fcitx;ibus')
+
     @unittest.skipUnless(sys.platform.startswith('linux') and shutil.which('cc'), 'requires native ELF compiler')
     def test_elf_audit_rejects_displaced_initializer_and_unmapped_string_table(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -388,8 +438,12 @@ sys.exit(7 if case == 'exit-error' else 0)
             ('ibus', {'QT_IM_MODULE': 'ibus'}, None),
             ('compose', {'QT_IM_MODULE': 'compose'}, None),
             ('none', {'QT_IM_MODULE': 'none'}, None),
-            ('unset', {}, None),
-            ('empty', {'QT_IM_MODULE': ''}, None),
+            ('unset', {}, 'fcitx;ibus'),
+            ('empty', {'QT_IM_MODULE': ''}, 'fcitx;ibus'),
+            ('empty-list', {'QT_IM_MODULES': ''}, 'fcitx;ibus'),
+            ('both-empty', {'QT_IM_MODULE': '', 'QT_IM_MODULES': ''}, 'fcitx;ibus'),
+            ('unset-explicit-list', {'QT_IM_MODULES': 'compose;ibus'}, 'compose;ibus'),
+            ('wayland', {'QT_IM_MODULE': 'wayland'}, None),
         ]
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary) / 'App Dir 日本語'
