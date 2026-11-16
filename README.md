@@ -10,11 +10,12 @@ JavaScript image readers and filters through Script API 1.
 KomaMimic is an independent implementation inspired by MangaMeeya. It is not
 affiliated with the original project and does not include its code, artwork, or DLLs.
 
-## Changes in v1.7.2
+## Changes in v1.7.3
 
-Fix text input in the Linux AppImage when Fcitx is requested but its Qt plugin is
-unavailable. Try the bundled IBus bridge after Fcitx, while preserving an explicit
-input-module preference list and other input-method selections.
+Fix text input when launching the Linux AppImage from a menu without input-method
+environment variables. Also try the bundled IBus bridge when those variables are
+unset or empty, while preserving explicit preference lists and other input-method
+selections.
 
 ## ZIP covers and cache reuse in v1.7.0
 
@@ -316,6 +317,7 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 
 ## Changelog
 
+- **v1.7.3**: Fix Linux AppImage menu-launch text input when input-method environment variables are unset or empty. Preserve explicit preference lists and other input-method selections.
 - **v1.7.2**: Fix Linux AppImage text input in Fcitx environments by falling back to the bundled IBus bridge. Preserve explicit input-module preference lists and other input-method selections.
 - **v1.7.1**: Remove the 128 MiB total uncompressed size limit for EPUBs and isolate automated tests from normal settings and caches.
 - **v1.7.0**: Prioritize memory and disk thumbnail reuse, save directly to the regular cache, and configure visible thumbnail generation concurrency (1–4 jobs, default 1). Use directory-listing timestamps for automatic updates, fix file-symlink reuse, and retrieve only the selected ZIP/CBZ cover image with less metadata-processing overhead. Preserve existing thumbnails-v2 caches.

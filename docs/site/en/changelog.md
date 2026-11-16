@@ -2,7 +2,7 @@
 
 [日本語](../changelog.md) | English
 
-## Unreleased
+## v1.7.3
 
 - Also try the bundled IBus input plugin when launching the Linux AppImage from a menu with input-method variables unset or empty. Preserve explicit preference lists and other input-method selections.
 
