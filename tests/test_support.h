@@ -2,6 +2,7 @@
 #pragma once
 #include "mainwindow.h"
 #include "documentview.h"
+#include "test_paths.h"
 #include <QApplication>
 #include <QBuffer>
 #include <QDir>
@@ -79,8 +80,7 @@ template<class Suite> int isolatedTestMain(int argc, char **argv) {
     QCoreApplication::setOrganizationName("KomaMimicTests");
     QCoreApplication::setApplicationName("Regression");
     const auto inside=[&](const QString &path) {
-        const auto relative=QDir(root).relativeFilePath(path);
-        return !path.isEmpty() && !QDir::isAbsolutePath(relative) && relative!=".." && !relative.startsWith("../");
+        return testPathIsInside(root, path);
     };
     for (auto kind : {QStandardPaths::CacheLocation, QStandardPaths::AppConfigLocation,
                       QStandardPaths::AppDataLocation, QStandardPaths::GenericDataLocation}) {

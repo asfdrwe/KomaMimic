@@ -3,6 +3,7 @@
 #include "book.h"
 #include "publication.h"
 #include "videomedia.h"
+#include "test_paths.h"
 #include <QAudioBuffer>
 #include <QAudioBufferOutput>
 #include <QDir>
@@ -43,10 +44,7 @@ int main(int argc, char **argv) {
   const auto privateRoot = qEnvironmentVariable("KOMAMIMIC_TEST_ROOT");
   if (!privateRoot.isEmpty())
     for (const auto &value : locations) {
-      const auto relative =
-          QDir(privateRoot).relativeFilePath(value.toString());
-      if (value.toString().isEmpty() || QDir::isAbsolutePath(relative) ||
-          relative == ".." || relative.startsWith("../")) {
+      if (!testPathIsInside(privateRoot, value.toString())) {
         progress("OS directory is outside the test environment: " +
                  value.toString());
         return 2;

@@ -25,7 +25,7 @@ elseif(KOMAMIMIC_TEST_SCOPE STREQUAL "platform")
 else()
     message(FATAL_ERROR "Unknown KOMAMIMIC_TEST_SCOPE: ${KOMAMIMIC_TEST_SCOPE}")
 endif()
-list(APPEND suites video)
+list(APPEND suites video isolation)
 find_program(KOMAMIMIC_FFMPEG_EXECUTABLE NAMES ffmpeg REQUIRED)
 set(KOMAMIMIC_VIDEO_FIXTURES "${CMAKE_CURRENT_BINARY_DIR}/video-fixtures")
 add_isolated_test(video_fixtures "${Python3_EXECUTABLE}"

@@ -96,3 +96,16 @@ class WorkflowIsolationTests(unittest.TestCase):
         self.assertEqual(tag, 'v' + version)
         with self.assertRaises(ValueError):
             version_for_tag(ROOT, 'v1.7.3')
+
+    def test_macos_uses_short_private_temp_and_package_errors_are_saved(self):
+        text = self.text('build.yml')
+        macos = job(text, 'macos')
+        self.assertNotIn('runner.temp', macos.split('    steps:', 1)[0])
+        ctest = macos.split('Full CTest (including single-instance IPC regression)', 1)[1].split('      - name:', 1)[0]
+        for name in ('TMPDIR', 'TMP', 'TEMP'):
+            self.assertRegex(ctest, r'(?m)^          ' + name + r': \$\{\{ runner.temp \}\}$')
+        self.assertIn('set -o pipefail', macos)
+        self.assertIn('tee stage-macos/package.log', macos)
+        windows = job(text, 'windows')
+        self.assertIn('Tee-Object -FilePath results/windows-package.log', windows)
+        self.assertIn('results/windows-package.log', windows.split('Upload diagnostics', 1)[1])

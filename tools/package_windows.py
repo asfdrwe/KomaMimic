@@ -29,7 +29,7 @@ from run_validation import ROOT, cache_values, execute, save_json, windows_paths
 SYSTEM_DLLS = set('''advapi32.dll authz.dll avrt.dll bcrypt.dll bcryptprimitives.dll
     bthprops.cpl cabinet.dll cfgmgr32.dll comctl32.dll comdlg32.dll crypt32.dll
     cryptbase.dll cryptsp.dll d3d9.dll d3d11.dll d3d12.dll dbghelp.dll dcomp.dll
-    dhcpcsvc.dll dnsapi.dll dsound.dll dwmapi.dll dwrite.dll dxgi.dll dxva2.dll
+    dhcpcsvc.dll dnsapi.dll dsound.dll dwmapi.dll dwrite.dll dxgi.dll dxva2.dll evr.dll
     fontsub.dll gdi32.dll hid.dll icu.dll icuin.dll icuuc.dll imagehlp.dll imm32.dll
     iphlpapi.dll kernel32.dll ksuser.dll mf.dll mfplat.dll mfreadwrite.dll
     mfuuid.dll mmdevapi.dll mpr.dll msimg32.dll msvcrt.dll ncrypt.dll netapi32.dll

@@ -96,6 +96,17 @@ class WindowsPackageTests(unittest.TestCase):
         self.assertEqual([p.name for p in (self.app / 'sqldrivers').iterdir()], ['qsqlite.dll'])
         package.audit(self.app)
 
+    def test_windows_media_foundation_evr_is_a_system_dependency(self):
+        plugin = self.app / 'multimedia/windowsmediaplugin.dll'
+        plugin.parent.mkdir(parents=True, exist_ok=True)
+        plugin.write_bytes(synthetic_pe(('Qt6Core.dll', 'EVR.dll', 'mfplat.dll')))
+        report = package.audit(self.app)
+        self.assertEqual(report['binaries']['multimedia/windowsmediaplugin.dll']['unresolved'], [])
+        # A similarly named but unknown DLL must still be bundled or rejected.
+        plugin.write_bytes(synthetic_pe(('evr.dll',), ('unbundled-video.dll',)))
+        with self.assertRaisesRegex(ValueError, 'unbundled-video.dll'):
+            package.audit(self.app)
+
     def test_notices_preserve_originals_and_report_qt_absence(self):
         prefix, sdk, destination = (self.directory / p for p in ('prefix', 'sdk', 'notices'))
         original = b'Original Copyright\r\nLicense text\r\n'

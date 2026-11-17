@@ -142,11 +142,18 @@ jobs:
       - run: ./build-ci/komamimic --version
       - run: ./build-ci/komamimic --formats
       - name: Full CTest (including single-instance IPC regression)
+        env:
+          # Keep isolated Unix socket names below macOS's sockaddr_un limit.
+          TMPDIR: ${{ runner.temp }}
+          TMP: ${{ runner.temp }}
+          TEMP: ${{ runner.temp }}
         run: ctest --test-dir build-ci --output-on-failure --parallel 2 --no-tests=error --output-junit "$GITHUB_WORKSPACE/build-ci/ctest.xml"
       - name: Stage ad-hoc signed app and relocated reader probe
         run: python3 tools/stage_validation.py --build-dir build-ci --output stage-macos
       - name: Package and verify arm64 app and unnotarized DMG
-        run: python3 tools/package_macos.py --build-dir build-ci --stage stage-macos --output dist/macos
+        run: |
+          set -o pipefail
+          python3 tools/package_macos.py --build-dir build-ci --stage stage-macos --output dist/macos 2>&1 | tee stage-macos/package.log
       - name: Upload macOS distribution candidate
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
@@ -298,7 +305,7 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Package and verify Windows distribution ZIP
         run: |
-          python tools/package_windows.py pack --build-dir build-windows-fast --stage stage-windows --output dist/windows
+          python tools/package_windows.py pack --build-dir build-windows-fast --stage stage-windows --output dist/windows 2>&1 | Tee-Object -FilePath results/windows-package.log
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Upload Windows distribution candidate
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -340,6 +347,7 @@ jobs:
           path: |
             results/windows-ci/
             results/windows-cache-*.json
+            results/windows-package.log
             results/vcpkg-build-logs/
             stage-windows/STAGE_MANIFEST.json
             stage-windows/*.log
