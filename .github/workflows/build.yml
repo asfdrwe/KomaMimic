@@ -137,7 +137,17 @@ jobs:
         run: python3 -c 'import platform; assert platform.machine() == "arm64", platform.machine()'
       - name: Install dependencies
         run: brew install cmake ninja qtbase qtdeclarative qttools qttranslations qtwebengine qtimageformats qtmultimedia ffmpeg libarchive icu4c sdl2-compat poppler pkgconf
-      - run: cmake -S . -B build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DKOMAMIMIC_TEST_SCOPE=full -DCMAKE_OSX_ARCHITECTURES=arm64
+      - name: Build matching Qt Multimedia with FFmpeg enabled
+        run: |
+          python3 tools/setup_macos_multimedia.py --output build-macos-multimedia
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          report = json.loads(Path('build-macos-multimedia/MULTIMEDIA_BUILD.json').read_text())
+          with open(os.environ['GITHUB_ENV'], 'a') as stream:
+              stream.write('QT_PLUGIN_PATH=' + report['plugins'] + '\n')
+          PY
+      - run: cmake -S . -B build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DKOMAMIMIC_TEST_SCOPE=full -DCMAKE_OSX_ARCHITECTURES=arm64 -DQt6Multimedia_DIR="$GITHUB_WORKSPACE/build-macos-multimedia/install/lib/cmake/Qt6Multimedia"
       - run: cmake --build build-ci --parallel 3
       - run: ./build-ci/komamimic --version
       - run: ./build-ci/komamimic --formats
@@ -177,6 +187,9 @@ jobs:
             build-ci/CMakeFiles/CMakeConfigureLog.yaml
             build-ci/Testing/Temporary/*.log
             build-ci/ctest.xml
+            build-macos-multimedia/*.log
+            build-macos-multimedia/*.json
+            build-macos-multimedia/build/config.summary
             stage-macos/*.log
             stage-macos/*.json
             stage-macos/entitlements-before/

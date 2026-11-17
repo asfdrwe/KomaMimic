@@ -40,6 +40,11 @@ relevant formulae, including split Qt modules, while respecting explicit setting
 such as `CMAKE_PREFIX_PATH`. No `brew link --force` is needed. To disable automatic
 discovery, pass `-DKOMAMIMIC_USE_HOMEBREW=OFF` and provide the required prefixes.
 
+Homebrew's macOS Qt Multimedia disables the FFmpeg backend. Follow the README's
+`tools/setup_macos_multimedia.py` step (Python 3.12+) to build the matching module
+in a separate directory, and set `Qt6Multimedia_DIR` and `QT_PLUGIN_PATH` as shown.
+The CI and deployment tools use that module and preserve its build/source metadata.
+
 ## Linux
 
 The README lists Fedora 44 dependencies. Other distributions require equivalent

@@ -33,6 +33,7 @@ def load_tests(loader, tests, pattern):
     from test_windows_cache import WindowsCacheTests
     from test_video_validation import VideoValidationTests
     from test_isolation import IsolationTests
+    from test_macos_multimedia import MacMultimediaTests
     ValidationTests.probe = PROBE
     tests.addTests(loader.loadTestsFromTestCase(ValidationTests))
     tests.addTests(loader.loadTestsFromTestCase(WindowsPackageTests))
@@ -41,6 +42,7 @@ def load_tests(loader, tests, pattern):
     tests.addTests(loader.loadTestsFromTestCase(WindowsCacheTests))
     tests.addTests(loader.loadTestsFromTestCase(VideoValidationTests))
     tests.addTests(loader.loadTestsFromTestCase(IsolationTests))
+    tests.addTests(loader.loadTestsFromTestCase(MacMultimediaTests))
     return tests
 
 

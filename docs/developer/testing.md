@@ -6,6 +6,10 @@ application-only builds in the README.
 
 動画試験ではQt 6.11+のMultimediaと、合成入力生成専用の`ffmpeg`コマンドも必要です。
 ffmpegは製品から呼び出さず、`BUILD_TESTING=OFF`のアプリビルドには不要です。
+macOSのHomebrew版Qt MultimediaはFFmpegバックエンドを無効にしているため、READMEの
+`setup_macos_multimedia.py`で同じ版のモジュールを別領域へビルドし、FFmpegバックエンドを有効にする。
+Qt内部で使うFFmpegライブラリと、試験素材生成用の`ffmpeg`コマンドは区別する。
+CIではこのモジュールをCTestと配布の両方で使い、プラグイン・ビルド条件・原本ソースを配布検査へ渡す。
 CTestの`video_fixtures`がbuild配下へ素材とmanifestを生成し、`video_tests`が実Qtの画素・シーク・字幕・トラック・保存・キャッシュを確認します。
 `full`と`platform`の両方に登録しています。通常試験は利用者のスピーカーを開かず復号データを利用します。
 `video_software_tests`は別プロセスでハードウェア復号を無効にし、同じ動画suiteを実行します。

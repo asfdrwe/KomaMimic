@@ -28,7 +28,7 @@ from stage_validation import (inspect_macos, macos_bundle_or_system_path,
                               signing_entitlements, system_library)
 
 RUNTIME_FORMULAE = ('qtbase', 'qtdeclarative', 'qttools', 'qttranslations', 'qtwebengine',
-                   'qtimageformats', 'qtmultimedia', 'libarchive', 'icu4c', 'sdl2-compat', 'sdl3', 'poppler')
+                   'qtimageformats', 'qtmultimedia', 'ffmpeg', 'libarchive', 'icu4c', 'sdl2-compat', 'sdl3', 'poppler')
 REQUIRED = ('Contents/MacOS/komamimic', 'Contents/MacOS/komamimic-script-worker',
             'Contents/Info.plist', 'Contents/Resources/komamimic.icns',
             'Contents/Resources/qt.conf', 'Contents/Resources/translations/qtbase_ja.qm',
@@ -231,6 +231,22 @@ def native_verify(app, probe, output, call, expected_version):
             raise ValueError('Runtime loaded a Homebrew library: ' + path.name)
 
 
+def multimedia_source(app, output):
+    report_path = app / 'Contents/Resources/QT_MULTIMEDIA_BUILD.json'
+    if not report_path.is_file():
+        return  # A separately supplied SDK can already include this backend.
+    report = json.loads(report_path.read_text(encoding='utf-8'))
+    archive = Path(report['archive'])
+    if digest(archive) != report['source']['sha256']:
+        raise ValueError('Qt Multimedia source archive changed')
+    target = output / archive.name
+    shutil.copy2(archive, target)
+    shutil.copy2(report_path, output / report_path.name)
+    with (output / 'SHA256SUMS').open('a', encoding='ascii') as checksums:
+        for path in (target, output / report_path.name):
+            checksums.write(digest(path) + '  ' + path.name + '\n')
+
+
 def pack(build, stage, output):
     if platform.system() != 'Darwin' or platform.machine() != 'arm64':
         raise ValueError('DMG packaging requires native macOS arm64')
@@ -322,6 +338,7 @@ def pack(build, stage, output):
         if mounted or os.path.ismount(mount):
             call('detach-dmg', ['hdiutil', 'detach', mount])
     prepare(ROOT, output / 'sources', 0)
+    multimedia_source(app, output / 'sources')
     (output / 'SHA256SUMS').write_text(''.join(digest(p) + '  ' + p.name + '\n'
         for p in (archive, image, output / 'BUILD_MANIFEST.json', output / 'HOMEBREW.json')), encoding='ascii')
     print('Verified macOS arm64 app and unnotarized DMG: ' + str(image))

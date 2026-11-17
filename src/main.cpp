@@ -63,21 +63,23 @@ void connectParentConsole() {
       const auto handle=GetStdHandle(channel.id);if(!valid(handle))continue;
       if(!DuplicateHandle(GetCurrentProcess(),handle,GetCurrentProcess(),&copy,0,FALSE,DUPLICATE_SAME_ACCESS))continue;
     }
+    // A nonnegative descriptor alone does not prove that the GUI startup's
+    // FILE stream is initialized for redirected disk output. Reopen the stream
+    // before binding our saved handle, for files as well as pipes/consoles.
+#ifdef _MSC_VER
+    FILE *reopened=nullptr;
+    const bool failed=freopen_s(&reopened,"NUL","wb",channel.stream)!=0;
+#else
+    const bool failed=std::freopen("NUL","wb",channel.stream)==nullptr;
+#endif
+    if(failed){CloseHandle(copy);continue;}
     const int descriptor=_open_osfhandle(reinterpret_cast<intptr_t>(copy),_O_WRONLY|_O_BINARY);
     if(descriptor<0){CloseHandle(copy);continue;}
-    if(_fileno(channel.stream)<0) {
-#ifdef _MSC_VER
-      FILE *reopened=nullptr;
-      const bool failed=freopen_s(&reopened,"NUL","wb",channel.stream)!=0;
-#else
-      const bool failed=std::freopen("NUL","wb",channel.stream)==nullptr;
-#endif
-      if(failed){_close(descriptor);continue;}
-    }
     const int target=_fileno(channel.stream);
     if(descriptor!=target){_dup2(descriptor,target);_close(descriptor);}
     SetStdHandle(channel.id,reinterpret_cast<HANDLE>(_get_osfhandle(target)));
     clearerr(channel.stream);
+    setvbuf(channel.stream,nullptr,_IONBF,0);
   }
 }
 #endif

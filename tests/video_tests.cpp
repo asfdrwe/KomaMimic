@@ -38,6 +38,15 @@ class VideoTests : public QObject {
   QString fixture(const QString &name) const {
     return QString::fromUtf8(KOMAMIMIC_VIDEO_FIXTURES) + "/" + name;
   }
+  static QString playbackDiagnostic(const VideoView &view) {
+    const auto *player = view.player();
+    return QString("source=%1; mediaStatus=%2; playbackState=%3; error=%4 (%5); viewError=%6")
+        .arg(player->source().toString())
+        .arg(int(player->mediaStatus()))
+        .arg(int(player->playbackState()))
+        .arg(int(player->error()))
+        .arg(player->errorString(), view.error());
+  }
   static bool red(const QImage &image) {
     if (image.isNull())
       return false;
@@ -103,7 +112,7 @@ private slots:
     view.resize(400, 300);
     view.show();
     view.open(fixture("colors.avi"));
-    QTRY_VERIFY_WITH_TIMEOUT(view.ready(), 10000);
+    QTRY_VERIFY2_WITH_TIMEOUT(view.ready(), qPrintable(playbackDiagnostic(view)), 10000);
     QCOMPARE(view.player()->playbackState(), QMediaPlayer::PausedState);
     QVERIFY(red(view.coverImage()));
     view.seek(3200);
@@ -117,7 +126,7 @@ private slots:
     QVERIFY(view.state().completed);
     QVERIFY(blue(view.coverImage()));
     view.open(fixture("colors.avi"));
-    QTRY_VERIFY(view.ready());
+    QTRY_VERIFY2(view.ready(), qPrintable(playbackDiagnostic(view)));
     QVERIFY(red(view.coverImage()));
   }
   void tracksSubtitlesAndSeekMaintainPause() {
@@ -128,7 +137,7 @@ private slots:
     view.resize(400, 300);
     view.show();
     view.open(fixture("multi.mkv"));
-    QTRY_VERIFY_WITH_TIMEOUT(view.ready(), 10000);
+    QTRY_VERIFY2_WITH_TIMEOUT(view.ready(), qPrintable(playbackDiagnostic(view)), 10000);
     QCOMPARE(view.player()->videoTracks().size(), 2);
     QCOMPARE(view.player()->audioTracks().size(), 2);
     QCOMPARE(view.player()->subtitleTracks().size(), 2);
@@ -166,7 +175,7 @@ private slots:
     settings.setValue("video/rates", "0.5,1,2");
     VideoView view(settings);
     view.open(fixture("colors.avi"));
-    QTRY_VERIFY(view.ready());
+    QTRY_VERIFY2(view.ready(), qPrintable(playbackDiagnostic(view)));
     view.command("videoRateUp");
     QCOMPARE(view.state().rate, 2.);
     view.command("videoRateUp");
@@ -204,7 +213,7 @@ private slots:
     QSettings settings(dir.filePath("s.ini"), QSettings::IniFormat);
     VideoView view(settings);
     view.open(fixture("sample.mp4"));
-    QTRY_VERIFY_WITH_TIMEOUT(view.ready(), 10000);
+    QTRY_VERIFY2_WITH_TIMEOUT(view.ready(), qPrintable(playbackDiagnostic(view)), 10000);
     QVERIFY(view.player()->hasAudio());
     QVERIFY(view.player()->hasVideo());
     QVERIFY(view.player()->pitchCompensationAvailability() !=
@@ -226,7 +235,7 @@ private slots:
     settings.setValue("video/autoplay", false);
     VideoView view(settings);
     view.open(fixture("multi.mkv"));
-    QTRY_VERIFY(view.ready());
+    QTRY_VERIFY2(view.ready(), qPrintable(playbackDiagnostic(view)));
     QVector<double> samples;
     int sampleRate = 0;
     connect(view.player()->audioBufferOutput(),
@@ -270,7 +279,7 @@ private slots:
     VideoView view(settings);
     view.resize(400, 300);
     view.open(fixture("programs.ts"));
-    QTRY_VERIFY_WITH_TIMEOUT(view.ready(), 10000);
+    QTRY_VERIFY2_WITH_TIMEOUT(view.ready(), qPrintable(playbackDiagnostic(view)), 10000);
     QCOMPARE(view.player()->videoTracks().size(), 2);
     QCOMPARE(view.player()->audioTracks().size(), 2);
     QCOMPARE(view.player()->activeAudioTrack(), 0);
@@ -296,7 +305,7 @@ private slots:
     settings.setValue("video/autoplay", false);
     VideoView view(settings);
     view.open(fixture("colors.avi"));
-    QTRY_VERIFY(view.ready());
+    QTRY_VERIFY2(view.ready(), qPrintable(playbackDiagnostic(view)));
     view.setBottomFirst(bottom);
     view.setDeinterlace(DeinterlaceMode(method));
     QSignalSpy fields(&view, &VideoView::fieldPresented);
@@ -338,7 +347,7 @@ private slots:
     VideoView view(settings);
     view.resize(400, 300);
     view.open(fixture("colors.avi"));
-    QTRY_VERIFY(view.ready());
+    QTRY_VERIFY2(view.ready(), qPrintable(playbackDiagnostic(view)));
     QCOMPARE(view.playing(), autoplay);
     QVERIFY(resume ? green(view.coverImage()) : red(view.coverImage()));
     view.leave();
@@ -370,7 +379,7 @@ private slots:
     settings.setValue("video/autoplay", false);
     VideoView view(settings);
     view.open(fixture("colors.avi"));
-    QTRY_VERIFY(view.ready());
+    QTRY_VERIFY2(view.ready(), qPrintable(playbackDiagnostic(view)));
     view.seek(1000);
     view.command("videoSetA");
     view.seek(3000);
@@ -398,14 +407,14 @@ private slots:
     view.command("videoAB");
     view.leave();
     view.open(fixture("colors.avi"));
-    QTRY_VERIFY(view.ready());
+    QTRY_VERIFY2(view.ready(), qPrintable(playbackDiagnostic(view)));
     QVERIFY(!view.state().ab);
     QCOMPARE(view.state().a, qint64(1000));
     settings.setValue("video/restoreAB", true);
     view.command("videoAB");
     view.leave();
     view.open(fixture("colors.avi"));
-    QTRY_VERIFY(view.ready());
+    QTRY_VERIFY2(view.ready(), qPrintable(playbackDiagnostic(view)));
     QVERIFY(view.state().ab);
   }
   void minimizedPauseReason() {
@@ -414,7 +423,7 @@ private slots:
     settings.setValue("video/autoplay", false);
     VideoView view(settings);
     view.open(fixture("colors.avi"));
-    QTRY_VERIFY(view.ready());
+    QTRY_VERIFY2(view.ready(), qPrintable(playbackDiagnostic(view)));
     view.command("videoPlayPause");
     view.setPresentation(false, true);
     QVERIFY(view.playing());
@@ -528,27 +537,39 @@ private slots:
     view.resize(600, 400);
     view.show();
     view.open(fixture("sar.mkv"));
-    QTRY_VERIFY(view.ready());
+    QTRY_VERIFY2(view.ready(), qPrintable(playbackDiagnostic(view)));
     QCOMPARE(view.imageRect().width() / view.imageRect().height(), 3.);
     view.setAspect(1);
     QCOMPARE(view.imageRect().width() / view.imageRect().height(), 1.);
     view.command("videoAspect");
     QCOMPARE(view.imageRect().width() / view.imageRect().height(), 4. / 3);
     view.setAspect(0);
-    const auto elapsedAtRate = [&](double rate) {
+    const auto elapsedAtRate = [&](double rate) -> qint64 {
       view.player()->pause();
-      view.seek(0);
       view.setRate(rate);
+      if (view.position() > 0 || view.m_sourceFrame.startTime() > 0) {
+        view.seek(0);
+        if (!QTest::qWaitFor([&] {
+              return view.position() == 0 && view.m_seekTarget < 0 &&
+                     view.m_sourceFrame.startTime() < 100000;
+            }, 5000))
+          return -1;
+      }
+      view.command("videoPlayPause");
+      // Measure the running media clock, after asynchronous seek/startup has
+      // completed. Initialization latency is not playback speed.
+      if (!QTest::qWaitFor([&] { return view.position() >= 200; }, 5000))
+        return -1;
+      const auto target = view.position() + 800;
       QElapsedTimer timer;
       timer.start();
-      view.command("videoPlayPause");
-      while (view.position() < 800 && timer.elapsed() < 5000)
+      while (view.position() < target && timer.elapsed() < 5000)
         QTest::qWait(10);
       view.player()->pause();
-      return timer.elapsed();
+      return view.position() >= target ? timer.elapsed() : -1;
     };
     const auto slow = elapsedAtRate(.5), fast = elapsedAtRate(2);
-    QVERIFY(view.position() >= 800);
+    QVERIFY2(slow > 0 && fast > 0, qPrintable(QString("slow=%1ms fast=%2ms").arg(slow).arg(fast)));
     QVERIFY2(slow > fast * 2,
              qPrintable(QString("slow=%1ms fast=%2ms").arg(slow).arg(fast)));
   }
@@ -558,7 +579,7 @@ private slots:
     settings.setValue("video/autoplay", false);
     VideoView view(settings);
     view.open(fixture("colors.avi"));
-    QTRY_VERIFY(view.ready());
+    QTRY_VERIFY2(view.ready(), qPrintable(playbackDiagnostic(view)));
     view.player()->play();
     QTRY_VERIFY(view.playing());
     QSignalBlocker sinkEvents(view.m_sink);

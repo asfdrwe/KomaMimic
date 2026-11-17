@@ -222,6 +222,24 @@ class MacPackageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Incomplete macOS bundle'):
             package.audit(self.app, output, mock.Mock())
 
+    def test_custom_multimedia_source_is_preserved_and_checked(self):
+        archive = self.root / 'qtmultimedia-6.12.0.tar.xz'
+        archive.write_bytes(b'verified Qt source archive')
+        report = self.app / 'Contents/Resources/QT_MULTIMEDIA_BUILD.json'
+        report.parent.mkdir(parents=True, exist_ok=True)
+        report.write_text(json.dumps(dict(archive=str(archive), source=dict(sha256=package.digest(archive)))))
+        sources = self.root / 'sources'
+        sources.mkdir()
+        (sources / 'SHA256SUMS').write_text('existing sources\n')
+        package.multimedia_source(self.app, sources)
+        self.assertEqual((sources / archive.name).read_bytes(), archive.read_bytes())
+        self.assertEqual((sources / report.name).read_bytes(), report.read_bytes())
+        self.assertIn(package.digest(archive) + '  ' + archive.name,
+                      (sources / 'SHA256SUMS').read_text())
+        archive.write_bytes(b'changed')
+        with self.assertRaisesRegex(ValueError, 'source archive changed'):
+            package.multimedia_source(self.app, sources)
+
     def test_notices_keep_originals_and_include_transitive_formulae(self):
         formulae = [dict(name='icu4c@78' if n == 'icu4c' else n,
                         aliases=['icu4c'] if n == 'icu4c' else [],

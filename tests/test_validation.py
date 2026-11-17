@@ -701,6 +701,13 @@ Load command 3
             for name in ('komamimic', 'komamimic-script-worker', 'validation_probe'):
                 (build / name).write_bytes(b'\xcf\xfa\xed\xfe')
             (build / 'CMakeCache.txt').write_text('CMAKE_HOME_DIRECTORY:INTERNAL=' + ROOT.as_posix() + '\n')
+            media = directory / 'multimedia/install'
+            media_plugin = media / 'plugins/multimedia/libffmpegmediaplugin.dylib'
+            media_plugin.parent.mkdir(parents=True)
+            media_plugin.write_bytes(b'FFmpeg backend fixture')
+            (media.parent / 'MULTIMEDIA_BUILD.json').write_text('{"source":{"version":"test"}}')
+            with (build / 'CMakeCache.txt').open('a') as cache:
+                cache.write('Qt6Multimedia_DIR:PATH=' + (media / 'lib/cmake/Qt6Multimedia').as_posix() + '\n')
             (qt / 'bin').mkdir(parents=True)
             for name in ('qtpaths', 'macdeployqt'):
                 (qt / 'bin' / name).write_bytes(b'tool fixture')
@@ -742,6 +749,9 @@ Load command 3
                 self.assertIn('-executable=' + str(app / 'Contents/MacOS/validation_probe'), deploy_args)
                 self.assertEqual((output / 'validation_probe').read_bytes(), (build / 'validation_probe').read_bytes())
                 self.assertFalse((app / 'Contents/MacOS/validation_probe').exists())
+                self.assertEqual((app / 'Contents/PlugIns/multimedia/libffmpegmediaplugin.dylib').read_bytes(),
+                                 media_plugin.read_bytes())
+                self.assertTrue((app / 'Contents/Resources/QT_MULTIMEDIA_BUILD.json').is_file())
                 self.assertIn('Contents/Frameworks/libSDL3.dylib',
                               [p.removeprefix('KomaMimic.app/') for p in manifest['symlinks']])
                 command, env, timeout = seen[-1]

@@ -83,6 +83,37 @@ private slots:
         for (const auto &id : {"documentInherited", "documentStandard", "documentExtended"})
             QVERIFY(!ids.contains(id));
     }
+    void redirectedFilesKeepCommandOutput_data() {
+        QTest::addColumn<QStringList>("args");
+        QTest::addColumn<QByteArray>("expected");
+        QTest::addColumn<int>("exitCode");
+        QTest::newRow("version") << QStringList{"--version"} << QByteArray("KomaMimic " KOMAMIMIC_VERSION) << 0;
+        QTest::newRow("help") << QStringList{"--help"} << QByteArray("--config") << 0;
+        QTest::newRow("formats") << QStringList{"--formats"} << QByteArray("PDF") << 0;
+        QTest::newRow("error") << QStringList{"--not-an-option","--formats"} << QByteArray("not-an-option") << 1;
+    }
+    void redirectedFilesKeepCommandOutput() {
+        QFETCH(QStringList,args); QFETCH(QByteArray,expected); QFETCH(int,exitCode);
+        QTemporaryDir dir;
+        const auto file=dir.filePath("redirected.log");
+        auto env=QProcessEnvironment::systemEnvironment();
+        for(const auto &name:env.keys())
+            if(name.startsWith("QT") || name.startsWith("QML")) env.remove(name);
+        // Match the distribution check: real disk output and shared stderr,
+        // rather than QProcess's usual stdout/stderr pipes.
+        QProcess process;
+        process.setProcessEnvironment(env);
+        process.setProcessChannelMode(QProcess::MergedChannels);
+        process.setStandardOutputFile(file);
+        process.start(QString::fromUtf8(KOMAMIMIC_EXECUTABLE),args);
+        QVERIFY(process.waitForStarted(5000));
+        QVERIFY(waitForExit(process,60000));
+        QCOMPARE(process.exitStatus(),QProcess::NormalExit);
+        QCOMPARE(process.exitCode(),exitCode);
+        QFile output(file); QVERIFY(output.open(QIODevice::ReadOnly));
+        const auto bytes=output.readAll();
+        QVERIFY2(bytes.contains(expected),bytes.constData());
+    }
     void invalidArguments_data() {
         QTest::addColumn<QStringList>("args");
         QTest::newRow("zero-page") << QStringList{"--page","0"};

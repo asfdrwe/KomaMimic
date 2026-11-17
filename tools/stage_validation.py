@@ -334,13 +334,20 @@ def macos(build, output, call):
     plugin_roots = [Path(subprocess.check_output([str(qtpaths), '--query', 'QT_INSTALL_PLUGINS'], text=True).strip())]
     imageprefix = Path(subprocess.check_output(['brew', '--prefix', 'qtimageformats'], text=True).strip())
     plugin_roots += [imageprefix / 'share/qt/plugins', imageprefix / 'plugins', imageprefix / 'lib/qt6/plugins']
-    mediaprefix = Path(subprocess.check_output(['brew', '--prefix', 'qtmultimedia'], text=True).strip())
+    media_package = cache_values(build).get('Qt6Multimedia_DIR')
+    mediaprefix = (Path(media_package).parents[2] if media_package else
+                   Path(subprocess.check_output(['brew', '--prefix', 'qtmultimedia'], text=True).strip()))
     plugin_roots += [mediaprefix / 'share/qt/plugins', mediaprefix / 'plugins', mediaprefix / 'lib/qt6/plugins']
     for group in ('imageformats', 'sqldrivers', 'multimedia'):
         for root in plugin_roots:
             directory = root / group
             if directory.is_dir():
                 shutil.copytree(directory, plugins / group, dirs_exist_ok=True)
+    if not (plugins / 'multimedia/libffmpegmediaplugin.dylib').is_file():
+        raise ValueError('Qt Multimedia FFmpeg backend is required; see tools/setup_macos_multimedia.py')
+    media_report = mediaprefix.parent / 'MULTIMEDIA_BUILD.json'
+    if media_report.is_file():
+        shutil.copy2(media_report, resources / 'QT_MULTIMEDIA_BUILD.json')
     sdl3 = bundle_macos_sdl3(app, output)
     command = [tool(qt, 'macdeployqt', 'macdeployqt6'), app, '-verbose=2', '-always-overwrite',
                '-codesign=-', '-executable=' + str(binaries / 'komamimic-script-worker'),
