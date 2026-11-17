@@ -107,7 +107,7 @@ Install Xcode Command Line Tools and Homebrew, then run:
 
 ```sh
 brew install cmake ninja qtbase qtdeclarative qttools qttranslations qtwebengine qtmultimedia \
-  qtimageformats ffmpeg libarchive icu4c sdl2-compat poppler pkgconf
+  qtimageformats ffmpeg vulkan-headers libarchive icu4c sdl2-compat poppler pkgconf
 python3 tools/setup_macos_multimedia.py --output build-macos-multimedia
 export QT_PLUGIN_PATH="$(python3 -c 'import json; print(json.load(open("build-macos-multimedia/MULTIMEDIA_BUILD.json"))["plugins"])')"
 cmake -S . -B build-macos -G Ninja \
@@ -121,6 +121,8 @@ CMake discovers the Homebrew prefixes. No `brew link --force` is required.
 The helper requires Python 3.12+ and builds only Qt Multimedia, matching the installed
 Qt version and enabling its FFmpeg backend. Homebrew disables that backend on macOS.
 The source checksum is verified; Homebrew's installation is not overwritten.
+The build also needs `vulkan-headers` for Qt Gui's RHI declarations; the helper
+passes its include directory explicitly to CMake.
 
 Video playback uses Qt Multimedia. See the [video guide](docs/site/en/user/video.md) for controls, decoding preferences, and format limitations.
 

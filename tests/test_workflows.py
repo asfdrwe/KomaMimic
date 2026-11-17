@@ -110,6 +110,8 @@ class WorkflowIsolationTests(unittest.TestCase):
         self.assertIn('-DQt6Multimedia_DIR=', macos)
         self.assertIn("stream.write('QT_PLUGIN_PATH=' + report['plugins']", macos)
         self.assertIn('build-macos-multimedia/*.log', macos)
+        self.assertRegex(macos, r'brew install [^\n]*\bvulkan-headers\b')
+        self.assertIn('build-macos-multimedia/build/CMakeCache.txt', macos)
         windows = job(text, 'windows')
         self.assertIn('Tee-Object -FilePath results/windows-package.log', windows)
         self.assertIn('results/windows-package.log', windows.split('Upload diagnostics', 1)[1])

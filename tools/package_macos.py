@@ -28,7 +28,8 @@ from stage_validation import (inspect_macos, macos_bundle_or_system_path,
                               signing_entitlements, system_library)
 
 RUNTIME_FORMULAE = ('qtbase', 'qtdeclarative', 'qttools', 'qttranslations', 'qtwebengine',
-                   'qtimageformats', 'qtmultimedia', 'ffmpeg', 'libarchive', 'icu4c', 'sdl2-compat', 'sdl3', 'poppler')
+                   'qtimageformats', 'qtmultimedia', 'ffmpeg', 'vulkan-headers',
+                   'libarchive', 'icu4c', 'sdl2-compat', 'sdl3', 'poppler')
 REQUIRED = ('Contents/MacOS/komamimic', 'Contents/MacOS/komamimic-script-worker',
             'Contents/Info.plist', 'Contents/Resources/komamimic.icns',
             'Contents/Resources/qt.conf', 'Contents/Resources/translations/qtbase_ja.qm',

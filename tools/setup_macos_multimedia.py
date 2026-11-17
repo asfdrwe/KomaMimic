@@ -45,12 +45,22 @@ def extract_source(archive, destination, identity):
     return source
 
 
-def configure_command(source, build, prefix, qt_prefixes, ffmpeg):
+def vulkan_headers(prefix):
+    include = prefix / 'include'
+    if not (include / 'vulkan/vulkan.h').is_file():
+        raise ValueError('Vulkan headers missing; install vulkan-headers: ' + str(include))
+    return include
+
+
+def configure_command(source, build, prefix, qt_prefixes, ffmpeg, vulkan_include):
     return ['cmake', '-S', source, '-B', build, '-G', 'Ninja',
             '-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_OSX_ARCHITECTURES=arm64',
             '-DCMAKE_INSTALL_PREFIX=' + str(prefix),
             '-DCMAKE_PREFIX_PATH=' + ';'.join(map(str, [*qt_prefixes, ffmpeg])),
             '-DQT_ADDITIONAL_PACKAGES_PREFIX_PATH=' + ';'.join(map(str, qt_prefixes)),
+            # Qt Gui's optional WrapVulkanHeaders dependency must be found:
+            # qrhi_platform.h hides its Vulkan types when headers are absent.
+            '-DVulkan_INCLUDE_DIR=' + str(vulkan_include),
             '-DFFMPEG_DIR=' + str(ffmpeg), '-DQT_FEATURE_ffmpeg=ON',
             '-DQT_DEFAULT_MEDIA_BACKEND=ffmpeg',
             '-DQT_BUILD_EXAMPLES=OFF', '-DQT_BUILD_TESTS=OFF',
@@ -77,13 +87,15 @@ def setup(output, jobs):
     qt_version = subprocess.check_output([tool(prefixes[0] / 'bin', 'qtpaths', 'qtpaths6'), '--qt-version'], text=True).strip()
     identity = source_identity(formulae['qtmultimedia'], qt_version)
     save_json(output / 'SOURCE.json', identity)
+    vulkan = Path(subprocess.check_output(['brew', '--prefix', 'vulkan-headers'], text=True).strip())
+    vulkan_include = vulkan_headers(vulkan)
     archive = output / ('qtmultimedia-' + qt_version + '.tar.xz')
     with urllib.request.urlopen(identity['url'], timeout=120) as response, archive.open('wb') as stream:
         shutil.copyfileobj(response, stream)
     source = extract_source(archive, output / 'source', identity)
     prefix, build = output / 'install', output / 'build'
     ffmpeg = Path(subprocess.check_output(['brew', '--prefix', 'ffmpeg'], text=True).strip())
-    commands = [configure_command(source, build, prefix, prefixes, ffmpeg),
+    commands = [configure_command(source, build, prefix, prefixes, ffmpeg, vulkan_include),
                 ['cmake', '--build', build, '--parallel', str(jobs)],
                 ['cmake', '--install', build]]
     for name, command in zip(('configure', 'build', 'install'), commands):

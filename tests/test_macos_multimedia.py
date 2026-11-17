@@ -26,13 +26,25 @@ class MacMultimediaTests(unittest.TestCase):
 
     def test_configure_enables_ffmpeg_and_keeps_installation_separate(self):
         cmd = list(map(str, setup.configure_command(Path('src'), Path('build'), Path('private/install'),
-                                                    [Path('brew/qtbase'), Path('brew/qtdeclarative')], Path('brew/ffmpeg'))))
+                                                    [Path('brew/qtbase'), Path('brew/qtdeclarative')],
+                                                    Path('brew/ffmpeg'), Path('brew/vulkan-headers/include'))))
         self.assertIn('-DQT_FEATURE_ffmpeg=ON', cmd)
         self.assertIn('-DQT_DEFAULT_MEDIA_BACKEND=ffmpeg', cmd)
         self.assertIn('-DFFMPEG_DIR=' + str(Path('brew/ffmpeg')), cmd)
         self.assertIn('-DCMAKE_INSTALL_PREFIX=' + str(Path('private/install')), cmd)
         self.assertIn('-DQT_ADDITIONAL_PACKAGES_PREFIX_PATH=' + ';'.join(map(str, [Path('brew/qtbase'), Path('brew/qtdeclarative')])), cmd)
         self.assertIn('-DCMAKE_OSX_ARCHITECTURES=arm64', cmd)
+        self.assertIn('-DVulkan_INCLUDE_DIR=' + str(Path('brew/vulkan-headers/include')), cmd)
+
+    def test_vulkan_headers_are_required_before_downloading_and_building_qt(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            prefix = Path(temporary)
+            with self.assertRaisesRegex(ValueError, 'install vulkan-headers'):
+                setup.vulkan_headers(prefix)
+            header = prefix / 'include/vulkan/vulkan.h'
+            header.parent.mkdir(parents=True)
+            header.write_text('/* Vulkan header fixture */')
+            self.assertEqual(setup.vulkan_headers(prefix), prefix / 'include')
 
     def test_source_checksum_and_archive_paths_are_checked_before_build(self):
         with tempfile.TemporaryDirectory() as temporary:

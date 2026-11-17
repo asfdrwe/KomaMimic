@@ -136,7 +136,7 @@ jobs:
       - name: Check native Apple Silicon environment
         run: python3 -c 'import platform; assert platform.machine() == "arm64", platform.machine()'
       - name: Install dependencies
-        run: brew install cmake ninja qtbase qtdeclarative qttools qttranslations qtwebengine qtimageformats qtmultimedia ffmpeg libarchive icu4c sdl2-compat poppler pkgconf
+        run: brew install cmake ninja qtbase qtdeclarative qttools qttranslations qtwebengine qtimageformats qtmultimedia ffmpeg vulkan-headers libarchive icu4c sdl2-compat poppler pkgconf
       - name: Build matching Qt Multimedia with FFmpeg enabled
         run: |
           python3 tools/setup_macos_multimedia.py --output build-macos-multimedia
@@ -190,6 +190,7 @@ jobs:
             build-macos-multimedia/*.log
             build-macos-multimedia/*.json
             build-macos-multimedia/build/config.summary
+            build-macos-multimedia/build/CMakeCache.txt
             stage-macos/*.log
             stage-macos/*.json
             stage-macos/entitlements-before/
