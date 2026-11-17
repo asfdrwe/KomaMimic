@@ -23,6 +23,7 @@
 #include <QPushButton>
 #include <QSettings>
 #include <QScopeGuard>
+#include <QSet>
 #include <QSignalBlocker>
 #include <QSignalSpy>
 #include <QSlider>
@@ -46,6 +47,12 @@ class VideoTests : public QObject {
         .arg(int(player->playbackState()))
         .arg(int(player->error()))
         .arg(player->errorString(), view.error());
+  }
+  static QString fieldDiagnostic(const QSignalSpy &fields) {
+    QStringList sequence;
+    for (const auto &args : fields)
+      sequence.append(QString("%1:%2").arg(args[0].toLongLong()).arg(args[1].toInt()));
+    return sequence.join(", ");
   }
   static bool red(const QImage &image) {
     if (image.isNull())
@@ -292,14 +299,20 @@ private slots:
   void bobPresentsTwoFieldsInTimeOrder_data() {
     QTest::addColumn<bool>("bottom");
     QTest::addColumn<int>("method");
-    QTest::newRow("Bob TFF") << false << int(DeinterlaceMode::Bob);
-    QTest::newRow("Bob BFF") << true << int(DeinterlaceMode::Bob);
-    QTest::newRow("Linear TFF") << false << int(DeinterlaceMode::Linear);
-    QTest::newRow("Linear BFF") << true << int(DeinterlaceMode::Linear);
+    QTest::addColumn<bool>("repeatInitial");
+    QTest::newRow("Bob TFF") << false << int(DeinterlaceMode::Bob) << false;
+    QTest::newRow("Bob BFF") << true << int(DeinterlaceMode::Bob) << false;
+    QTest::newRow("Linear TFF") << false << int(DeinterlaceMode::Linear) << false;
+    QTest::newRow("Linear BFF") << true << int(DeinterlaceMode::Linear) << false;
+    QTest::newRow("Bob TFF repeated start") << false << int(DeinterlaceMode::Bob) << true;
+    QTest::newRow("Bob BFF repeated start") << true << int(DeinterlaceMode::Bob) << true;
+    QTest::newRow("Linear TFF repeated start") << false << int(DeinterlaceMode::Linear) << true;
+    QTest::newRow("Linear BFF repeated start") << true << int(DeinterlaceMode::Linear) << true;
   }
   void bobPresentsTwoFieldsInTimeOrder() {
     QFETCH(bool, bottom);
     QFETCH(int, method);
+    QFETCH(bool, repeatInitial);
     QTemporaryDir dir;
     QSettings settings(dir.filePath("s.ini"), QSettings::IniFormat);
     settings.setValue("video/autoplay", false);
@@ -309,19 +322,65 @@ private slots:
     view.setBottomFirst(bottom);
     view.setDeinterlace(DeinterlaceMode(method));
     QSignalSpy fields(&view, &VideoView::fieldPresented);
+    struct PresentedFrame {
+      qint64 timestamp;
+      QList<int> fields;
+    };
+    QList<PresentedFrame> groups;
+    QVideoFrame observedFrame;
+    connect(&view, &VideoView::fieldPresented, &view,
+            [&](qint64 timestamp, int field) {
+              // Distinct decoded frames may carry the same startup timestamp.
+              if (groups.isEmpty() || observedFrame != view.m_sourceFrame) {
+                observedFrame = view.m_sourceFrame;
+                groups.append(PresentedFrame{timestamp, {}});
+              }
+              groups.last().fields.append(field);
+            });
+    const QList<int> order{bottom ? 1 : 0, bottom ? 0 : 1};
+    const auto completedPairs = [&] {
+      QSet<qint64> timestamps;
+      for (const auto &group : groups)
+        if (group.fields == order)
+          timestamps.insert(group.timestamp);
+      return timestamps.size();
+    };
+    bool repeated = false;
+    qint64 repeatedTimestamp = -1;
+    if (repeatInitial)
+      connect(&view, &VideoView::fieldPresented, &view, [&] {
+        if (repeated)
+          return;
+        repeated = true;
+        // Backends may deliver the initial timestamp again when resuming.
+        // Deliver a separate decoded frame at that timestamp through the sink.
+        const auto source = view.m_sourceFrame;
+        repeatedTimestamp = source.startTime();
+        QVideoFrame duplicate(source.toImage());
+        duplicate.setStartTime(source.startTime());
+        duplicate.setEndTime(source.endTime());
+        QTimer::singleShot(0, &view, [&, duplicate] {
+          view.m_sink->setVideoFrame(duplicate);
+        });
+      });
     view.player()->play();
-    QTRY_VERIFY_WITH_TIMEOUT(fields.size() >= 6, 3000);
+    // Repeated startup frames can produce six notifications before two
+    // distinct timestamps have both fields. Wait for the actual result.
+    QTRY_VERIFY2_WITH_TIMEOUT(completedPairs() >= 2,
+                             qPrintable(fieldDiagnostic(fields)), 3000);
     view.player()->pause();
-    QMap<qint64, QList<int>> groups;
-    for (const auto &args : fields)
-      groups[args[0].toLongLong()].append(args[1].toInt());
-    int pairs = 0;
     for (const auto &group : groups)
-      if (group.size() == 2) {
-        QCOMPARE(group, QList<int>({bottom ? 1 : 0, bottom ? 0 : 1}));
-        ++pairs;
-      }
-    QVERIFY(pairs >= 2);
+      if (group.fields.size() == 2)
+        QCOMPARE(group.fields, order);
+    QVERIFY2(completedPairs() >= 2, qPrintable(fieldDiagnostic(fields)));
+    if (repeatInitial) {
+      QVERIFY(repeated);
+      int sameTimestamp = 0;
+      for (const auto &group : groups)
+        if (group.timestamp == repeatedTimestamp)
+          ++sameTimestamp;
+      QVERIFY(sameTimestamp >= 2);
+    }
     QVERIFY(!view.m_fieldTimer->isActive());
     view.seek(3000);
     QVERIFY(!view.m_fieldTimer->isActive());
