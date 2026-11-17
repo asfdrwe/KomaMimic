@@ -359,7 +359,13 @@ private slots:
         QCOMPARE(color(),QColor(Qt::blue));
         QCOMPARE(cachedCover(path,{},cache,{},false,0,true).image.pixelColor(0,0),QColor(Qt::blue));window.close();
     }
+    void cachedChildDirectoryBypassesParentWork_data() {
+        QTest::addColumn<bool>("parentUpdates");
+        QTest::newRow("normal")<<false;
+        QTest::newRow("late-parent-events")<<true;
+    }
     void cachedChildDirectoryBypassesParentWork() {
+        QFETCH(bool,parentUpdates);
         QTemporaryDir d;const auto parent=d.filePath("parent"),child=parent+"/child";
         QVERIFY(QDir().mkpath(child));
         for(int i=0;i<300;++i)QVERIFY(QDir().mkpath(parent+QString("/folder-%1").arg(i,3,10,QChar('0'))));
@@ -376,15 +382,36 @@ private slots:
         // completion. Navigation and cached pixels must not need any of them.
         grid->hide();window.requestThumbnails(grid);
         window.m_displayJobs->retain("covers");window.m_displayJobs->retain("directory-siblings");
+        // Prepare the blocked workers before attaching them to the window.
+        // Late parent-window events may otherwise cancel the Background
+        // holder before its worker starts, invalidating the test precondition.
+        auto blockedJobs=std::make_unique<DisplayJobs>();
+        QTimer parentActivity;
+        parentActivity.setInterval(10);
+        const auto parentEvent=[&]{
+            window.m_displayJobs->submit<int>(DisplayJobs::Lane::Navigation,"fixture-parent-event","fixture-parent-event",
+                [](const auto &){return 0;},[](int,bool){});
+        };
+        connect(&parentActivity,&QTimer::timeout,&window,parentEvent);
         std::latch release(1);std::atomic<int> entered=0;
-        auto cleanup=qScopeGuard([&]{release.count_down();});
+        auto cleanup=qScopeGuard([&]{
+            parentActivity.stop();
+            release.count_down();
+            auto *jobs=blockedJobs?blockedJobs.get():window.m_displayJobs.get();
+            jobs->stop();jobs->waitForDone();
+        });
         for(auto lane:{DisplayJobs::Lane::Store,DisplayJobs::Lane::Background,DisplayJobs::Lane::Update,DisplayJobs::Lane::Display}) {
+            if(parentUpdates && lane==DisplayJobs::Lane::Background) {
+                parentEvent();parentActivity.start();
+            }
             const auto id=QString("held/%1").arg(int(lane));
             const auto expected=entered.load()+1;
-            window.m_displayJobs->submit<int>(lane,"held",id,[&](const auto &){++entered;release.wait();return 0;},[](int,bool){});
+            blockedJobs->submit<int>(lane,"held",id,[&](const auto &){++entered;release.wait();return 0;},[](int,bool){});
             QTRY_COMPARE_WITH_TIMEOUT(entered.load(),expected,3000);
         }
         QTRY_COMPARE_WITH_TIMEOUT(entered.load(),4,3000);
+        parentActivity.stop();
+        window.m_displayJobs=std::move(blockedJobs);
         grid->show();window.openDirectory(child);
         QTRY_VERIFY_WITH_TIMEOUT(window.directoryReady() && grid->count()==4,1000);
         for(int row=0;row<4;++row) {

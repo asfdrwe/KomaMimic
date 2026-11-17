@@ -20,6 +20,87 @@ import setup_linux_poppler as poppler_build
 
 
 class AppImageTests(unittest.TestCase):
+    def environment_probe(self, path, exit_code=0):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('#!' + sys.executable + '\n' + '''import json, os, sys
+from pathlib import Path
+keys = ('HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME',
+        'XDG_STATE_HOME', 'XDG_RUNTIME_DIR', 'TMPDIR', 'TMP', 'TEMP')
+root = Path(os.environ['KOMAMIMIC_TEST_ROOT'])
+(root / ('env-' + sys.argv[1].lstrip('-') + '.json')).write_text(
+    json.dumps({key: os.environ[key] for key in keys}))
+''' + 'sys.exit(' + str(exit_code) + ')\n')
+        path.chmod(0o755)
+
+    def assert_private_probe(self, destination, flag):
+        profile = (destination / 'environment').resolve()
+        record = json.loads((profile / ('env-' + flag + '.json')).read_text())
+        for key, value in record.items():
+            self.assertTrue(Path(value).resolve().is_relative_to(profile), key)
+
+    @unittest.skipUnless(os.name == 'posix', 'requires POSIX AppRun execution')
+    def test_stage_launches_app_run_with_a_private_profile(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            build, destination, sources = (root / n for n in ('build', 'stage', 'sources'))
+            build.mkdir(); sources.mkdir()
+            (build / 'CMakeCache.txt').write_text('')
+            (sources / 'poppler-source.json').write_text('{}')
+            for name in ('validation_probe', 'document_probe'):
+                (build / name).write_bytes(b'probe fixture')
+            normal = root / 'normal-profile'
+            normal.mkdir()
+            (normal / 'sentinel').write_bytes(b'normal user settings')
+            real_run = appimage.run
+            def install_or_run(command, **options):
+                if command[0] != 'cmake':
+                    return real_run(command, **options)
+                app = destination / 'AppDir'
+                self.environment_probe(app / 'usr/bin/komamimic')
+                (app / 'usr/bin/komamimic-script-worker').write_bytes(b'worker fixture')
+                for directory in ('usr/libexec', 'usr/share/doc/KomaMimic',
+                                  'usr/share/applications', 'usr/share/icons/hicolor/256x256/apps'):
+                    (app / directory).mkdir(parents=True, exist_ok=True)
+                shutil.copy2(appimage.ROOT / 'assets/komamimic.desktop',
+                             app / 'usr/share/applications/komamimic.desktop')
+                shutil.copy2(appimage.ROOT / 'assets/icons/komamimic-256.png',
+                             app / 'usr/share/icons/hicolor/256x256/apps/komamimic.png')
+            real_copytree = shutil.copytree
+            def poppler_data(source, target, *args, **kwargs):
+                if str(source) == '/usr/share/poppler':
+                    Path(target).mkdir(parents=True)
+                    return target
+                return real_copytree(source, target, *args, **kwargs)
+            def query(command, **options):
+                return 'patchelf 0.19.2' if command[0] == 'patchelf' else 'a' * 40
+            with (patch.object(appimage, 'run', side_effect=install_or_run),
+                  patch.object(appimage, 'qt_resources', return_value=[]),
+                  patch.object(appimage, 'collect_libraries', return_value=({}, {})),
+                  patch.object(appimage, 'relocate_and_audit', return_value='2.28'),
+                  patch.object(appimage, 'package_notices', return_value={}),
+                  patch.object(appimage, 'output', side_effect=query),
+                  patch.object(appimage.shutil, 'copytree', side_effect=poppler_data),
+                  patch.dict(os.environ, HOME=str(normal), KOMAMIMIC_TEST_ROOT=str(normal))):
+                appimage.stage(build, destination, sources, (2, 28))
+            for flag in ('version', 'formats'):
+                self.assert_private_probe(destination, flag)
+            self.assertEqual(list(normal.iterdir()), [normal / 'sentinel'])
+            self.assertEqual((normal / 'sentinel').read_bytes(), b'normal user settings')
+
+    @unittest.skipUnless(os.name == 'posix', 'requires POSIX executable scripts')
+    def test_verify_isolates_os_directories_before_starting_the_image(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            image, destination = root / 'candidate.AppImage', root / 'verify'
+            self.environment_probe(image, exit_code=7)
+            normal = root / 'normal-profile'
+            normal.mkdir()
+            with patch.dict(os.environ, HOME=str(normal), KOMAMIMIC_TEST_ROOT=str(normal)):
+                with self.assertRaises(subprocess.CalledProcessError):
+                    appimage.verify(image, root / 'probe', destination, root / 'document_probe')
+            self.assert_private_probe(destination, 'version')
+            self.assertEqual(list(normal.iterdir()), [])
+
     def render_fixture(self, root, case='success'):
         (root / 'bin').mkdir(parents=True)
         wrapper = root / 'bin/xvfb-run'

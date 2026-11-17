@@ -387,9 +387,9 @@ def stage(build, destination, sources, max_glibc):
     copy(app / 'komamimic.png', app / '.DirIcon')
     (app / 'AppRun').write_text(APP_RUN)
     (app / 'AppRun').chmod(0o755)
-    env = isolated_environment(destination / 'environment', env)
+    env = isolated_environment(destination / 'environment')
     for flag in ('--version', '--formats'):
-        run([app / 'AppRun', flag])
+        run([app / 'AppRun', flag], env=env)
     manifest = dict(schema=1, status='CANDIDATE_REQUIRES_MANUAL_VALIDATION',
                     version=re.search(r'project\(KomaMimic VERSION ([0-9.]+)', (ROOT / 'CMakeLists.txt').read_text())[1],
                     # Container checkout and packaging users may differ. Trust
@@ -473,8 +473,8 @@ def verify(image, probe, destination, document_probe):
     # No Qt SDK, RX prefix, or compilation environment may supply dependencies.
     env = {key: value for key, value in os.environ.items()
            if not key.startswith(('QT_', 'QML', 'LD_', 'KOMA_PROBE_'))}
-    env.update(APPIMAGE_EXTRACT_AND_RUN='1', QT_QPA_PLATFORM='offscreen',
-               TMPDIR=str(destination), XDG_CACHE_HOME=str(destination / 'cache'))
+    env = isolated_environment(destination / 'environment', env)
+    env.update(APPIMAGE_EXTRACT_AND_RUN='1', QT_QPA_PLATFORM='offscreen')
     for flag in ('--version', '--formats'):
         run([image, flag], env=env)
     run([image, '--appimage-extract'], cwd=destination, env=env, stdout=subprocess.DEVNULL)
