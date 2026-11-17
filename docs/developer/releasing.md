@@ -16,6 +16,9 @@ v2文書は`/v2/`へ生成します。PagesとReleaseの文書検査は同じ生
 依存ライセンス表示・対応ソース・checksumを確認し、最終commitと一致する新しいtagを
 明示的に作成してpushします。既存tagや既存Releaseを再利用・移動しません。tagのcommitが`origin/main`へ反映済みであることもworkflowで検査します。
 キャッシュ形式`thumbnails-v2`は維持し、版番号変更だけで消去・再生成しません。
+dev2の手動検査はRun workflowでブランチを`dev2`に指定する。3 OS Buildと
+Rocky/Ubuntu AppImageの検査を新しいrunで実行し、`komamimic-release-bundle`を保存する。
+既存Release・Gitタグ・Pagesは更新しない。
 
 ## Version and tag checks
 
@@ -75,6 +78,10 @@ source-checks job, its versioned SOURCE_MANIFEST, per-OS versioned BUILD_MANIFES
 Homebrew metadata, the Linux dependency source archives, `RELEASE_MANIFEST.json`,
 `RELEASE_NOTES.md`, and `SHA256SUMS`. No build logs, probes, or arbitrary artifact
 directory contents are published.
+macOSでQt Multimediaを別ビルドした場合は、原本`qtmultimedia-<Qt版>.tar.xz`と
+版番号・macOSを付けた`QT_MULTIMEDIA_BUILD.json`も保持する。ビルド記録はappの
+manifest内のhashと照合し、その記録が指定する原本sourceのhashを検査する。
+記録されていない追加ファイルは引き続き拒否する。
 
 Source archives from each OS are checked against their manifests and the canonical
 source. Windows may differ only by CRLF/LF in valid UTF-8 text without NUL bytes;

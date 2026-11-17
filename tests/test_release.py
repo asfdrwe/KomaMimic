@@ -18,6 +18,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / 'tools'))
 import release
+import package_macos
 
 COMMIT = 'a' * 40
 TAG = 'v1.0.0'
@@ -145,6 +146,61 @@ class ReleaseTests(unittest.TestCase):
 
     def assemble(self):
         return release.assemble(self.root, self.inputs, self.output, TAG, COMMIT)
+
+    def macos_multimedia(self):
+        archive = self.base / 'qtmultimedia-6.12.0.tar.xz'
+        archive.write_bytes(b'synthetic upstream Qt Multimedia source')
+        app = self.base / 'KomaMimic.app'
+        report = app / 'Contents/Resources/QT_MULTIMEDIA_BUILD.json'
+        report.parent.mkdir(parents=True)
+        release.save_json(report, dict(archive=str(archive), source=dict(
+            version='6.12.0', sha256=release.digest(archive))))
+        # Exercise the real package producer against the release consumer.
+        package_macos.multimedia_source(app, self.inputs / 'macos/sources')
+        self.change_manifest('macos', files=[dict(path='Contents/Resources/' + report.name,
+                                                  sha256=release.digest(report))])
+        return archive, report
+
+    def test_macos_packager_dependency_sources_reach_the_verified_release_bundle(self):
+        archive, report = self.macos_multimedia()
+        self.assemble()
+        self.assertEqual((self.output / archive.name).read_bytes(), archive.read_bytes())
+        report_target = self.output / ('KomaMimic-1.0.0-macos-arm64-' + report.name)
+        self.assertEqual(report_target.read_bytes(), report.read_bytes())
+        verified = release.verify_bundle(self.output, TAG, COMMIT)
+        self.assertIn(archive.name, verified)
+        self.assertIn(report_target.name, verified)
+        self.assertEqual(len(list(self.output.glob('KomaMimic-*-source.tar.gz'))), 1)
+
+    def test_macos_dependency_source_must_match_the_app_report(self):
+        archive, _ = self.macos_multimedia()
+        sources = self.inputs / 'macos/sources'
+        (sources / archive.name).write_bytes(b'changed Qt source')
+        self.sums(sources, [p.name for p in sources.iterdir() if p.name != 'SHA256SUMS'])
+        with self.assertRaisesRegex(ValueError, 'Multimedia source checksum mismatch'):
+            self.assemble()
+        self.assertFalse(self.output.exists())
+
+    def test_macos_dependency_report_cannot_change_independently_of_the_app(self):
+        _, report = self.macos_multimedia()
+        sources = self.inputs / 'macos/sources'
+        copied = sources / report.name
+        record = json.loads(copied.read_text())
+        record['source']['version'] = '6.12.1'
+        release.save_json(copied, record)
+        self.sums(sources, [p.name for p in sources.iterdir() if p.name != 'SHA256SUMS'])
+        with self.assertRaisesRegex(ValueError, 'build report differs from app manifest'):
+            self.assemble()
+        self.assertFalse(self.output.exists())
+
+    def test_unrecorded_macos_dependency_files_are_still_rejected(self):
+        self.macos_multimedia()
+        sources = self.inputs / 'macos/sources'
+        (sources / 'unexpected.tar.xz').write_bytes(b'unrecorded dependency')
+        self.sums(sources, [p.name for p in sources.iterdir() if p.name != 'SHA256SUMS'])
+        with self.assertRaisesRegex(ValueError, 'Unexpected OS source selection'):
+            self.assemble()
+        self.assertFalse(self.output.exists())
 
     def test_release_notes_changelog_section(self):
         path = self.root / 'docs/site/en/changelog.md'

@@ -156,6 +156,25 @@ def compare_source(actual, canonical, allow_crlf=False):
     return differences
 
 
+def macos_multimedia_sources(directory, manifest, source_sums):
+    report_name = 'QT_MULTIMEDIA_BUILD.json'
+    records = [r for r in manifest.get('files', [])
+               if r.get('path') == 'Contents/Resources/' + report_name]
+    if not records:
+        return {}
+    if len(records) != 1 or records[0].get('sha256') != source_sums.get(report_name):
+        raise ValueError('macOS Qt Multimedia build report differs from app manifest')
+    report = json.loads(file_at(directory, report_name).read_text(encoding='utf-8'))
+    source = report.get('source', {})
+    qt_version = source.get('version', '')
+    if not isinstance(qt_version, str) or not re.fullmatch(VERSION, qt_version):
+        raise ValueError('Invalid macOS Qt Multimedia source version')
+    archive = 'qtmultimedia-' + qt_version + '.tar.xz'
+    if archive not in source_sums or source_sums[archive] != source.get('sha256'):
+        raise ValueError('macOS Qt Multimedia source checksum mismatch')
+    return {name: source_sums[name] for name in (archive, report_name)}
+
+
 def check_artifact(directory, system, version, commit, canonical):
     sums = checksum_records(directory)
     manifest = json.loads(file_at(directory, 'BUILD_MANIFEST.json').read_text(encoding='utf-8'))
@@ -175,6 +194,7 @@ def check_artifact(directory, system, version, commit, canonical):
     eol = compare_source(data, canonical, allow_crlf=system == 'windows')
     if system != 'linux' and manifest.get('source_files') != source['files']:
         raise ValueError('Artifact source records differ: ' + system)
+    dependencies = {}
     if system == 'linux':
         if sums[prefix + '-linux-x86_64.AppImage'] != manifest.get('appimage_sha256'):
             raise ValueError('AppImage hash differs from build manifest')
@@ -186,9 +206,13 @@ def check_artifact(directory, system, version, commit, canonical):
             raise ValueError('Missing dependency source archive')
         if set(source_sums) != {prefix + '-source.tar.gz', 'SOURCE_MANIFEST.json', *dependencies}:
             raise ValueError('Unexpected Linux source selection')
-    elif set(source_sums) != {prefix + '-source.tar.gz', 'SOURCE_MANIFEST.json'}:
-        raise ValueError('Unexpected OS source selection')
-    return dict(manifest=manifest, source_eol_differences=eol, checksums=sums)
+    else:
+        if system == 'macos':
+            dependencies = macos_multimedia_sources(directory / 'sources', manifest, source_sums)
+        if set(source_sums) != {prefix + '-source.tar.gz', 'SOURCE_MANIFEST.json', *dependencies}:
+            raise ValueError('Unexpected OS source selection')
+    return dict(manifest=manifest, source_eol_differences=eol, checksums=sums,
+                dependency_sources=dependencies)
 
 
 def write_sums(directory):
@@ -277,6 +301,11 @@ def assemble(root, inputs, output, tag, commit):
                 or name in {p.name for p in output.iterdir()}):
             raise ValueError('Dependency source name collision: ' + name)
         shutil.copy2(file_at(inputs / 'linux/sources', name), output / name)
+    for name in reports['macos']['dependency_sources']:
+        target = prefix + '-macos-arm64-' + name if name.endswith('.json') else name
+        if (output / target).exists():
+            raise ValueError('Dependency source name collision: ' + target)
+        shutil.copy2(file_at(inputs / 'macos/sources', name), output / target)
     with tempfile.TemporaryDirectory(prefix='linux-release-', dir=output.parent) as temporary:
         linux = Path(temporary)
         for name in (prefix + '-linux-x86_64.AppImage', 'komamimic.desktop', 'komamimic.png', 'BUILD_MANIFEST.json'):
