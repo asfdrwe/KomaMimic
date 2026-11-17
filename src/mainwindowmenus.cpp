@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "mainwindow.h"
+#include "videoview.h"
 #include <QCoreApplication>
 #include "readerfeatures.h"
 #include <QAction>
@@ -209,6 +210,8 @@ void MainWindow::buildMenus() {
     auto *users = sub(tools, "menuUserCommands", QCoreApplication::translate("KomaMimic", "ユーザコマンド"));
     for (int i = 1; i <= 8; ++i) add(users, {QString("userCommand%1").arg(i)});
 
+    m_videoMenu=menu("menuVideo",QCoreApplication::translate("KomaMimic","動画(&V)"));
+    m_video->populateMenu(m_videoMenu,m_actions);
     auto *help = menu("menuHelp", QCoreApplication::translate("KomaMimic", "ヘルプ(&H)"));
     add(help, {"imageInfo", "cacheInfo"}); help->addSeparator(); add(help, {"help"});
     help->addSeparator(); add(help, {"about"});

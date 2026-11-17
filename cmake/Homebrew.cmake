@@ -15,7 +15,7 @@ if(NOT KOMAMIMIC_BREW_EXECUTABLE)
     return()
 endif()
 
-set(komamimic_brew_formulas qtbase qtdeclarative qttools qttranslations qtwebengine qtwebchannel qtpositioning qtshadertools qtsvg qtlanguageserver libarchive icu4c sdl2-compat poppler glib cairo)
+set(komamimic_brew_formulas qtbase qtdeclarative qttools qttranslations qtmultimedia qtwebengine qtwebchannel qtpositioning qtshadertools qtsvg qtlanguageserver libarchive icu4c sdl2-compat poppler glib cairo)
 foreach(formula IN LISTS komamimic_brew_formulas)
     execute_process(
         COMMAND "${KOMAMIMIC_BREW_EXECUTABLE}" --prefix "${formula}"

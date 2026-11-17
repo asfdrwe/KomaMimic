@@ -5,6 +5,8 @@ import argparse
 from collections import deque
 import hashlib
 import json
+from video_validation import verify_videos
+from isolated_environment import isolated_environment
 import os
 from pathlib import Path
 import re
@@ -147,7 +149,7 @@ def qt_resources(app):
     plugins = query('QT_INSTALL_PLUGINS')
     seeds = []
     selected = [plugins / 'platforms/libqxcb.so', plugins / 'platforms/libqoffscreen.so',
-                plugins / 'sqldrivers/libqsqlite.so']
+                plugins / 'sqldrivers/libqsqlite.so', plugins / 'multimedia/libffmpegmediaplugin.so']
     for group in ('imageformats', 'xcbglintegrations', 'platforminputcontexts'):
         selected.extend(sorted((plugins / group).glob('*.so')))
     for source in selected:
@@ -385,6 +387,7 @@ def stage(build, destination, sources, max_glibc):
     copy(app / 'komamimic.png', app / '.DirIcon')
     (app / 'AppRun').write_text(APP_RUN)
     (app / 'AppRun').chmod(0o755)
+    env = isolated_environment(destination / 'environment', env)
     for flag in ('--version', '--formats'):
         run([app / 'AppRun', flag])
     manifest = dict(schema=1, status='CANDIDATE_REQUIRES_MANUAL_VALIDATION',
@@ -507,6 +510,7 @@ def verify(image, probe, destination, document_probe):
     if not report['all_passed']:
         raise ValueError('Extracted AppImage native reader checks failed: ' + result)
     (destination / 'native-reader.json').write_text(result + '\n')
+    verify_videos(app / 'usr/bin/validation_probe', destination / 'video-fixtures', destination, env)
     verify_documents(app, fixtures, document_probe, destination, env)
 
 

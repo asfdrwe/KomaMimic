@@ -2,6 +2,7 @@
 #include "idleinhibitor.h"
 #include <QCoreApplication>
 #include "mainwindow.h"
+#include "videoview.h"
 #include "readerfeatures.h"
 #include <QApplication>
 #include <QLabel>
@@ -39,7 +40,8 @@ void ReaderFeatures::updateInhibit() {
       w->isActiveWindow() &&
           QGuiApplication::applicationState() == Qt::ApplicationActive,
       property("closing").toBool()};
-  m_inhibitor->setRequested(this, context.wanted());
+  const bool video=w->m_mode==MainWindow::ViewMode::Video && w->m_video && w->m_video->inhibitRequested() && !property("closing").toBool();
+  m_inhibitor->setRequested(this, context.wanted() || video);
   updateInhibitStatus();
 }
 
@@ -60,7 +62,9 @@ void ReaderFeatures::updateInhibitStatus() {
     w->setProperty("lastIdleInhibitionError", QString{});
     setProperty("inhibitError", QString{});
   }
-  const bool enabled = w->m_settings->value("General/inhibit", false).toBool();
+  const bool enabled = w->m_settings->value("General/inhibit", false).toBool() ||
+      (w->m_mode == MainWindow::ViewMode::Video &&
+       w->m_settings->value("video/inhibit", true).toBool());
   m_inhibitIndicator->setVisible(enabled);
   switch (state) {
   case IdleInhibitor::State::Inactive:

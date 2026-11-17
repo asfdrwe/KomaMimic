@@ -27,6 +27,7 @@ class FolderTree;
 class FolderBrowser;
 class PageView;
 class DocumentView;
+class VideoView;
 class ReaderFeatures;
 class DisplayJobs;
 class IdleInhibitor;
@@ -39,7 +40,7 @@ class QFileSystemWatcher;
 class MainWindow : public QMainWindow {
     Q_OBJECT
 public:
-    enum class ViewMode { Covers, Pages, Reader };
+    enum class ViewMode { Covers, Pages, Reader, Video };
     explicit MainWindow(const QString &settingsPath, QWidget *parent = nullptr, IdleInhibitor *inhibitor = nullptr);
     ~MainWindow() override;
     void restoreAndActivate();
@@ -100,6 +101,14 @@ private:
     friend class ReaderStartupTests;
     friend class DocumentBehaviorTests;
     friend class ReaderInput;
+    friend class VideoTests;
+    void buildVideoActions();
+    void refreshVideoActions();
+    void registerVideoCover();
+    void refreshVideoCover();
+    void videoSettings();
+    VideoView *m_video=nullptr;
+    QMenu *m_videoMenu=nullptr;
     void buildDocumentActions();
     void documentSettings();
     void updateDocumentActions();

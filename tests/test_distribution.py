@@ -31,12 +31,16 @@ def load_tests(loader, tests, pattern):
     from test_macos_package import MacPackageTests
     from test_release import ReleaseTests
     from test_windows_cache import WindowsCacheTests
+    from test_video_validation import VideoValidationTests
+    from test_isolation import IsolationTests
     ValidationTests.probe = PROBE
     tests.addTests(loader.loadTestsFromTestCase(ValidationTests))
     tests.addTests(loader.loadTestsFromTestCase(WindowsPackageTests))
     tests.addTests(loader.loadTestsFromTestCase(MacPackageTests))
     tests.addTests(loader.loadTestsFromTestCase(ReleaseTests))
     tests.addTests(loader.loadTestsFromTestCase(WindowsCacheTests))
+    tests.addTests(loader.loadTestsFromTestCase(VideoValidationTests))
+    tests.addTests(loader.loadTestsFromTestCase(IsolationTests))
     return tests
 
 

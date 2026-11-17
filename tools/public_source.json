@@ -80,6 +80,7 @@
     "docs/site/en/user/macos.md",
     "docs/site/en/user/migration.md",
     "docs/site/en/user/settings.md",
+    "docs/site/en/user/video.md",
     "docs/site/en/user/views.md",
     "docs/site/index.md",
     "docs/site/scripts/api.md",
@@ -95,6 +96,7 @@
     "docs/site/user/macos.md",
     "docs/site/user/migration.md",
     "docs/site/user/settings.md",
+    "docs/site/user/video.md",
     "docs/site/user/views.md"
   ],
   "excluded_paths": [

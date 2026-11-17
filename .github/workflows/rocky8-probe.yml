@@ -123,7 +123,7 @@ jobs:
           dnf repolist -v
           dnf install -y gcc-toolset-12-gcc-c++ gcc-toolset-12-gdb cmake ninja-build pkgconf-pkg-config \
             qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools-devel qt6-linguist \
-            qt6-qttranslations qt6-qtwebengine-devel qt6-qtimageformats \
+            qt6-qttranslations qt6-qtwebengine-devel qt6-qtmultimedia-devel qt6-qtimageformats ffmpeg \
             libicu78-devel zlib-devel SDL2-devel curl tar 'libjpeg.so.62()(64bit)' \
             bzip2-devel xz-devel libzstd-devel lz4-devel openssl-devel libxml2-devel \
             rx-glib2-devel rx-cairo rx-cairo-devel dbus-daemon make bzip2 patch \

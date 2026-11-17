@@ -712,7 +712,7 @@ Load command 3
             def query(command, **kwargs):
                 if command[:2] == ['brew', '--prefix']:
                     return str(dict(qtbase=qt, qttranslations=translations,
-                                    qtimageformats=images, sdl3=sdl.parent.parent)[command[2]])
+                                    qtimageformats=images, qtmultimedia=qt, sdl3=sdl.parent.parent)[command[2]])
                 return str(translations if command[-1] == 'QT_INSTALL_TRANSLATIONS' else directory / 'plugins')
             for failed_probe in (False, True):
                 output = directory / ('stage-fail' if failed_probe else 'stage-pass')

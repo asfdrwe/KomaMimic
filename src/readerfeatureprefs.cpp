@@ -11,6 +11,7 @@
 #include "foldertree.h"
 #include "pageview.h"
 #include "readerfeatures.h"
+#include "videoview.h"
 #include "readertoolbar.h"
 #include "i18n.h"
 #include "idleinhibitor.h"
@@ -285,7 +286,7 @@ void ReaderFeatures::settingsFile(bool import, const QString &provided, bool man
   const auto inputKeys = input.allKeys();
   const bool own = std::any_of(inputKeys.cbegin(), inputKeys.cend(), [](const QString &key) {
     return key.startsWith("covers/") || key.startsWith("reading/") || key.startsWith("keys/") || key.startsWith("text/") ||
-        key.startsWith("display/") || key.startsWith("ui/") || key.startsWith("documents/") || key.startsWith("cache/") || key == "window/fullscreen";
+        key.startsWith("video/") || key.startsWith("videos/") || key.startsWith("display/") || key.startsWith("ui/") || key.startsWith("documents/") || key.startsWith("cache/") || key == "window/fullscreen";
   });
   if (!own || mangaMeeyaOnly) { importMangaMeeyaSettings(text); return; }
   auto importedKeys = w->bindings();
@@ -309,6 +310,7 @@ void ReaderFeatures::settingsFile(bool import, const QString &provided, bool man
   // target separately until all controls have been restored. Old files retain
   // the current fullscreen state when they have no explicit value.
   const bool importedFullscreen = input.value("window/fullscreen", w->isFullScreen()).toBool();
+  const int previousVideoDecode=w->m_settings->value("video/decode",0).toInt();
   int copied = 0;
   for (const auto &key : inputKeys) { w->m_settings->setValue(key, input.value(key)); ++copied; }
   if (own) {
@@ -338,6 +340,11 @@ void ReaderFeatures::settingsFile(bool import, const QString &provided, bool man
   w->restoreToolbarSettings();
   w->setFullscreen(importedFullscreen);
   w->m_settings->sync();
+  if(w->m_video)w->m_video->reloadSettings();
+  if(w->m_settings->status()==QSettings::NoError && previousVideoDecode!=w->m_settings->value("video/decode",0).toInt()) {
+    QMessageBox notice(QMessageBox::Information,QCoreApplication::translate("KomaMimic","再起動が必要です"),QCoreApplication::translate("KomaMimic","動画デコードの設定を保存しました。変更は次回起動時に反映されます。\nKomaMimicを終了し、起動し直してください。"),QMessageBox::Ok,w);
+    notice.setObjectName("videoRestartNotice");notice.exec();return;
+  }
   QMessageBox::information(w, QCoreApplication::translate("KomaMimic", "設定インポートの結果"),
       QCoreApplication::translate("KomaMimic", "KomaMimicの設定を%1件取り込みました。").arg(copied));
 }
@@ -793,6 +800,8 @@ void ReaderFeatures::preferences(const QString &pageName) {
   check(output, QCoreApplication::translate("KomaMimic", "一括出力は2頁を1枚に結合（アニメは先頭フレーム）"),
         "output/spread", false);
   spin(output, QCoreApplication::translate("KomaMimic", "JPEG/WebPの品質"), "output/quality", 90, 1, 100);
+  auto *videoForm=form("video",QCoreApplication::translate("KomaMimic","動画"));
+  auto *videoPreferences=new VideoPreferences(*w->m_settings,&dialog);videoForm->addRow(videoPreferences);
   auto *buttons = new QDialogButtonBox(
       QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &dialog);
   layout->addWidget(buttons);
@@ -807,6 +816,10 @@ void ReaderFeatures::preferences(const QString &pageName) {
     }
   });
   connect(buttons, &QDialogButtonBox::accepted, &dialog, [&] {
+    if(!videoPreferences->validate()) {
+      for(int i=0;i<tabs->count();++i)if(tabs->widget(i)->property("settingsPageId")=="video")tabs->setCurrentIndex(i);
+      return;
+    }
     QVariantList checked;const auto error=inspectScriptReaders(previewPaths(),checked);
     registryError->setText(error);
     if(error.isEmpty())dialog.accept();
@@ -866,7 +879,9 @@ void ReaderFeatures::preferences(const QString &pageName) {
   auto imageOptions=w->m_imageOptions;imageOptions.enabled=w->m_settings->value("processing/filterEnabled",true).toBool();
   w->setImageOptions(imageOptions);
   setProperty("password", password->text());
+  const bool videoDecodeChanged=videoPreferences->save();
   w->m_settings->sync();
+  if(w->m_video)w->m_video->reloadSettings();
   setApplicationAppearance(w->m_settings->value("display/appearance",0).toInt());
   w->m_actions["toolbarToggle"]->setChecked(w->m_settings->value("window/readerToolbar", false).toBool());
   w->setFullscreen(fullscreen->isChecked());
@@ -887,17 +902,21 @@ void ReaderFeatures::preferences(const QString &pageName) {
       QCoreApplication::translate("KomaMimic", "環境設定を保存しました。読み込み設定は次に本を開くときに適用します。"));
   const bool scriptsChanged=directoryPaths()!=previousScriptDirectories;
   const bool languageChanged=language->currentData().toString()!=previousLanguage;
-  if ((scriptsChanged || languageChanged) && w->m_settings->status()==QSettings::NoError) {
-    const auto restartMessage=scriptsChanged
+  if ((scriptsChanged || languageChanged || videoDecodeChanged) && w->m_settings->status()==QSettings::NoError) {
+    auto restartMessage=scriptsChanged
         ? (languageChanged
             ? QCoreApplication::translate("KomaMimic", "スクリプトの登録内容と表示言語の変更は次回起動時に反映されます。\nKomaMimicを終了し、起動し直してください。")
             : QCoreApplication::translate("KomaMimic", "スクリプトの登録内容を保存しました。\n変更を反映するには、KomaMimicを終了し、起動し直してください。"))
         : QCoreApplication::translate("KomaMimic", "表示言語の変更は次回起動時に反映されます。\nKomaMimicを終了し、起動し直してください。");
+    if(videoDecodeChanged) {
+      const auto videoMessage=QCoreApplication::translate("KomaMimic","動画デコードの設定を保存しました。変更は次回起動時に反映されます。\nKomaMimicを終了し、起動し直してください。");
+      restartMessage=(scriptsChanged || languageChanged)?restartMessage+'\n'+videoMessage:videoMessage;
+    }
     QMessageBox notice(QMessageBox::Information,
         QCoreApplication::translate("KomaMimic", "再起動が必要です"),
         restartMessage,
         QMessageBox::Ok, w);
-    notice.setObjectName(scriptsChanged ? "scriptRestartNotice" : "languageRestartNotice");
+    notice.setObjectName(scriptsChanged ? "scriptRestartNotice" : languageChanged?"languageRestartNotice":"videoRestartNotice");
     notice.exec();
   }
 }

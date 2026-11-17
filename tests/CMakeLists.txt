@@ -25,6 +25,13 @@ elseif(KOMAMIMIC_TEST_SCOPE STREQUAL "platform")
 else()
     message(FATAL_ERROR "Unknown KOMAMIMIC_TEST_SCOPE: ${KOMAMIMIC_TEST_SCOPE}")
 endif()
+list(APPEND suites video)
+find_program(KOMAMIMIC_FFMPEG_EXECUTABLE NAMES ffmpeg REQUIRED)
+set(KOMAMIMIC_VIDEO_FIXTURES "${CMAKE_CURRENT_BINARY_DIR}/video-fixtures")
+add_isolated_test(video_fixtures "${Python3_EXECUTABLE}"
+    "${CMAKE_CURRENT_SOURCE_DIR}/fixtures/generate_video_samples.py"
+    --output "${KOMAMIMIC_VIDEO_FIXTURES}" --ffmpeg "${KOMAMIMIC_FFMPEG_EXECUTABLE}")
+set_tests_properties(video_fixtures PROPERTIES FIXTURES_SETUP video_samples TIMEOUT 180)
 foreach(suite IN LISTS suites)
     add_executable(${suite}_tests ${suite}_tests.cpp)
     target_link_libraries(${suite}_tests PRIVATE test_support)
@@ -37,6 +44,14 @@ foreach(suite IN LISTS suites)
         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
         TIMEOUT 90)
 endforeach()
+target_compile_definitions(video_tests PRIVATE KOMAMIMIC_VIDEO_FIXTURES="${KOMAMIMIC_VIDEO_FIXTURES}")
+set_tests_properties(video_tests PROPERTIES FIXTURES_REQUIRED video_samples TIMEOUT 300 RESOURCE_LOCK thumbnail_persistence_io)
+add_isolated_test(video_software_tests "$<TARGET_FILE:video_tests>"
+    -o -,txt -o video_software_tests.qtest.txt,txt)
+set_tests_properties(video_software_tests PROPERTIES
+    FIXTURES_REQUIRED video_samples TIMEOUT 300 RESOURCE_LOCK thumbnail_persistence_io
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    ENVIRONMENT "QT_QPA_PLATFORM=offscreen;QT_FORCE_STDERR_LOGGING=1;QT_MEDIA_BACKEND=ffmpeg;QT_FFMPEG_DECODING_HW_DEVICE_TYPES=,")
 # UI persistence cases include disk syncs and fresh-process startup on slow disks.
 set_tests_properties(ui_tests PROPERTIES TIMEOUT 180)
 # Capacity/count regressions have a separate process and budget; the 20,001-
@@ -102,6 +117,8 @@ add_executable(validation_probe validation_probe.cpp)
 target_link_libraries(validation_probe PRIVATE reader_core)
 set_target_properties(validation_probe PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
 add_dependencies(validation_probe komamimic-script-worker)
+add_dependencies(video_tests validation_probe)
+target_compile_definitions(video_tests PRIVATE KOMAMIMIC_VIDEO_PROBE="$<TARGET_FILE:validation_probe>")
 
 add_executable(document_probe document_probe.cpp)
 target_link_libraries(document_probe PRIVATE reader_ui)

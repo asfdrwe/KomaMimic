@@ -27,10 +27,10 @@
             <source>現在の一覧の非表示画像を、表示用アイコンを含めてこの容量内に保持します。上限を超えると古い画像を解放します。表示中の画像と他のキャッシュは別です。</source>
             <translation>Keep offscreen images and display icons in the current list within this limit. Older images are released when it is exceeded. Visible images and other caches are separate.</translation>
         </message>
-    <message>
-        <source>EPUBの表紙を単ページにする</source>
-        <translation>Show the EPUB cover on a single page</translation>
-    </message>
+        <message>
+            <source>EPUBの表紙を単ページにする</source>
+            <translation>Show the EPUB cover on a single page</translation>
+        </message>
         <message>
             <location filename="../src/apng.cpp" line="52" />
             <source>APNGのチャンク数が上限を超えています。</source>
@@ -6435,6 +6435,449 @@ The same key can have different actions in reading, thumbnails, and tree views. 
         <message>
             <source>読書履歴を保存できません。後で再試行します。</source>
             <translation>Cannot save the reading history. It will be retried later.</translation>
+        </message>
+        <message>
+            <source>動画（実際の対応はQtのランタイムによります）: </source>
+            <translation>Video (actual support depends on the Qt runtime): </translation>
+        </message>
+        <message>
+            <source>対応する画像・書庫・文書・動画 (</source>
+            <translation>Supported images, archives, documents, and videos (</translation>
+        </message>
+        <message>
+            <source>);;動画 (</source>
+            <translation>);;Videos (</translation>
+        </message>
+        <message>
+            <source>動画(&amp;V)</source>
+            <translation>&amp;Video</translation>
+        </message>
+        <message>
+            <source>動画</source>
+            <translation>Video</translation>
+        </message>
+        <message>
+            <source>動画デコードの設定を保存しました。変更は次回起動時に反映されます。
+KomaMimicを終了し、起動し直してください。</source>
+            <translation>Video decoding settings were saved and will take effect at the next start.
+Please close and restart KomaMimic.</translation>
+        </message>
+        <message>
+            <source>動画：再生／一時停止</source>
+            <translation>Video: Play / pause</translation>
+        </message>
+        <message>
+            <source>動画：先頭で停止</source>
+            <translation>Video: Stop at the beginning</translation>
+        </message>
+        <message>
+            <source>動画：再生し直す</source>
+            <translation>Video: Restart playback</translation>
+        </message>
+        <message>
+            <source>動画：通常時間進む（次の表示）</source>
+            <translation>Video: Seek forward (next display)</translation>
+        </message>
+        <message>
+            <source>動画：通常時間戻る（前の表示）</source>
+            <translation>Video: Seek backward (previous display)</translation>
+        </message>
+        <message>
+            <source>動画：微小時間進む（1ページ進むに対応）</source>
+            <translation>Video: Small seek forward (single-page advance)</translation>
+        </message>
+        <message>
+            <source>動画：微小時間戻る（1ページ戻るに対応）</source>
+            <translation>Video: Small seek backward (single-page retreat)</translation>
+        </message>
+        <message>
+            <source>動画：長時間進む</source>
+            <translation>Video: Large seek forward</translation>
+        </message>
+        <message>
+            <source>動画：長時間戻る</source>
+            <translation>Video: Large seek backward</translation>
+        </message>
+        <message>
+            <source>動画：先頭へ</source>
+            <translation>Video: Go to beginning</translation>
+        </message>
+        <message>
+            <source>動画：末尾へ</source>
+            <translation>Video: Go to end</translation>
+        </message>
+        <message>
+            <source>動画：時刻を指定</source>
+            <translation>Video: Go to time</translation>
+        </message>
+        <message>
+            <source>動画：音量を上げる</source>
+            <translation>Video: Increase volume</translation>
+        </message>
+        <message>
+            <source>動画：音量を下げる</source>
+            <translation>Video: Decrease volume</translation>
+        </message>
+        <message>
+            <source>動画：消音切替</source>
+            <translation>Video: Toggle mute</translation>
+        </message>
+        <message>
+            <source>動画：次の速度候補</source>
+            <translation>Video: Next playback speed</translation>
+        </message>
+        <message>
+            <source>動画：前の速度候補</source>
+            <translation>Video: Previous playback speed</translation>
+        </message>
+        <message>
+            <source>動画：1倍へ</source>
+            <translation>Video: Reset speed to 1x</translation>
+        </message>
+        <message>
+            <source>動画：映像トラック巡回</source>
+            <translation>Video: Cycle video tracks</translation>
+        </message>
+        <message>
+            <source>動画：音声トラック巡回</source>
+            <translation>Video: Cycle audio tracks</translation>
+        </message>
+        <message>
+            <source>動画：字幕巡回</source>
+            <translation>Video: Cycle subtitles</translation>
+        </message>
+        <message>
+            <source>動画：アスペクト比巡回</source>
+            <translation>Video: Cycle aspect ratios</translation>
+        </message>
+        <message>
+            <source>動画：デインタレース方式巡回</source>
+            <translation>Video: Cycle deinterlacing modes</translation>
+        </message>
+        <message>
+            <source>動画：TFF／BFF切替</source>
+            <translation>Video: Toggle TFF / BFF</translation>
+        </message>
+        <message>
+            <source>動画：現在位置をAに設定</source>
+            <translation>Video: Set A to current position</translation>
+        </message>
+        <message>
+            <source>動画：現在位置をBに設定</source>
+            <translation>Video: Set B to current position</translation>
+        </message>
+        <message>
+            <source>動画：A-B反復切替</source>
+            <translation>Video: Toggle A-B loop</translation>
+        </message>
+        <message>
+            <source>動画：A-B指定クリア</source>
+            <translation>Video: Clear A-B points</translation>
+        </message>
+        <message>
+            <source>現在の映像を表紙にする</source>
+            <translation>Use current video frame as cover</translation>
+        </message>
+        <message>
+            <source>動画の表紙を再生成</source>
+            <translation>Regenerate video cover</translation>
+        </message>
+        <message>
+            <source>動画の個別設定…</source>
+            <translation>Video file settings…</translation>
+        </message>
+        <message>
+            <source>動画の環境設定…</source>
+            <translation>Video preferences…</translation>
+        </message>
+        <message>
+            <source>動画画面</source>
+            <translation>Video view</translation>
+        </message>
+        <message>
+            <source>サムネイルキャッシュの集計を取り消しました。</source>
+            <translation>Thumbnail cache calculation was cancelled.</translation>
+        </message>
+        <message>
+            <source>動画の表紙を取得できません: %1</source>
+            <translation>Cannot extract video cover: %1</translation>
+        </message>
+    </context>
+    <context>
+        <name>MainWindow</name>
+        <message>
+            <source>無効</source>
+            <translation>Off</translation>
+        </message>
+        <message>
+            <source>フィールド順：BFF → TFF</source>
+            <translation>Field order: BFF → TFF</translation>
+        </message>
+        <message>
+            <source>フィールド順：TFF → BFF</source>
+            <translation>Field order: TFF → BFF</translation>
+        </message>
+        <message>
+            <source>方式巡回：%1（%2）</source>
+            <translation>Cycle deinterlacing: %1 (%2)</translation>
+        </message>
+        <message>
+            <source>動画：%1  %2倍  %3（%4）%5</source>
+            <translation>Video: %1  %2x  %3 (%4)%5</translation>
+        </message>
+        <message>
+            <source>  A-B反復中</source>
+            <translation>  A-B loop enabled</translation>
+        </message>
+        <message>
+            <source>動画の個別設定</source>
+            <translation>Video file settings</translation>
+        </message>
+        <message>
+            <source>速度（倍）</source>
+            <translation>Playback speed (x)</translation>
+        </message>
+        <message>
+            <source>動画内指定</source>
+            <translation>From video</translation>
+        </message>
+        <message>
+            <source>アスペクト比</source>
+            <translation>Aspect ratio</translation>
+        </message>
+        <message>
+            <source>デインタレース</source>
+            <translation>Deinterlacing</translation>
+        </message>
+        <message>
+            <source>上フィールド先（TFF）</source>
+            <translation>Top field first (TFF)</translation>
+        </message>
+        <message>
+            <source>下フィールド先（BFF）</source>
+            <translation>Bottom field first (BFF)</translation>
+        </message>
+        <message>
+            <source>フィールド順</source>
+            <translation>Field order</translation>
+        </message>
+        <message>
+            <source>トラック・内蔵字幕・A-B位置は動画メニューから変更できます。
+現在の時刻、選択、速度、表示設定はこの動画ごとに保存します。</source>
+            <translation>Change tracks, embedded subtitles, and A-B points in the Video menu.
+Position, selections, speed, and display settings are saved for each video.</translation>
+        </message>
+    </context>
+    <context>
+        <name>VideoPreferences</name>
+        <message>
+            <source>開いたら再生する</source>
+            <translation>Start playback when opened</translation>
+        </message>
+        <message>
+            <source>記録位置から開始する（OFFは先頭）</source>
+            <translation>Resume from saved position (otherwise start from beginning)</translation>
+        </message>
+        <message>
+            <source>A-B反復の有効状態を復元する</source>
+            <translation>Restore whether the A-B loop is enabled</translation>
+        </message>
+        <message>
+            <source>最小化時に一時停止する</source>
+            <translation>Pause when minimized</translation>
+        </message>
+        <message>
+            <source>対応するGIF・APNG・WebPを動画モードで開く</source>
+            <translation>Open supported GIF, APNG, and WebP images in video mode</translation>
+        </message>
+        <message>
+            <source>動画の表示・再生中に自動消灯を抑止する</source>
+            <translation>Inhibit display sleep while visible video is playing</translation>
+        </message>
+        <message>
+            <source>区間外シーク時にA-Bを解除する（OFFはAへ戻す）</source>
+            <translation>Disable A-B when seeking outside the interval (otherwise return to A)</translation>
+        </message>
+        <message>
+            <source>動画デコード（再起動後に適用）</source>
+            <translation>Video decoding (applied after restart)</translation>
+        </message>
+        <message>
+            <source>自動</source>
+            <translation>Automatic</translation>
+        </message>
+        <message>
+            <source>ソフトウェア</source>
+            <translation>Software</translation>
+        </message>
+        <message>
+            <source>微小シーク（秒）</source>
+            <translation>Small seek (seconds)</translation>
+        </message>
+        <message>
+            <source>通常シーク（秒）</source>
+            <translation>Normal seek (seconds)</translation>
+        </message>
+        <message>
+            <source>長時間シーク（秒）</source>
+            <translation>Large seek (seconds)</translation>
+        </message>
+        <message>
+            <source>音量の刻み（パーセントポイント）</source>
+            <translation>Volume step (percentage points)</translation>
+        </message>
+        <message>
+            <source>最小速度（倍）</source>
+            <translation>Minimum speed (x)</translation>
+        </message>
+        <message>
+            <source>最大速度（倍）</source>
+            <translation>Maximum speed (x)</translation>
+        </message>
+        <message>
+            <source>速度候補（カンマ区切り）</source>
+            <translation>Playback speeds (comma-separated)</translation>
+        </message>
+        <message>
+            <source>通常画面の操作バー</source>
+            <translation>Controls in windowed mode</translation>
+        </message>
+        <message>
+            <source>常時表示</source>
+            <translation>Always visible</translation>
+        </message>
+        <message>
+            <source>非表示</source>
+            <translation>Hidden</translation>
+        </message>
+        <message>
+            <source>全画面の操作バー</source>
+            <translation>Controls in fullscreen</translation>
+        </message>
+        <message>
+            <source>操作バーを隠すまで（ミリ秒）</source>
+            <translation>Hide controls after (milliseconds)</translation>
+        </message>
+        <message>
+            <source>音程を維持して速度を変更します。内蔵字幕・形式はQtの対応範囲です。
+デコード方式の変更だけでは、保存済みの表紙を再生成しません。</source>
+            <translation>Changing speed preserves audio pitch. Embedded subtitle and format support depends on Qt.
+Changing decoding policy does not regenerate saved covers.</translation>
+        </message>
+        <message>
+            <source>速度範囲は1倍を含め、候補は範囲内の正数を重複なく指定してください。候補には1倍を含めてください。</source>
+            <translation>The speed range must include 1x. Enter distinct positive speeds within the range, including 1x.</translation>
+        </message>
+    </context>
+    <context>
+        <name>VideoView</name>
+        <message>
+            <source>シーク</source>
+            <translation>Seek</translation>
+        </message>
+        <message>
+            <source>再生</source>
+            <translation>Play</translation>
+        </message>
+        <message>
+            <source>停止</source>
+            <translation>Stop</translation>
+        </message>
+        <message>
+            <source>時刻…</source>
+            <translation>Time…</translation>
+        </message>
+        <message>
+            <source>消音</source>
+            <translation>Mute</translation>
+        </message>
+        <message>
+            <source>動画の映像を取得できません。</source>
+            <translation>Cannot decode video frames.</translation>
+        </message>
+        <message>
+            <source>時刻を指定</source>
+            <translation>Go to time</translation>
+        </message>
+        <message>
+            <source>先頭からの秒数</source>
+            <translation>Seconds from beginning</translation>
+        </message>
+        <message>
+            <source>一時停止</source>
+            <translation>Pause</translation>
+        </message>
+        <message>
+            <source>不明</source>
+            <translation>Unknown</translation>
+        </message>
+        <message>
+            <source>音量 %1% %2</source>
+            <translation>Volume %1% %2</translation>
+        </message>
+        <message>
+            <source>（消音）</source>
+            <translation>(muted)</translation>
+        </message>
+        <message>
+            <source>再生速度</source>
+            <translation>Playback speed</translation>
+        </message>
+        <message>
+            <source>%1倍</source>
+            <translation>%1x</translation>
+        </message>
+        <message>
+            <source>A-B反復</source>
+            <translation>A-B loop</translation>
+        </message>
+        <message>
+            <source>映像トラック</source>
+            <translation>Video track</translation>
+        </message>
+        <message>
+            <source>音声トラック</source>
+            <translation>Audio track</translation>
+        </message>
+        <message>
+            <source>字幕</source>
+            <translation>Subtitles</translation>
+        </message>
+        <message>
+            <source>非表示</source>
+            <translation>Hidden</translation>
+        </message>
+        <message>
+            <source>音声出力先</source>
+            <translation>Audio output</translation>
+        </message>
+        <message>
+            <source>システム既定</source>
+            <translation>System default</translation>
+        </message>
+        <message>
+            <source>アスペクト比</source>
+            <translation>Aspect ratio</translation>
+        </message>
+        <message>
+            <source>動画内指定</source>
+            <translation>From video</translation>
+        </message>
+        <message>
+            <source>デインタレース</source>
+            <translation>Deinterlacing</translation>
+        </message>
+        <message>
+            <source>無効</source>
+            <translation>Off</translation>
+        </message>
+        <message>
+            <source>下フィールド先（BFF）</source>
+            <translation>Bottom field first (BFF)</translation>
+        </message>
+        <message>
+            <source>上フィールド先（TFF）</source>
+            <translation>Top field first (TFF)</translation>
         </message>
     </context>
 </TS>

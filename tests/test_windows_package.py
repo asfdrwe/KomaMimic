@@ -217,10 +217,16 @@ class WindowsPackageTests(unittest.TestCase):
         with (mock.patch.dict(package.os.environ, dict(SystemRoot='C:/Windows', PATH='developer/sdk',
                              QT_PLUGIN_PATH='developer/plugins', QTWEBENGINE_DISABLE_SANDBOX='1', SDL_DYNAMIC_API='poison')),
                 mock.patch.object(package, 'execute', side_effect=execute),
+                mock.patch.object(package, 'verify_videos') as videos,
                 mock.patch.object(package.subprocess, 'run', side_effect=probe)):
             package.native_verify(archive, build, self.directory / 'verify')
+        videos.assert_called_once()
         self.assertEqual(len(seen), 4)
         for command, options in seen:
+            for key in ('HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME',
+                        'TMPDIR', 'TMP', 'TEMP'):
+                self.assertTrue(Path(options['env'][key]).resolve().is_relative_to(
+                    (self.directory / 'verify/environment').resolve()), key)
             self.assertNotIn('developer', options['env']['PATH'])
             self.assertNotIn('QT_PLUGIN_PATH', list(options['env']))
             self.assertNotIn('QTWEBENGINE_DISABLE_SANDBOX', list(options['env']))

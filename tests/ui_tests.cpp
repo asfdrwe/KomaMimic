@@ -771,7 +771,7 @@ private slots:
         QStringList titles;
         for (auto *action : w.menuBar()->actions()) titles << action->text();
         QCOMPARE(titles, QStringList({"ファイル(&F)", "表示(&V)", "スケールモード(&S)",
-                                     "移動(&J)", "ブックリスト(&B)", "ツール(&T)", "ヘルプ(&H)"}));
+                                     "移動(&J)", "ブックリスト(&B)", "ツール(&T)", "動画(&V)", "ヘルプ(&H)"}));
         const auto commands = [](QMenu *menu) {
             QStringList ids;
             for (auto *action : menu->actions())

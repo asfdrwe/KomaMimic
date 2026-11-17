@@ -903,6 +903,10 @@ void ReaderFeatures::closingBook() {
   m_restorePan = false;
   m_undo->clear();
 }
+void ReaderFeatures::openedVideo() {
+  m_activeId=m_pendingId.isEmpty()?m_library->add("history",w->bookPath()):m_pendingId;
+  m_pendingId.clear();m_navigationBusy=false;
+}
 void ReaderFeatures::openedBook() {
   m_preloadNext=0;m_preloadSeen.clear();m_preloadFull=false;m_preloadBudget=0;
   m_visibleIndices.clear();
@@ -1718,7 +1722,7 @@ void ReaderFeatures::requestBackgroundWork() {
   if(w->m_backgroundCancel->load())return;
   prefetch();
   preloadFiles();
-  if(!w->m_loading && (w->m_mode!=MainWindow::ViewMode::Reader || w->m_readerPresented) &&
+  if(!w->m_loading && ((w->m_mode!=MainWindow::ViewMode::Reader && w->m_mode!=MainWindow::ViewMode::Video) || w->m_readerPresented) &&
       QDateTime::currentMSecsSinceEpoch()>=m_historyRetryAt && !w->m_displayJobs->contains("history-store")) {
     const auto writes=m_library->pendingWrites();
     const auto epoch=m_library->writeEpoch();const auto generation=epoch->load();
@@ -1732,10 +1736,10 @@ void ReaderFeatures::requestBackgroundWork() {
             }
         });
   }
-  if(w->m_mode!=MainWindow::ViewMode::Reader)requestCollectionCover();
+  if(w->m_mode==MainWindow::ViewMode::Covers || w->m_mode==MainWindow::ViewMode::Pages)requestCollectionCover();
 }
 void ReaderFeatures::requestCollectionCover() {
-  if(w->m_backgroundCancel->load() || w->m_mode==MainWindow::ViewMode::Reader || !m_shelf || !m_tabs){w->m_displayJobs->retain("collection");return;}
+  if(w->m_backgroundCancel->load() || (w->m_mode==MainWindow::ViewMode::Reader || w->m_mode==MainWindow::ViewMode::Video) || !m_shelf || !m_tabs){w->m_displayJobs->retain("collection");return;}
   QSet<QString> needed,visibleKeys;
   const auto now=QDateTime::currentMSecsSinceEpoch();
   for(auto *list:{m_shelf,qobject_cast<QListWidget *>(m_tabs->currentWidget())}) {
@@ -1770,11 +1774,11 @@ void ReaderFeatures::requestCollectionCover() {
           }
           return ImageResult{};
         }
-        return cachedCollectionCover(chosen.path,policies->resolve(chosen.path),chosen.metadata,spine,cache,cancel,false,true,maximum,observed);
+        return cachedCollectionCover(chosen.path,policies->resolve(chosen.path),chosen.metadata,spine,cache,cancel,false,true,maximum,observed,policies->settingsFile);
       };
       const auto serial=w->m_thumbnailChanges->serial;
       auto apply=[this,chosen,key,spine,serial](ImageResult result,bool cancelled,bool validated) {
-        if(w->m_backgroundCancel->load() || w->m_mode==MainWindow::ViewMode::Reader || cancelled || m_library->item(chosen.id).metadata!=chosen.metadata)return;
+        if(w->m_backgroundCancel->load() || (w->m_mode==MainWindow::ViewMode::Reader || w->m_mode==MainWindow::ViewMode::Video) || cancelled || m_library->item(chosen.id).metadata!=chosen.metadata)return;
         const bool success=result.error.isEmpty();
         m_collectionChecked[key]=success?0:QDateTime::currentMSecsSinceEpoch()+1000;
         if(!success && !validated)return;

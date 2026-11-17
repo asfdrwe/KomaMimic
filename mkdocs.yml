@@ -23,6 +23,7 @@ nav:
           - 基本操作: user/basic.md
           - 表示と画像加工: user/views.md
           - 文書を読む: user/documents.md
+          - 動画を再生する: user/video.md
           - 本棚と履歴: user/library.md
           - 設定とキャッシュ: user/settings.md
           - 対応形式: user/formats.md
@@ -42,6 +43,7 @@ nav:
           - Basic controls: en/user/basic.md
           - Display and image processing: en/user/views.md
           - Reading documents: en/user/documents.md
+          - Playing videos: en/user/video.md
           - Bookshelves and history: en/user/library.md
           - Settings and caches: en/user/settings.md
           - Supported formats: en/user/formats.md

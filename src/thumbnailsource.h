@@ -20,6 +20,7 @@ struct ThumbnailChanges {
     void acknowledge(const QJsonObject &dependencies,quint64 through);
 };
 struct ThumbnailNamePolicies {
+    QString settingsFile;
     explicit ThumbnailNamePolicies(const QSettings &settings);
     static QString settingsKey(const QString &path);
     NamePolicy resolve(const QString &path) const;
@@ -29,11 +30,12 @@ struct ThumbnailNamePolicies {
 
 ImageResult cachedCover(const QString &path,const NamePolicy &policy,
                         const std::shared_ptr<ThumbnailDiskCache> &cache,
-                        const std::function<bool()> &cancel={},bool refresh=false,int depth=0,bool cachedOnly=false,bool updateFromEntry=false,int maxDepth=0,const QJsonObject &observed={},bool memoryOnly=false,quint64 *availability=nullptr);
+                        const std::function<bool()> &cancel={},bool refresh=false,int depth=0,bool cachedOnly=false,bool updateFromEntry=false,int maxDepth=0,const QJsonObject &observed={},bool memoryOnly=false,quint64 *availability=nullptr,const QString &videoSettingsFile={});
+ImageResult storeVideoCover(const QString &path,const NamePolicy &policy,const std::shared_ptr<ThumbnailDiskCache> &cache,const QImage &image,const std::function<bool()> &cancel={});
 ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int page,
                                 const std::shared_ptr<ThumbnailDiskCache> &cache,
                                 const std::function<bool()> &cancel={},bool refresh=false,bool cachedOnly=false,bool updateFromEntry=false,int maxDepth=0,const QJsonObject &observed={},bool memoryOnly=false,quint64 *availability=nullptr);
 ImageResult cachedCollectionCover(const QString &path,const NamePolicy &policy,
                              const QJsonObject &metadata,bool spine,
                              const std::shared_ptr<ThumbnailDiskCache> &cache,
-                             const std::function<bool()> &cancel={},bool cachedOnly=false,bool updateFromEntry=false,int maxDepth=0,const QJsonObject &observed={});
+                             const std::function<bool()> &cancel={},bool cachedOnly=false,bool updateFromEntry=false,int maxDepth=0,const QJsonObject &observed={},const QString &videoSettingsFile={});

@@ -21,6 +21,7 @@ import zipfile
 
 from run_validation import ROOT, cache_values, execute, runtime_environment, save_json, windows_paths
 from export_source import public_files
+from isolated_environment import isolated_environment
 
 
 def tool(directory, *names):
@@ -333,7 +334,9 @@ def macos(build, output, call):
     plugin_roots = [Path(subprocess.check_output([str(qtpaths), '--query', 'QT_INSTALL_PLUGINS'], text=True).strip())]
     imageprefix = Path(subprocess.check_output(['brew', '--prefix', 'qtimageformats'], text=True).strip())
     plugin_roots += [imageprefix / 'share/qt/plugins', imageprefix / 'plugins', imageprefix / 'lib/qt6/plugins']
-    for group in ('imageformats', 'sqldrivers'):
+    mediaprefix = Path(subprocess.check_output(['brew', '--prefix', 'qtmultimedia'], text=True).strip())
+    plugin_roots += [mediaprefix / 'share/qt/plugins', mediaprefix / 'plugins', mediaprefix / 'lib/qt6/plugins']
+    for group in ('imageformats', 'sqldrivers', 'multimedia'):
         for root in plugin_roots:
             directory = root / group
             if directory.is_dir():
@@ -381,7 +384,7 @@ def macos(build, output, call):
     call('architecture', ['lipo', '-archs', binaries / 'komamimic'])
     if unresolved:
         raise ValueError('External non-system dylibs remain; see external-dependencies.json. Do not treat this .app as portable.')
-    call('staged-version', [binaries / 'komamimic', '--version'], macos_probe_environment(), timeout=30)
+    call('staged-version', [binaries / 'komamimic', '--version'], isolated_environment(output / 'environment', macos_probe_environment()), timeout=30)
     return binaries / 'komamimic'
 
 

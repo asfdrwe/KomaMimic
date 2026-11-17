@@ -1,4 +1,6 @@
-# KomaMimicガイド
+# KomaMimic v2ガイド（開発中）
+
+暫定バージョンはv2.0.0です。公開済みv1の文書とは別に管理します。
 
 日本語 | [English](en/index.md)
 
@@ -9,6 +11,8 @@ PDF・TXT・Markdown・EPUBと、JavaScriptによる画像reader・filterにも�
 ![readme-ja.png](assets/screenshots/readme-ja.png)
 
 ## 使い方
+
+- [動画を再生する](user/video.md)：ローカル動画の操作・設定。
 
 - [インストール](user/install.md)：KomaMimic のインストール
 - [基本操作](user/basic.md)：開く、移動、一覧、全画面、キーとマウス。

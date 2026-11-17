@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "mainwindow.h"
+#include "videoview.h"
 #include "pageview.h"
 #include "documentview.h"
 #include "displayjobs.h"
@@ -60,12 +61,16 @@ void MainWindow::restoreThumbnailSettings() {
     }
 }
 void MainWindow::focusCurrentView() {
+    if(m_mode==ViewMode::Video){m_video->setFocus();return;}
     if (m_mode == ViewMode::Reader && documentViewActive() && m_documentView) { m_documentView->setFocus(); return; }
     if (m_mode == ViewMode::Reader) m_view->setFocus(); else activeGrid()->setFocus();
 }
 void MainWindow::setMode(ViewMode mode) {
+    if(mode==ViewMode::Pages && m_mode==ViewMode::Video)return;
     const auto previous=m_mode;
+    if(previous==ViewMode::Video && mode!=previous)m_video->leave();
     if(previous!=mode) {
+        m_displayJobs->retain("video-cover");
         if(m_thumbnailWatcher){const auto watched=m_thumbnailWatcher->directories();if(!watched.isEmpty())m_thumbnailWatcher->removePaths(watched);}
         cancelThumbnailPreload();
         for(auto &state:m_thumbnailPreload){state.next=0;state.batch=0;}
@@ -90,11 +95,12 @@ void MainWindow::setMode(ViewMode mode) {
         else {m_pendingDocumentLocation=m_documentView->location();m_restoreDocumentLocation=!m_pendingDocumentLocation.section.isEmpty();clearDocumentView();}
     }
     m_mode = mode; m_stack->setCurrentIndex(mode == ViewMode::Covers ? 0 : mode == ViewMode::Pages ? 1 : 2);
+    if(mode==ViewMode::Video)m_stack->setCurrentWidget(m_video);
     if (mode == ViewMode::Reader && documentViewActive() && m_documentView) m_stack->setCurrentWidget(m_documentView);
     if(mode==ViewMode::Reader && documentViewActive() && !m_documentView && !m_loading)openDocumentView();
     if(mode==ViewMode::Pages && m_pagesDirty)populatePages();
     requestThumbnails(m_library);requestThumbnails(m_pages);
-    if (mode != ViewMode::Reader) activeGrid()->requestVisible();
+    if (mode == ViewMode::Covers || mode==ViewMode::Pages) activeGrid()->requestVisible();
     else if(previous!=mode && m_renderDirty && m_book && !m_loading && !documentViewActive())render();
     if(mode==ViewMode::Covers && m_directoryDirty && !m_directoryLoading && !m_directory.isEmpty())populateDirectory(m_directory,false,false,false);
     focusCurrentView(); refreshState();
@@ -109,6 +115,7 @@ void MainWindow::showCovers() {
     else setMode(ViewMode::Covers);
 }
 void MainWindow::showPageThumbnails() {
+    if(m_mode==ViewMode::Video)return;
     if (m_mode == ViewMode::Pages) { setMode(m_beforeThumbnails); return; }
     m_beforeThumbnails = m_mode;
     if (m_mode == ViewMode::Reader && m_book) {
@@ -132,6 +139,7 @@ void MainWindow::acceptThumbnail() {
 void MainWindow::cancelThumbnail() {
     if (m_mode == ViewMode::Pages) setMode(m_beforeThumbnails);
     else if (isFullScreen()) setFullscreen(false);
+    else if(m_video && m_video->path()==m_currentPath && !m_currentPath.isEmpty())loadBook(m_currentPath,ViewMode::Video);
     else if (m_book) setMode(ViewMode::Reader);
 }
 void MainWindow::buildNavigationActions() {
@@ -140,7 +148,7 @@ void MainWindow::buildNavigationActions() {
         m_treePanel->setVisible(visible); if (!visible && (m_treePanel->hasFocus() || m_treePanel->isAncestorOf(QApplication::focusWidget()))) focusCurrentView(); saveSettings();
     });
     connect(m_actions["focusTree"], &QAction::triggered, this, [this] { m_actions["tree"]->setChecked(true); m_tree->selectPath(m_directory); m_treePanel->focusTree(); });
-    connect(m_actions["focusThumbnails"], &QAction::triggered, this, [this] { if (m_mode == ViewMode::Reader) showCovers(); else activeGrid()->setFocus(); });
+    connect(m_actions["focusThumbnails"], &QAction::triggered, this, [this] { if (m_mode == ViewMode::Reader || m_mode == ViewMode::Video) showCovers(); else activeGrid()->setFocus(); });
     connect(m_actions["parentFolder"], &QAction::triggered, this, &MainWindow::parentFolder);
     connect(m_actions["folderBack"], &QAction::triggered, this, [this] { historyFolder(-1); });
     connect(m_actions["folderForward"], &QAction::triggered, this, [this] { historyFolder(1); });
@@ -175,8 +183,10 @@ void MainWindow::attachScopedShortcuts() {
         if (spec.scope == ShortcutScope::Global) continue;
         auto *action = m_actions[spec.id]; removeAction(action); action->setShortcutContext(Qt::WidgetWithChildrenShortcut);
         if (spec.scope == ShortcutScope::Reader) m_view->addAction(action);
+        else if(spec.scope==ShortcutScope::Video)m_video->addAction(action);
         else if (spec.scope == ShortcutScope::Tree) m_treePanel->addAction(action);
         else { m_library->addAction(action); m_pages->addAction(action); }
+        if(sharedVideoCommand(spec.id))m_video->addAction(action);
     }
 }
 void MainWindow::setThumbnailLayout(ThumbnailGrid::Layout layout, int columns) {
@@ -187,7 +197,7 @@ void MainWindow::setThumbnailLayout(ThumbnailGrid::Layout layout, int columns) {
     }
 }
 void MainWindow::watchThumbnail(const QJsonObject &dependencies) {
-    if(!m_thumbnailWatcher || m_mode==ViewMode::Reader)return;
+    if(!m_thumbnailWatcher || m_mode==ViewMode::Reader || m_mode==ViewMode::Video)return;
     const auto watched=m_thumbnailWatcher->directories();QStringList add;
     for(auto i=dependencies.begin();i!=dependencies.end();++i) {
         const auto directory=i.value().toObject().value("directory").toBool()?i.key():QFileInfo(i.key()).absolutePath();
@@ -199,14 +209,14 @@ void MainWindow::initializeDirectoryWatcher() {
     m_thumbnailWatcher=new QFileSystemWatcher(this);
     m_thumbnailWatcher->setObjectName("thumbnailSourceWatcher");
     connect(m_thumbnailWatcher,&QFileSystemWatcher::directoryChanged,this,[this](const QString &path) {
-        if(m_mode==ViewMode::Reader)return;
+        if(m_mode==ViewMode::Reader || m_mode==ViewMode::Video)return;
         m_thumbnailChanges->changed(path);
         // A folder notice refreshes metadata only. Images are read later only
         // for visible entries whose modification time is newer than the cache.
         m_displayJobs->submit<QFileInfoList>(DisplayJobs::Lane::Update,"thumbnail-directory",path,
             [path](const auto &cancel){QFileInfoList result;QDirIterator entries(path,QDir::Files|QDir::Dirs|QDir::Readable|QDir::NoDotAndDotDot);
                 while(entries.hasNext()){if(cancel())return QFileInfoList{};entries.next();auto entry=entries.fileInfo();(void)entry.lastModified();(void)entry.size();result.append(entry);}return result;},
-            [this,path](QFileInfoList entries,bool cancelled){if(cancelled || m_mode==ViewMode::Reader)return;const auto resolved=QDir(path).canonicalPath();for(const auto &entry:entries)m_thumbnailChanges->observe(entry,resolved);});
+            [this,path](QFileInfoList entries,bool cancelled){if(cancelled || m_mode==ViewMode::Reader || m_mode==ViewMode::Video)return;const auto resolved=QDir(path).canonicalPath();for(const auto &entry:entries)m_thumbnailChanges->observe(entry,resolved);});
     });
     m_directoryWatcher = new QFileSystemWatcher(this);
     m_directoryWatcher->setObjectName("browserDirectoryWatcher");
@@ -300,7 +310,7 @@ void MainWindow::populateDirectory(const QString &path, bool navigate, bool hist
             if(cancel())return Listing{};
             iterator.next();auto entry=iterator.fileInfo();
             (void)entry.size();(void)entry.lastModified();
-            if(entry.isDir() || isArchivePath(entry.fileName()) || isImagePath(entry.fileName()) || isDocumentPath(entry.fileName()))result.entries.append(entry);
+            if(entry.isDir() || isArchivePath(entry.fileName()) || isImagePath(entry.fileName()) || isDocumentPath(entry.fileName()) || isVideoPath(entry.fileName()))result.entries.append(entry);
         }
         if(sort==6){std::mt19937 generator(seed);std::shuffle(result.entries.begin(),result.entries.end(),generator);}
         if((sort==4 || sort==6) && reverse)std::reverse(result.entries.begin(),result.entries.end());
@@ -317,7 +327,7 @@ void MainWindow::populateDirectory(const QString &path, bool navigate, bool hist
         m_neighborDirectory=directory;m_neighborPaths.clear();
         for(const auto &entry:result.entries) {
             m_thumbnailChanges->observe(entry,result.resolved);
-            if(!entry.isDir() && (isArchivePath(entry.fileName()) || isDocumentPath(entry.fileName())))m_neighborPaths.append(entry.absoluteFilePath());
+            if(!entry.isDir() && (isArchivePath(entry.fileName()) || isDocumentPath(entry.fileName()) || isVideoPath(entry.fileName())))m_neighborPaths.append(entry.absoluteFilePath());
         }
         m_displayJobs->retain("directory-siblings");
         m_siblingFolders.clear();m_siblingIndex=-1;
@@ -472,8 +482,11 @@ void MainWindow::historyFolder(int delta) {
     m_historyIndex = target; populateDirectory(m_history[target], true, false);
 }
 void MainWindow::loadBook(const QString &path, ViewMode mode, bool startAtLastPage) {
+    if(m_video)m_video->leave();
+    const bool video=isVideoPath(path) || (VideoOptions::load(*m_settings).animations && isAnimatedImagePath(path));
+    if(video)m_displayJobs->retain("history-store");
     cancelThumbnailPreload();
-    for(const auto &scope:{"render","open","navigation","prefetch","preload","command-image","directory-siblings"})m_displayJobs->retain(scope);
+    for(const auto &scope:{"render","open","navigation","prefetch","preload","command-image","directory-siblings","video-cover"})m_displayJobs->retain(scope);
     if(restoreRetainedDocument(path,mode))return;
     m_displayJobs->retain("directory-siblings");
     m_displayJobs->retain("command-image");m_displayJobs->retain("navigation");m_displayJobs->visible("covers");m_displayJobs->visible("pages");
@@ -516,6 +529,11 @@ void MainWindow::loadBook(const QString &path, ViewMode mode, bool startAtLastPa
     const auto generation = ++m_bookGeneration; m_openToken->store(generation);
     m_pageThumbnailToken->store(++m_pageGeneration);m_displayJobs->visible("pages"); m_pages->clearItems();
     m_pageTitle->setText(QCoreApplication::translate("KomaMimic", "画像・書庫を読み込んでいます… ") + bookDisplayName(m_currentPath));
+    if(video) {
+        m_loading=mode!=ViewMode::Covers;setMode(mode==ViewMode::Covers?ViewMode::Covers:ViewMode::Video);
+        if(mode!=ViewMode::Covers)m_video->open(m_currentPath);
+        if(m_features)m_features->openedVideo();highlightBook();refreshState();return;
+    }
     m_view->setMessage(QCoreApplication::translate("KomaMimic", "画像・書庫を読み込んでいます…\n") + bookDisplayName(m_currentPath)); setMode(mode); highlightBook(); refreshState();
     auto completed = [this, generation, startAtLastPage](Book::OpenResult result,bool cancelled) {
         if(cancelled)return;
@@ -578,7 +596,7 @@ void MainWindow::startNextThumbnail(quint64 generation) { if (generation == m_li
 void MainWindow::requestThumbnails(ThumbnailGrid *grid) {
     const bool pages=grid==m_pages;const QString scope=pages?"pages":"covers";
     const auto generation=pages?m_pageGeneration:m_libraryGeneration;
-    const auto rows=m_mode!=ViewMode::Reader && grid->isVisible() && (!pages || !m_loading) && !m_backgroundCancel->load()?grid->visibleRows():QVector<int>{};
+    const auto rows=(m_mode==ViewMode::Covers || m_mode==ViewMode::Pages) && grid->isVisible() && (!pages || !m_loading) && !m_backgroundCancel->load()?grid->visibleRows():QVector<int>{};
     const bool enabled=m_settings->value("thumbnails/preloadAll",false).toBool();
     auto &state=m_thumbnailPreload[pages?1:0];
     if(state.generation!=generation || state.enabled!=enabled) {
@@ -605,7 +623,7 @@ void MainWindow::cancelThumbnailPreload() {
     m_displayJobs->retain("covers-preload");m_displayJobs->retain("pages-preload");
 }
 bool MainWindow::thumbnailPreloadReady(ThumbnailGrid *grid) const {
-    if(m_backgroundCancel->load() || m_mode==ViewMode::Reader || grid!=activeGrid() || !grid->isVisible() || m_loading ||
+    if(m_backgroundCancel->load() || (m_mode==ViewMode::Reader || m_mode==ViewMode::Video) || grid!=activeGrid() || !grid->isVisible() || m_loading ||
        (grid==m_library && m_directoryLoading) || !m_settings->value("thumbnails/preloadAll",false).toBool() || m_displayJobs->displayBusy())return false;
     const bool pages=grid==m_pages;const QString scope=pages?"pages":"covers";
     const auto &state=m_thumbnailPreload[pages?1:0];
@@ -661,10 +679,10 @@ void MainWindow::requestThumbnail(ThumbnailGrid *grid,int row,bool preload) {
             }
             return ImageResult{};
         }
-        return cachedCover(path,policies->resolve(path),cache,cancel,refresh,0,false,changed || updateFromEntry,maximum,observed);
+        return cachedCover(path,policies->resolve(path),cache,cancel,refresh,0,false,changed || updateFromEntry,maximum,observed,false,nullptr,policies->settingsFile);
     };
     auto current=[this,grid,pages,generation,row,preload] {
-        return !m_backgroundCancel->load() && m_mode!=ViewMode::Reader && generation==(pages?m_pageGeneration:m_libraryGeneration) && row<grid->count() && (!preload || (grid->isVisible() && m_settings->value("thumbnails/preloadAll",false).toBool()));
+        return !m_backgroundCancel->load() && (m_mode==ViewMode::Covers || m_mode==ViewMode::Pages) && generation==(pages?m_pageGeneration:m_libraryGeneration) && row<grid->count() && (!preload || (grid->isVisible() && m_settings->value("thumbnails/preloadAll",false).toBool()));
     };
     const auto serial=m_thumbnailChanges->serial;
     auto apply=[this,grid,row,path,current,serial,maximum,refresh](ImageResult result,bool cancelled,bool checked) {

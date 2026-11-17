@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "thumbnailsource.h"
+#include "videomedia.h"
 #include "archivepath.h"
 #include <QCoreApplication>
 #include <QCryptographicHash>
@@ -69,6 +70,7 @@ void ThumbnailChanges::acknowledge(const QJsonObject &deps,quint64 through) {
 }
 
 ThumbnailNamePolicies::ThumbnailNamePolicies(const QSettings &settings) {
+    settingsFile=settings.fileName();
     for(const auto &key:settings.allKeys()) {
         if(!key.startsWith("archiveNames/") || !key.endsWith("/encoding"))continue;
         const auto group=key.left(key.size()-9);
@@ -111,7 +113,7 @@ QByteArray coverKey(const QString &path,const NamePolicy &policy) {
 }
 ImageResult cover(const QString &path,const NamePolicy &policy,const std::shared_ptr<ThumbnailDiskCache> &cache,
                   const std::function<bool()> &cancel,bool refresh,int depth,int maximum,bool cachedOnly,bool updateFromEntry,
-                  QJsonObject info={},ImageResult fallback={},bool memoryOnly=false,quint64 *availability=nullptr) {
+                  QJsonObject info={},ImageResult fallback={},bool memoryOnly=false,quint64 *availability=nullptr,const QString &videoSettingsFile={}) {
     if(cancel && cancel())return {};
     const auto bytes=coverKey(path,policy);
     const bool forceChildren=refresh;
@@ -140,7 +142,7 @@ ImageResult cover(const QString &path,const NamePolicy &policy,const std::shared
             entries.next();const auto entry=entries.fileInfo();
             const bool dir=entry.isDir();
             if(dir && depth>=maximum){cut=true;continue;}
-            if(!dir && !isImagePath(entry.fileName()) && !isArchivePath(entry.fileName()) && !isDocumentPath(entry.fileName()))continue;
+            if(!dir && !isImagePath(entry.fileName()) && !isArchivePath(entry.fileName()) && !isDocumentPath(entry.fileName()) && !isVideoPath(entry.fileName()))continue;
             auto item=qMakePair(entry.absoluteFilePath(),thumbnailEntry(entry,resolved));
             auto before=[](const auto &x,const auto &y){
                 const bool xd=x.second.value("directory").toBool(),yd=y.second.value("directory").toBool();
@@ -154,7 +156,7 @@ ImageResult cover(const QString &path,const NamePolicy &policy,const std::shared
         for(const auto &candidate:candidates) {
             if(cancel && cancel())return {};
             seen[candidate.first]=candidate.second;
-            auto result=cover(candidate.first,policy,cache,cancel,forceChildren,depth+1,maximum,false,true,candidate.second,previous);
+            auto result=cover(candidate.first,policy,cache,cancel,forceChildren,depth+1,maximum,false,true,candidate.second,previous,false,nullptr,videoSettingsFile);
             cut=cut || result.thumbnailCutoff;
             for(auto i=result.thumbnailEntries.begin();i!=result.thumbnailEntries.end();++i)seen[i.key()]=i.value();
             if(result.image.isNull()){if(!result.error.isEmpty())failure=result.error;continue;}
@@ -179,7 +181,10 @@ ImageResult cover(const QString &path,const NamePolicy &policy,const std::shared
         if(cancel && cancel())return {};
         ++ThumbnailActivity::generations;
         ImageResult result;
-        if(isImagePath(path) && !parseArchiveEntryPath(path).valid()) {
+        bool animatedVideo=false;
+        if(isAnimatedImagePath(path) && !videoSettingsFile.isEmpty()){QSettings settings(videoSettingsFile,QSettings::IniFormat);animatedVideo=settings.value("video/animations",false).toBool() || readVideoState(settings,path).coverChosen;}
+        if((isVideoPath(path) || animatedVideo) && !parseArchiveEntryPath(path).valid())result=videoCover(path,videoSettingsFile,ThumbnailSize,cancel);
+        else if(isImagePath(path) && !parseArchiveEntryPath(path).valid()) {
             QFile file(path);
             if(info.value("bytes").toString().toLongLong()>MaxEncodedBytes || !file.open(QIODevice::ReadOnly))result.error=QCoreApplication::translate("KomaMimic", "表紙画像を読めません。");
             else result=decodeImage(file.read(MaxEncodedBytes+1),QFileInfo(path).fileName(),ThumbnailSize,0,{},cancel);
@@ -196,10 +201,18 @@ ImageResult cover(const QString &path,const NamePolicy &policy,const std::shared
 }
 }
 ImageResult cachedCover(const QString &path,const NamePolicy &policy,const std::shared_ptr<ThumbnailDiskCache> &cache,
-                        const std::function<bool()> &cancel,bool refresh,int depth,bool cachedOnly,bool updateFromEntry,int maxDepth,const QJsonObject &observed,bool memoryOnly,quint64 *availability) {
+                        const std::function<bool()> &cancel,bool refresh,int depth,bool cachedOnly,bool updateFromEntry,int maxDepth,const QJsonObject &observed,bool memoryOnly,quint64 *availability,const QString &videoSettingsFile) {
     const auto generation=cache->generation();
     const auto cancelled=[cache,generation,cancel]{return (cancel && cancel()) || cache->generation()!=generation;};
-    return cover(path,policy,cache,cancelled,refresh,depth,std::clamp(maxDepth,0,8),cachedOnly,updateFromEntry,observed,{},memoryOnly,availability);
+    return cover(path,policy,cache,cancelled,refresh,depth,std::clamp(maxDepth,0,8),cachedOnly,updateFromEntry,observed,{},memoryOnly,availability,videoSettingsFile);
+}
+ImageResult storeVideoCover(const QString &path,const NamePolicy &policy,const std::shared_ptr<ThumbnailDiskCache> &cache,const QImage &image,const std::function<bool()> &cancel) {
+    if(image.isNull() || (cancel && cancel()))return {};
+    ImageResult result(image.scaled(ThumbnailSize,Qt::KeepAspectRatio,Qt::SmoothTransformation));
+    const auto info=suppliedEntry(path);result.thumbnailEntries={{path,info}};
+    result.image.setText("komamimic-cover-stamp",recordStamp(path,info));
+    ++ThumbnailActivity::generations;
+    return cache->image(coverKey(path,policy),[result]{return result;},cancel,true);
 }
 ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int index,
                                 const std::shared_ptr<ThumbnailDiskCache> &cache,
@@ -296,7 +309,7 @@ ImageResult cachedPageThumbnail(const std::shared_ptr<const Book> &book,int inde
 
 }
 ImageResult cachedCollectionCover(const QString &path,const NamePolicy &policy,const QJsonObject &metadata,bool spine,
-                             const std::shared_ptr<ThumbnailDiskCache> &cache,const std::function<bool()> &cancel,bool cachedOnly,bool updateFromEntry,int maxDepth,const QJsonObject &observed) {
+                             const std::shared_ptr<ThumbnailDiskCache> &cache,const std::function<bool()> &cancel,bool cachedOnly,bool updateFromEntry,int maxDepth,const QJsonObject &observed,const QString &videoSettingsFile) {
     if(cancel && cancel()) return {};
     const QString field=spine && metadata.contains("spinePng") ? "spine" : "cover";
     const auto encoded=metadata.value(field+"Png").toString().toLatin1();
@@ -306,7 +319,7 @@ ImageResult cachedCollectionCover(const QString &path,const NamePolicy &policy,c
         if(!image.isNull()) return {image,{}};
     }
     const int page=metadata.value(field).toInt();
-    if(page==0 || QFileInfo(path).suffix().compare("epub",Qt::CaseInsensitive)==0) return cachedCover(path,policy,cache,cancel,false,0,cachedOnly,updateFromEntry,maxDepth,observed);
+    if(page==0 || QFileInfo(path).suffix().compare("epub",Qt::CaseInsensitive)==0) return cachedCover(path,policy,cache,cancel,false,0,cachedOnly,updateFromEntry,maxDepth,observed,false,nullptr,videoSettingsFile);
     auto key=baseKey(QFileInfo(physicalBookPath(path)).absoluteFilePath().toUtf8(),policy);
     key["revision"]=3;key["kind"]="registered-page";key["page"]=page;
     const auto bytes=QJsonDocument(key).toJson(QJsonDocument::Compact);

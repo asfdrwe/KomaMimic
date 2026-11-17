@@ -5,6 +5,7 @@
 #include "shortcuts.h"
 #include "scriptreader.h"
 #include "documentview.h"
+#include "videomedia.h"
 #include <QApplication>
 #include <QGuiApplication>
 #include <QByteArray>
@@ -202,6 +203,7 @@ int main(int argc, char **argv) {
   if (parser.isSet("formats")) {
     QTextStream out(stdout);
     out << QCoreApplication::translate("KomaMimic", "画像: ") << imageExtensions().join(", ") << '\n'
+        << QCoreApplication::translate("KomaMimic", "動画（実際の対応はQtのランタイムによります）: ") << videoExtensions().join(", ") << '\n'
         << QCoreApplication::translate("KomaMimic", "書庫: ZIP/CBZ, RAR4/5/CBR, 7z/CB7, LHA/LZH/CBL, CAB, tar/CBT, "
            "tar.gz/bz2/xz/zst\n文書: PDF（組み込みPoppler）, "
            "TXT（UTF-8/CP932等）, Markdown（.md/.markdown）, EPUB\n")

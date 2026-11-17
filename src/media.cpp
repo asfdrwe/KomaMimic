@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "media.h"
+#include "videomedia.h"
 #include <QCoreApplication>
 #include "documentsource.h"
 #include "apng.h"
@@ -71,8 +72,10 @@ bool isArchivePath(const QString &path) {
 QString openFileFilter() {
     QStringList patterns;
     for (const auto &ext : imageExtensions()) patterns += "*." + ext;
+    QStringList videos;
+    for (const auto &ext : videoExtensions()) videos += "*." + ext;
     const QString archives = "*.zip *.cbz *.rar *.cbr *.7z *.cb7 *.lha *.lzh *.cbl *.tar *.cbt *.tar.gz *.tgz *.tar.bz2 *.tbz *.tbz2 *.tar.xz *.txz *.tar.zst *.tzst *.cab";
-    return QCoreApplication::translate("KomaMimic", "対応する画像・書庫・文書 (") + patterns.join(' ') + ' ' + archives + QCoreApplication::translate("KomaMimic", " *.pdf *.txt *.mmt *.md *.markdown *.epub);;画像 (") + patterns.join(' ') + QCoreApplication::translate("KomaMimic", ");;書庫 (") + archives + QCoreApplication::translate("KomaMimic", ");;文書 (*.pdf *.txt *.mmt *.md *.markdown *.epub);;すべてのファイル (*)");
+    return QCoreApplication::translate("KomaMimic", "対応する画像・書庫・文書・動画 (") + patterns.join(' ') + ' ' + videos.join(' ') + ' ' + archives + QCoreApplication::translate("KomaMimic", " *.pdf *.txt *.mmt *.md *.markdown *.epub);;画像 (") + patterns.join(' ') + QCoreApplication::translate("KomaMimic", ");;動画 (") + videos.join(' ') + QCoreApplication::translate("KomaMimic", ");;書庫 (") + archives + QCoreApplication::translate("KomaMimic", ");;文書 (*.pdf *.txt *.mmt *.md *.markdown *.epub);;すべてのファイル (*)");
 }
 int documentPages(const QByteArray &bytes) {
     QBuffer buffer; buffer.setData(bytes); buffer.open(QIODevice::ReadOnly);

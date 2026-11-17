@@ -8,7 +8,8 @@
     "qtwebchannel",
     "qtpositioning",
     "qtimageformats",
-    "qtshadertools"
+    "qtshadertools",
+    "qtmultimedia"
   ],
   "required_files": [
     "bin/Qt6Core.dll",
@@ -30,7 +31,10 @@
     "translations/qtwebengine_locales/en-US.pak",
     "translations/qtbase_ja.qm",
     "lib/cmake/Qt6/Qt6Config.cmake",
-    "lib/cmake/Qt6WebEngineWidgets/Qt6WebEngineWidgetsConfig.cmake"
+    "lib/cmake/Qt6WebEngineWidgets/Qt6WebEngineWidgetsConfig.cmake",
+    "bin/Qt6Multimedia.dll",
+    "plugins/multimedia/ffmpegmediaplugin.dll",
+    "lib/cmake/Qt6Multimedia/Qt6MultimediaConfig.cmake"
   ],
   "aqt_commit": "8c3695d4a4e1ceabf6a74dc6c79681656dc6b74b"
 }

@@ -1,4 +1,6 @@
-# KomaMimic Guide
+# KomaMimic v2 Guide (development)
+
+The provisional version is v2.0.0. This development guide is separate from the published v1 guide.
 
 [日本語](../index.md) | English
 
@@ -11,6 +13,8 @@ It also supports PDF, TXT, Markdown, EPUB, and JavaScript image readers and filt
 ![KomaMimic with the Japanese UI](../assets/screenshots/readme-ja.png)
 
 ## Using KomaMimic
+
+- [Playing videos](user/video.md): local video controls and preferences.
 
 - [Installation](user/install.md): install KomaMimic.
 - [Basic controls](user/basic.md): opening, navigation, lists, full screen, keyboard, and mouse.

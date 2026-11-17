@@ -14,6 +14,10 @@ python3 tests/fixtures/generate_script_samples.py --verify-worker ./build/komami
 
 ## 実機確認用の合成入力
 
+動画試験用は`generate_video_samples.py --output <作業用フォルダ>`で生成します。
+素材生成専用のffmpegを使い、AVI/MJPEG、MP4、複数トラックと内蔵字幕のMKV、複数program TS、GIF、非正方形画素の入力とmanifestを作ります。
+入力は色・時刻・音声周波数を自作したもので、生成動画を公開ソースや利用者向けバイナリへ同梱しません。製品側にffmpegコマンド依存を追加しません。
+
 `generate_validation_samples.py --output <新しいフォルダ>`で番号付きPNG、UTF-8/CP932 ZIP、隣接書庫、tar/tar.gz、TXT/Markdown混在ZIP、GIF/APNG/TIFF、PDF、TXT/Markdown、reflow/fixed EPUB、自作INI、壊れた入力と上記script-reader入力を生成します。Python標準ライブラリだけを使います。実画面の操作と期待結果は[実機検証手順](../../docs/developer/platform-validation.md)にあります。
 
 通常は`tools/prepare_validation.py`から呼び、選別済みソース・入力・hashをまとめた持出しZIPにします。生成データはテスト用で、公開リポジトリ／利用者向け配布の画像サンプル集にはしません。

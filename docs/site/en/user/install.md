@@ -1,5 +1,7 @@
 # Installation
 
+v2.0.0 is under development and its packages have not yet completed validation. The procedures and filename examples below were verified for v1; v2 installation instructions will be updated after CI and packaged artifacts are checked.
+
 [日本語](../../user/install.md) | English
 
 Screenshots on this page show the Japanese UI.

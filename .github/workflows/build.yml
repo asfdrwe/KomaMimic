@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev2]
     # Build only when application, dependency, test or validation inputs change.
     # Pages validates documentation and tools/public_source.json separately.
     paths:
@@ -62,8 +62,10 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 tools/check_source.py --tracked
-      - name: Test Windows dependency cache rules
-        run: python3 -m unittest discover -s tests -p test_windows_cache.py
+      - name: Test branch isolation and Windows dependency cache rules
+        run: |
+          python3 -m unittest discover -s tests -p test_workflows.py
+          python3 -m unittest discover -s tests -p test_windows_cache.py
       - name: Lint workflows
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/*.yml
       - name: Export source
@@ -95,7 +97,7 @@ jobs:
       - name: Install dependencies
         run: >-
           dnf install -y git gcc-c++ cmake ninja-build
-          qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools-devel qt6-linguist qt6-qttranslations qt6-qtwebengine-devel qt6-qtimageformats
+          qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qttools-devel qt6-linguist qt6-qttranslations qt6-qtwebengine-devel qt6-qtmultimedia-devel qt6-qtimageformats ffmpeg-free
           libarchive-devel libicu-devel zlib-ng-compat-devel sdl2-compat-devel
           poppler-glib-devel pkgconf-pkg-config dbus-daemon
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -134,7 +136,7 @@ jobs:
       - name: Check native Apple Silicon environment
         run: python3 -c 'import platform; assert platform.machine() == "arm64", platform.machine()'
       - name: Install dependencies
-        run: brew install cmake ninja qtbase qtdeclarative qttools qttranslations qtwebengine qtimageformats libarchive icu4c sdl2-compat poppler pkgconf
+        run: brew install cmake ninja qtbase qtdeclarative qttools qttranslations qtwebengine qtimageformats qtmultimedia ffmpeg libarchive icu4c sdl2-compat poppler pkgconf
       - run: cmake -S . -B build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DKOMAMIMIC_TEST_SCOPE=full -DCMAKE_OSX_ARCHITECTURES=arm64
       - run: cmake --build build-ci --parallel 3
       - run: ./build-ci/komamimic --version
@@ -212,6 +214,14 @@ jobs:
           "KOMA_QT_PARENT=$qt" >> $env:GITHUB_ENV
           $config = Get-Content tools/windows-fast.json -Raw | ConvertFrom-Json
           "KOMAMIMIC_QT_ROOT=$qt/$($config.qt_version)/$($config.sdk_directory)" >> $env:GITHUB_ENV
+      - name: Ensure video fixture generator is available
+        run: |
+          if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+            choco install ffmpeg --yes --no-progress
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+          ffmpeg -version
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Restore official Qt SDK
         id: qt-cache
         uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3

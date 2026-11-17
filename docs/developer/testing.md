@@ -4,10 +4,17 @@ Qt Test and Python 3.9+ are required. The Windows SDK setup helper needs Python
 3.10+. The examples below are for Linux/macOS. Keep test builds separate from the
 application-only builds in the README.
 
+動画試験ではQt 6.11+のMultimediaと、合成入力生成専用の`ffmpeg`コマンドも必要です。
+ffmpegは製品から呼び出さず、`BUILD_TESTING=OFF`のアプリビルドには不要です。
+CTestの`video_fixtures`がbuild配下へ素材とmanifestを生成し、`video_tests`が実Qtの画素・シーク・字幕・トラック・保存・キャッシュを確認します。
+`full`と`platform`の両方に登録しています。通常試験は利用者のスピーカーを開かず復号データを利用します。
+`video_software_tests`は別プロセスでハードウェア復号を無効にし、同じ動画suiteを実行します。
+実音の音程維持・出力先切替・GPU・OS消灯抑止は対象機器／仮想出力を備えた環境で別途確認し、未実施は合格に含めません。
+
 CTestは`tests/isolated_test.py`を通し、テストごとの一時領域へ`HOME`、XDG系変数、
 `TMPDIR`／`TMP`／`TEMP`を向ける。macOSでは`CFFIXED_USER_HOME`、Windowsでは
 `USERPROFILE`、`APPDATA`、`LOCALAPPDATA`、`HOMEDRIVE`、`HOMEPATH`も設定する。
-子プロセスは同じ環境を継承し、通常アプリの保存先を共有しない。本体コードへの追加はない。
+子プロセスは同じ環境を継承し、通常アプリの保存先を共有しない。QtTestの単体起動も共通入口で隔離し、実際のcache/config/data/tempが隔離先内か検査する。本体コードへの追加はない。
 Qt試験の共通起動処理と単一起動試験は、実際のQtのキャッシュ先が一時領域内か検査し、
 環境変数による分離が効いていなければ、通常キャッシュに触れず失敗とする。
 
@@ -237,3 +244,8 @@ book or author names. Private sample diagnostics must use anonymous identifiers 
 `thumbnail_scroll_tests`の220件の保存・再利用fixtureは同時実行数4を明示し、初期準備10秒・復帰5秒の上限と画素／保存検査を維持する。既定1件の生成とキャッシュ優先は`cache_display_tests`、通常表示と先読みは各関連群で検査する。
 
 `cache_display_tests`はfull/platform両scopeで実行する。表紙／ページ生成の既定直列と1～4件の上限、設定の増減時に実行中の生成を破棄しないこと、各同時実行数で生成中もキャッシュを優先表示することを検査する。`thumbnail_preload_tests`では同時実行数の設定範囲・保存・取消・再起動後の適用と、設定変更時にキャッシュの画素・保存日時を維持し元画像を読まないことを検査する。8192 MiB設定で書込中の画素がLRU追出し後も表示できること、並列生成中もcache hitを表示すること、一覧の更新日時だけによる再生成を検査する。165／322画像を通常キャッシュへ直接保存し、別プロセスで元画像読込・再生成なしに再利用する。版番号・実行名・配置・cwdの変更とLinuxの実AppRunでも既定キャッシュ先から再利用する。同一Qtのlauncher検査であり実AppImage runtimeとは区別する。
+
+自動配布検査も`tools/isolated_environment.py`でHOME・各OSの設定/データ/cache/tempを
+検査出力先へ向ける。動画入力生成はホストのPATHを使いつつ専用環境へ隔離し、
+デコード検査は配布物専用PATH/plugin設定を維持する。実Qtの保存先を復号前に確認し、
+隔離先外なら失敗とする。自動/SWプローブは別の保存先を使用する。

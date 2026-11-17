@@ -4,6 +4,7 @@
 #include "documentview.h"
 #include <QApplication>
 #include <QBuffer>
+#include <QDir>
 #include <QFile>
 #include <QStandardPaths>
 #include <QTemporaryDir>
@@ -31,8 +32,36 @@ void singlePage(MainWindow &window);
 template<class Suite> int isolatedTestMain(int argc, char **argv) {
     QTemporaryDir sandbox;
     if (!sandbox.isValid()) return 2;
-    qputenv("XDG_CONFIG_HOME", (sandbox.path() + "/config").toUtf8());
-    qputenv("XDG_CACHE_HOME", (sandbox.path() + "/cache").toUtf8());
+    // Preserve the Python launcher's profile on macOS: Foundation may cache
+    // CFFIXED_USER_HOME before QApplication while resolving the temp directory.
+    const auto outer = qEnvironmentVariable("KOMAMIMIC_TEST_ROOT");
+    const auto root = QDir(outer.isEmpty() ? sandbox.path() : outer).canonicalPath();
+    if (root.isEmpty()) return 2;
+    qputenv("KOMAMIMIC_TEST_ROOT", root.toUtf8());
+    const auto redirect = [&](const char *key, const QString &directory) {
+        QDir().mkpath(directory);
+        qputenv(key, directory.toUtf8());
+    };
+    redirect("HOME", root + "/home");
+    redirect("XDG_CONFIG_HOME", root + "/config");
+    redirect("XDG_CACHE_HOME", root + "/cache");
+    redirect("XDG_DATA_HOME", root + "/data");
+    redirect("XDG_STATE_HOME", root + "/state");
+    redirect("XDG_RUNTIME_DIR", root + "/run");
+    QFile::setPermissions(root + "/run", QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ExeOwner);
+    for (const auto *key : {"TMPDIR", "TMP", "TEMP"}) redirect(key, root);
+#ifdef Q_OS_MACOS
+    redirect("CFFIXED_USER_HOME", root + "/home");
+#endif
+#ifdef Q_OS_WIN
+    const auto home = root + "/home";
+    redirect("USERPROFILE", home);
+    redirect("APPDATA", home + "/AppData/Roaming");
+    redirect("LOCALAPPDATA", home + "/AppData/Local");
+    const auto drive = home.size() > 1 && home[1] == ':' ? home.left(2) : QString{};
+    qputenv("HOMEDRIVE", drive.toUtf8());
+    qputenv("HOMEPATH", home.mid(drive.size()).toUtf8());
+#endif
 #ifdef Q_OS_WIN
     // The offscreen platform does not always discover installed Windows fonts.
     if (qEnvironmentVariableIsEmpty("QT_QPA_FONTDIR")) {
@@ -49,15 +78,20 @@ template<class Suite> int isolatedTestMain(int argc, char **argv) {
     QApplication app(argc, argv);
     QCoreApplication::setOrganizationName("KomaMimicTests");
     QCoreApplication::setApplicationName("Regression");
-    const auto cache=QStandardPaths::writableLocation(QStandardPaths::CacheLocation);
-    const auto inside=[&](const QString &root) {
-        const auto relative=QDir(root).relativeFilePath(cache);
-        return !root.isEmpty() && !QDir::isAbsolutePath(relative) && relative!=".." && !relative.startsWith("../");
+    const auto inside=[&](const QString &path) {
+        const auto relative=QDir(root).relativeFilePath(path);
+        return !path.isEmpty() && !QDir::isAbsolutePath(relative) && relative!=".." && !relative.startsWith("../");
     };
-    if(!inside(qEnvironmentVariable("HOME")) && !inside(qEnvironmentVariable("XDG_CACHE_HOME"))) {
-        qCritical().noquote()<<"OS cache directory is outside the test environment:"<<cache;
-        return 2;
+    for (auto kind : {QStandardPaths::CacheLocation, QStandardPaths::AppConfigLocation,
+                      QStandardPaths::AppDataLocation, QStandardPaths::GenericDataLocation}) {
+        const auto path = QStandardPaths::writableLocation(kind);
+        if (!inside(path)) {
+            qCritical().noquote()<<"OS directory is outside the test environment:"<<path;
+            return 2;
+        }
     }
+    if (!inside(QDir::tempPath())) return 2;
+    app.setProperty("komamimicTestRoot", root);
     QThreadPool::globalInstance()->setMaxThreadCount(3);
     int result;
     { Suite suite; result = QTest::qExec(&suite, argc, argv); }

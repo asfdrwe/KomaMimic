@@ -2,6 +2,10 @@
 
 [日本語](../changelog.md) | English
 
+## v2.0.0 (development, unreleased)
+
+Adds video mode, playback and display preferences, video covers, Multimedia deployment, and automated checks. The v1 guide is preserved and v2 documentation uses a separate URL.
+
 ## v1.7.3
 
 - Also try the bundled IBus input plugin when launching the Linux AppImage from a menu with input-method variables unset or empty. Preserve explicit preference lists and other input-method selections.

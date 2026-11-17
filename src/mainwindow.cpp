@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "mainwindow.h"
+#include "videoview.h"
 #include "thumbnailsource.h"
 #include "displayjobs.h"
 #include "defaultpreferences.h"
@@ -91,6 +92,7 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
       m_openToken(std::make_shared<std::atomic<quint64>>(0)),
       m_pageThumbnailToken(std::make_shared<std::atomic<quint64>>(0)), m_imageCache(128 * 1024) {
     initializeMangaPreferences(*m_settings);
+    initializeVideoDecoding(*m_settings);
     m_thumbnailNamePolicies=std::make_shared<ThumbnailNamePolicies>(*m_settings);
     m_thumbnailChanges=std::make_shared<ThumbnailChanges>();
     m_restoreFullscreen = m_settings->value("window/fullscreen", false).toBool();
@@ -109,7 +111,7 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
             populateDirectory(m_directory,false,false,false,true);
         if(m_features)m_features->requestBackgroundWork();
         const auto cache=m_thumbnailDiskCache;
-        if(m_mode!=ViewMode::Reader && m_cacheMaintenanceNeeded) {
+        if(m_mode!=ViewMode::Reader && m_mode!=ViewMode::Video && m_cacheMaintenanceNeeded) {
             m_displayJobs->submit<QString>(DisplayJobs::Lane::Background,"cache-maintain","cache-maintain",
                 [cache](const DisplayJobs::Cancel &cancel){return cache->maintain(cancel);},
                 [this](const QString &,bool cancelled){if(!cancelled)m_cacheMaintenanceNeeded=false;});
@@ -137,6 +139,7 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
     { const QSignalBlocker blocker(m_actions["tree"]); m_actions["tree"]->setChecked(!m_treePanel->isHidden()); }
     restoreImageSettings();
     m_features = std::make_unique<ReaderFeatures>(this, inhibitor);
+    buildVideoActions();
     buildMenus();
     setThumbnailLayout(ThumbnailGrid::Layout(std::clamp(m_settings->value("thumbnails/layout", 0).toInt(), 0, 2)),
                        m_settings->value("thumbnails/columns", 0).toInt());
@@ -150,6 +153,7 @@ MainWindow::MainWindow(const QString &settingsPath, QWidget *parent, IdleInhibit
     refreshState();
 }
 MainWindow::~MainWindow() {
+    if(m_video)m_video->leave();
     cancelBackgroundWork();
     disconnect(qApp, nullptr, this, nullptr);
     if (m_features) m_features->closingBook();
@@ -175,6 +179,7 @@ void MainWindow::showEvent(QShowEvent *event) {
 
 void MainWindow::changeEvent(QEvent *event) {
     QMainWindow::changeEvent(event);
+    if(m_video && event->type()==QEvent::WindowStateChange)m_video->setPresentation(isFullScreen(),isMinimized());
     // Native window controls can also change fullscreen.
     if (event->type() == QEvent::WindowStateChange && !m_fullscreenTransition) {
         const auto oldState = static_cast<QWindowStateChangeEvent *>(event)->oldState();
@@ -272,8 +277,8 @@ void MainWindow::buildActions() {
     connect(m_actions["previous"], &QAction::triggered, this, &MainWindow::previousPage);
     connect(m_actions["nextOne"], &QAction::triggered, this, [this] { stepPage(1, true); });
     connect(m_actions["previousOne"], &QAction::triggered, this, [this] { stepPage(-1, true); });
-    connect(m_actions["first"], &QAction::triggered, this, [this] { jump(0); });
-    connect(m_actions["last"], &QAction::triggered, this, [this] { if(documentViewActive() && m_documentView)m_documentView->last();else jump(pageCount()-1); });
+    connect(m_actions["first"], &QAction::triggered, this, [this] { if(m_mode==ViewMode::Video)m_video->seek(0);else jump(0); });
+    connect(m_actions["last"], &QAction::triggered, this, [this] { if(m_mode==ViewMode::Video)m_video->command("videoLast");else if(documentViewActive() && m_documentView)m_documentView->last();else jump(pageCount()-1); });
     connect(m_actions["nextBook"], &QAction::triggered, this, [this] { moveBook(1); });
     connect(m_actions["previousBook"], &QAction::triggered, this, [this] { moveBook(-1); });
     connect(m_actions["exitFullscreen"], &QAction::triggered, this, [this] { setFullscreen(false); });
@@ -289,7 +294,8 @@ void MainWindow::buildActions() {
     connect(m_actions["rtl"], &QAction::toggled, this, [this](bool on) { m_options.rightToLeft = on; render(); saveSettings(); });
     connect(m_actions["cover"], &QAction::toggled, this, [this](bool on) { if(documentViewActive()){setDocumentOption("coverAlone",on);return;} m_options.coverAlone = on; render(); saveSettings(); });
     connect(m_actions["library"], &QAction::triggered, this, [this] {
-        if (m_mode == ViewMode::Covers && m_book) setMode(ViewMode::Reader); else showCovers();
+        if(m_mode==ViewMode::Covers && m_video && m_video->path()==m_currentPath && !m_currentPath.isEmpty())loadBook(m_currentPath,ViewMode::Video);
+        else if (m_mode == ViewMode::Covers && m_book) setMode(ViewMode::Reader); else showCovers();
     });
     auto *boundaryGroup = new QActionGroup(this);
     const QStringList boundaryIds{"boundaryStop", "boundaryRepeat", "boundaryAdvance"};
@@ -356,6 +362,7 @@ void MainWindow::buildUi() {
           QFileInfo(m_book->pages[i].filePath).suffix().compare("pdf",Qt::CaseInsensitive)==0) { render(); break; }
     });
     m_stack->addWidget(m_browser); m_stack->addWidget(pagePanel); m_stack->addWidget(m_view);
+    m_video=new VideoView(*m_settings,m_stack);m_stack->addWidget(m_video);
     m_splitter->addWidget(m_treePanel); m_splitter->addWidget(m_stack);
     m_splitter->setStretchFactor(0, 0); m_splitter->setStretchFactor(1, 1); m_splitter->setSizes({230, 950});
     setCentralWidget(m_splitter);
@@ -534,6 +541,7 @@ void MainWindow::jump(int anchor) {
 void MainWindow::nextPage() { stepPage(1); }
 void MainWindow::previousPage() { stepPage(-1); }
 void MainWindow::stepPage(int direction, bool onePage) {
+    if(m_mode==ViewMode::Video){m_video->command(onePage?(direction>0?"videoNextOne":"videoPreviousOne"):(direction>0?"videoNext":"videoPrevious"));return;}
     if (!m_book || pageCount() == 0) return;
     if(documentViewActive() && m_documentView) {
       if(m_documentView->auxiliaryActive())m_documentView->stepNote(direction);else m_documentView->step(direction,onePage);
@@ -555,7 +563,7 @@ void MainWindow::stepPage(int direction, bool onePage) {
 }
 QString MainWindow::adjacentArchive(int direction) const {
     if(m_features&&m_features->usesPlaylist())return m_features->collectionNeighbor(direction);
-    if ((m_book && m_book->filesystem) || (!m_book && !m_loading)) return {};
+    if ((m_book && m_book->filesystem) || (!m_book && !m_loading && m_mode!=ViewMode::Video)) return {};
     // The browser may show another folder while this book remains open.
     // Always resolve adjacent volumes relative to the actual source archive.
     if (parseArchiveEntryPath(m_currentPath).valid() && m_archiveDirectory) {
@@ -580,7 +588,7 @@ void MainWindow::requestAdjacentBook(int direction,ViewMode mode,bool startAtLas
     if(archiveNeighborsKnown()) {
         const auto path=adjacentArchive(direction);if(!path.isEmpty())loadBook(path,mode,startAtLastPage);return;
     }
-    if((m_book && m_book->filesystem) || (!m_book && !m_loading))return;
+    if((m_book && m_book->filesystem) || (!m_book && !m_loading && m_mode!=ViewMode::Video))return;
     const auto generation=m_bookGeneration;const auto current=m_currentPath;
     const auto directory=QFileInfo(physicalBookPath(current)).absolutePath();
     const int sort=m_settings->value("covers/sort",0).toInt();const bool reverse=m_settings->value("covers/reverse",false).toBool();
@@ -588,11 +596,11 @@ void MainWindow::requestAdjacentBook(int direction,ViewMode mode,bool startAtLas
     m_displayJobs->submit<QStringList>(DisplayJobs::Lane::Navigation,"navigation","book-neighbor",
         [directory,sort,reverse](const auto &cancel) {
             QFileInfoList files;QDirIterator entries(directory,QDir::Files|QDir::Readable|QDir::NoDotAndDotDot);
-            while(entries.hasNext()){if(cancel())return QStringList{};entries.next();if(isArchivePath(entries.fileName()) || isDocumentPath(entries.fileName()))files.append(entries.fileInfo());}
+            while(entries.hasNext()){if(cancel())return QStringList{};entries.next();if(isArchivePath(entries.fileName()) || isDocumentPath(entries.fileName()) || isVideoPath(entries.fileName()))files.append(entries.fileInfo());}
             std::stable_sort(files.begin(),files.end(),[sort,reverse](const auto &a,const auto &b){return browserLess(a,b,sort,reverse);});
             QStringList result;for(const auto &file:files)result.append(file.absoluteFilePath());return result;
         },[this,generation,current,directory,direction,mode,startAtLastPage](QStringList paths,bool cancelled) {
-            if(cancelled || generation!=m_bookGeneration || current!=m_currentPath || m_mode!=mode)return;
+            if(cancelled || generation!=m_bookGeneration || current!=m_currentPath || (m_mode!=mode && m_mode!=ViewMode::Video))return;
             m_neighborDirectory=directory;m_neighborPaths=std::move(paths);
             const auto path=adjacentArchive(direction);
             if(!path.isEmpty())loadBook(path,mode,startAtLastPage);else refreshState();
@@ -603,14 +611,14 @@ QStringList MainWindow::zipPaths() const {
     QStringList paths;
     for (int i = 0; i < m_library->count(); ++i) {
         auto *item = m_library->item(i);
-        if (!item->data(DirectoryRole).toBool() && (isArchivePath(item->data(PathRole).toString())||isDocumentPath(item->data(PathRole).toString())||(m_archiveDirectory && isImagePath(item->data(PathRole).toString())))) paths.append(item->data(PathRole).toString());
+        if (!item->data(DirectoryRole).toBool() && (isArchivePath(item->data(PathRole).toString())||isDocumentPath(item->data(PathRole).toString())||isVideoPath(item->data(PathRole).toString())||(m_archiveDirectory && isImagePath(item->data(PathRole).toString())))) paths.append(item->data(PathRole).toString());
     }
     return paths;
 }
 void MainWindow::moveBook(int delta) {
     const auto mode = m_mode == ViewMode::Pages ? ViewMode::Pages : ViewMode::Reader;
     if(m_features&&m_features->usesPlaylist()){const auto neighbor=m_features->collectionNeighbor(delta);if(!neighbor.isEmpty())loadBook(neighbor, mode);return;}
-    if(((m_book && !m_book->filesystem) || m_loading) && m_mode!=ViewMode::Covers){requestAdjacentBook(delta,mode);return;}
+    if(((m_book && !m_book->filesystem) || m_loading || m_mode==ViewMode::Video) && m_mode!=ViewMode::Covers){requestAdjacentBook(delta,mode);return;}
     const auto paths = zipPaths();
     const int current = paths.indexOf(m_currentPath);
     const int target = current < 0 ? (delta > 0 ? 0 : paths.size() - 1) : current + delta;
@@ -700,6 +708,7 @@ void MainWindow::refreshState() {
     if (m_features) m_features->refresh();
     updateDocumentActions();
     setWindowTitle(loaded ? QString("%1 [%2/%3] — KomaMimic").arg(bookDisplayName(m_currentPath)).arg(m_anchor + 1).arg(totalText) : "KomaMimic");
+    refreshVideoActions();
 }
 
 void MainWindow::restoreToolbarSettings() { m_toolbar->restore(*m_settings); }
@@ -712,7 +721,7 @@ void MainWindow::setFullscreenChromeVisible(bool top, bool bottom) {
         return !isFullScreen() || mode == 1 || (mode == 0 && revealed);
     };
     menuBar()->setVisible(show("fullscreen/menu", top));
-    m_toolbar->setVisible(m_toolbarBeforeFullscreen && show("fullscreen/toolbar", bottom));
+    m_toolbar->setVisible(m_mode!=ViewMode::Video && m_toolbarBeforeFullscreen && show("fullscreen/toolbar", bottom));
     statusBar()->setVisible(!isFullScreen() || (m_toolbarBeforeFullscreen && show("fullscreen/toolbar", bottom)));
 }
 Qt::Edges MainWindow::fullscreenRevealEdges(const QPoint &position) const {
@@ -809,6 +818,7 @@ void MainWindow::updateShortcutBindings() {
     const auto *focus = QApplication::focusWidget();
     ShortcutScope scope = ShortcutScope::Global;
     if (focus && isOwnedBy(focus, m_treePanel)) scope = ShortcutScope::Tree;
+    else if(focus && m_mode==ViewMode::Video && focus==m_video && !QApplication::activeModalWidget() && !QApplication::activePopupWidget())scope=ShortcutScope::Video;
     else if (focus && m_mode != ViewMode::Reader && isOwnedBy(focus, activeGrid())) scope = ShortcutScope::Thumbnails;
     else if (focus && m_mode == ViewMode::Reader && (isOwnedBy(focus, m_view)
         || (m_documentView && isOwnedBy(focus, m_documentView)))) scope = ShortcutScope::Reader;
@@ -822,10 +832,10 @@ void MainWindow::updateShortcutBindings() {
         if(documentSpace && spec.id=="autoSpread")key={};
         // Native macOS menu key equivalents can run before widget shortcuts.
         // Remove inactive scopes from the action itself, retaining saved keys.
-        if (spec.scope != ShortcutScope::Global && spec.scope != scope) key = {};
+        if (spec.scope != ShortcutScope::Global && spec.scope != scope && !(scope==ShortcutScope::Video && sharedVideoCommand(spec.id))) key = {};
         // Compatibility for saved/custom Return fullscreen keys: keep text and
         // thumbnail confirmation usable. New defaults use F11 (macOS: Ctrl+Meta+F).
-        if (spec.id=="fullscreenGlobal" && key==QKeySequence("Return") && scope!=ShortcutScope::Reader) key={};
+        if (spec.id=="fullscreenGlobal" && key==QKeySequence("Return") && scope!=ShortcutScope::Reader && scope!=ShortcutScope::Video) key={};
         if (auto *action = m_actions.value(spec.id); action && action->shortcut() != key) action->setShortcut(key);
     }
 }
@@ -921,6 +931,7 @@ void MainWindow::cancelBackgroundWork() {
     m_openToken->fetch_add(1); ++m_bookGeneration;
 }
 void MainWindow::closeEvent(QCloseEvent *event) {
+    if(m_video)m_video->leave();
     cancelBackgroundWork();
     if (m_features) {m_features->setProperty("closing",true);m_features->updateInhibit();m_features->closingBook();}
     m_treePanel->saveSettings(); saveSettings(); QMainWindow::closeEvent(event);
@@ -961,6 +972,7 @@ bool MainWindow::eventFilter(QObject *object, QEvent *event) {
         const auto *widget = qobject_cast<QWidget *>(object);
         ShortcutScope scope = ShortcutScope::Global;
         if (widget && isOwnedBy(widget, m_tree)) scope = ShortcutScope::Tree;
+        else if(widget==m_video && m_mode==ViewMode::Video && !QApplication::activeModalWidget() && !QApplication::activePopupWidget())scope=ShortcutScope::Video;
         else if (widget && (isOwnedBy(widget, m_library) || isOwnedBy(widget, m_pages))) scope = ShortcutScope::Thumbnails;
         else if (widget && (isOwnedBy(widget, m_view)
             || (m_documentView && isOwnedBy(widget, m_documentView))
@@ -976,7 +988,7 @@ bool MainWindow::eventFilter(QObject *object, QEvent *event) {
         const QKeySequence pressed(key->modifiers() | Qt::Key(key->key() == Qt::Key_Enter ? Qt::Key_Return : key->key()));
         for (const auto &spec : shortcutSpecs()) {
             auto *action = m_actions[spec.id];
-            if ((spec.scope == scope || spec.scope == ShortcutScope::Global) && action->isEnabled() && !action->shortcut().isEmpty() && action->shortcut().matches(pressed) == QKeySequence::ExactMatch) {
+            if ((spec.scope == scope || spec.scope == ShortcutScope::Global || (scope==ShortcutScope::Video && sharedVideoCommand(spec.id))) && action->isEnabled() && !action->shortcut().isEmpty() && action->shortcut().matches(pressed) == QKeySequence::ExactMatch) {
                 key->accept(); if (event->type() == QEvent::KeyPress) action->trigger(); return true;
             }
         }

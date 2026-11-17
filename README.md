@@ -10,12 +10,14 @@ JavaScript image readers and filters through Script API 1.
 KomaMimic is an independent implementation inspired by MangaMeeya. It is not
 affiliated with the original project and does not include its code, artwork, or DLLs.
 
-## Changes in v1.7.3
+## v2.0.0 development version
 
-Fix text input when launching the Linux AppImage from a menu without input-method
-environment variables. Also try the bundled IBus bridge when those variables are
-unset or empty, while preserving explicit preference lists and other input-method
-selections.
+This is the provisional v2.0.0 development branch. It adds local video playback
+with Qt Multimedia, video controls, saved cover selection, and video preferences.
+This version number does not identify a published release.
+
+The published v1 guide remains at the existing site URLs and under `/v1/`.
+The v2 development guide is built separately under `/v2/`.
 
 ## ZIP covers and cache reuse in v1.7.0
 
@@ -35,7 +37,7 @@ queries are reduced. Existing `thumbnails-v2` images remain reusable.
 Reading opens the current page or document section first and cancels obsolete
 work on navigation. EPUB covers, writing direction, spread order, and illustrated
 Aozora text have improved handling. Document rendering is isolated from the
-thumbnail galleries. Building requires Qt 6.8 or later.
+thumbnail galleries. Building requires Qt 6.11 or later.
 
 Optional full-list thumbnail preloading is off by default. It loads visible
 images first, then the remaining images, retaining them within a configurable
@@ -78,7 +80,7 @@ links between matching pages. Core developer documentation is maintained in Engl
 ## Build from source
 
 Run the commands from the repository root. KomaMimic requires C++20, CMake 3.22+,
-Qt 6.8+ with Qml and WebEngine Widgets, libarchive, ICU, zlib, SDL2 2.0.14+,
+Qt 6.11+ with Qml, WebEngine Widgets, and Multimedia, libarchive, ICU, zlib, SDL2 2.0.14+,
 Poppler GLib 22.0+, Cairo, and pkg-config. A compatible Qt Image Formats installation
 provides additional image formats. Keep the Qt modules and toolchain compatible.
 
@@ -86,7 +88,7 @@ provides additional image formats. Keep the Qt modules and toolchain compatible.
 
 ```sh
 sudo dnf install gcc-c++ cmake ninja-build qt6-qtbase-devel qt6-qtdeclarative-devel \
-  qt6-qttools-devel qt6-linguist qt6-qttranslations qt6-qtwebengine-devel \
+  qt6-qttools-devel qt6-linguist qt6-qttranslations qt6-qtwebengine-devel qt6-qtmultimedia-devel \
   qt6-qtimageformats libarchive-devel libicu-devel \
   zlib-ng-compat-devel sdl2-compat-devel poppler-glib-devel pkgconf-pkg-config
 cmake -S . -B build-linux -G Ninja \
@@ -104,7 +106,7 @@ compatibility must be checked separately.
 Install Xcode Command Line Tools and Homebrew, then run:
 
 ```sh
-brew install cmake ninja qtbase qtdeclarative qttools qttranslations qtwebengine \
+brew install cmake ninja qtbase qtdeclarative qttools qttranslations qtwebengine qtmultimedia \
   qtimageformats libarchive icu4c sdl2-compat poppler pkgconf
 cmake -S . -B build-macos -G Ninja \
   -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF -DCMAKE_OSX_ARCHITECTURES=arm64
@@ -113,6 +115,8 @@ build-macos/komamimic
 ```
 
 CMake discovers the Homebrew prefixes. No `brew link --force` is required.
+
+Video playback uses Qt Multimedia. See the [video guide](docs/site/en/user/video.md) for controls, decoding preferences, and format limitations.
 
 ### Windows (x64, MSVC)
 

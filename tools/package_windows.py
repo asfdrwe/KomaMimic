@@ -8,6 +8,8 @@ not a GitHub Release. Dependency corresponding-source review remains separate.
 import argparse
 import hashlib
 import json
+from video_validation import verify_videos
+from isolated_environment import isolated_environment
 import os
 from pathlib import Path, PurePosixPath
 import platform
@@ -245,6 +247,7 @@ def native_verify(package, build, output):
     # CLI/worker checks use QCoreApplication and cannot catch this mismatch.
     env.update(PATH=os.pathsep.join((str(Path(system_root) / 'System32'), system_root)),
                QT_QPA_PLATFORM='windows', QT_LOGGING_TO_CONSOLE='1')
+    env = isolated_environment(output / 'environment', env)
     def run(name, command):
         record = execute(command, output / (name + '.log'), env=env, cwd=output, timeout=120)
         if record['returncode']:
@@ -275,6 +278,7 @@ def native_verify(package, build, output):
             raise RuntimeError('Extracted ZIP native readers timed out; see ' + str(stderr_path)) from error
     if result.returncode or not json.loads(stdout_path.read_text(encoding='utf-8'))['all_passed']:
         raise ValueError('Extracted ZIP native readers failed')
+    verify_videos(app / 'validation_probe.exe', output / 'video-fixtures', output, env)
 
 
 def pack(build, stage, output):

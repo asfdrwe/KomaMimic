@@ -2,36 +2,45 @@
 
 ## Documentation and GitHub Pages
 
-`.github/workflows/pages.yml` runs on changes to `docs/site/**` on main, MkDocs
-configuration and dependencies, the documentation workflow, and public-source
-selection tools. Pull requests run checks and builds only. Pushes to main and manual
-runs selecting main publish to GitHub Pages after a successful build.
-`docs/site/` contains the Japanese guide and its English translation under `en/`;
-`docs/developer/` is not included in the site. One MkDocs build produces both
-languages, with matching-page language links and shared screenshot assets.
+`pages.yml` checks main/dev2 pushes, pull requests and manual runs. dev2 runs
+checks only. Uploading the Pages deployment artifact and running the deploy job
+both require `refs/heads/main` and a push or manual event. PRs and dev2 cannot deploy.
+The workflow permissions are read-only except for the guarded deploy job.
 
-For initial setup, select **GitHub Actions** under repository Settings → Pages →
-Build and deployment → Source. Commit and push the workflow manually, then check
-both build and deploy in **Documentation and Pages**. For a manual run, select main
-under Run workflow. The public URL is https://asfdrwe.github.io/KomaMimic/ ; the
-English guide is at https://asfdrwe.github.io/KomaMimic/en/ .
+`tools/build_docs.py` builds both documentation generations into one artifact:
 
-Actions are pinned to commit SHAs. The build has read-only contents permission;
-only deploy receives pages and id-token write permissions. No PAT needs to be added
-as a workflow secret. Local checks, from the repository root:
+| URL | Content |
+|---|---|
+| Existing root URLs, including `/en/` | Preserved v1 guide |
+| `/v1/` (and `/v1/en/`) | Alias of the preserved v1 guide |
+| `/v2/` (and `/v2/en/`) | v2 development guide |
+
+v1 sources come only from tag `v1.7.3`, checked against pinned commit
+`28b42a6ad17547f316074cf9346306bef3a36aa0`. A moved tag fails before building.
+The checkout uses full history for this read-only archive. Each version has its own
+navigation, assets and search index; building v2 never overwrites root v1 pages.
+The Release workflow uses the same builder. Update the v1 pin deliberately only
+when publishing another v1 documentation snapshot. Do not replace it with main.
+
+Local checks, with outputs under the workspace's `tmp/`:
 
 ```sh
 python3 tools/check_source.py --tracked
-python3 -m mkdocs build --strict --site-dir ../tmp/site-preview
+python3 -m unittest discover -s tests -p test_workflows.py
+python3 -m unittest discover -s tests -p test_docs.py
+python3 tools/build_docs.py --output ../tmp/site-preview
 ```
 
-See GitHub's [custom Pages workflow documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
+Output must be a new directory. Building or changing the provisional v2.0.0
+version does not deploy or publish anything. Repository Pages/environment settings
+are managed separately by the administrator; see GitHub's
+[Pages workflow documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
 ## Application build CI
 
 The application build and automated-test workflow is
 `.github/workflows/build.yml`. Distinguish local workflow definitions from actual
-successful jobs on GitHub. It accepts main pushes, pull requests, and manual runs,
+successful jobs on GitHub. It accepts main/dev2 pushes, pull requests, and manual runs,
 with read-only contents permission.
 
 | Job | Work | Saved output |
@@ -68,6 +77,7 @@ runs Build. Manual runs are available regardless of changed paths. Update Build'
 | Build workflow itself | Runs | Skipped |
 | Only Rocky AppImage workflow | Skipped | Skipped; AppImage is manual |
 | Only application code | Runs | Skipped |
+| Version in CMakeLists.txt or versioned documentation tools/tests | Runs | Runs; dev2 never deploys |
 | Application code and `docs/site/**` | Runs | Runs |
 
 The site workflow also watches its own definition, documentation dependencies, and

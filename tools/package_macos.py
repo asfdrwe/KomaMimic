@@ -8,6 +8,8 @@ review and downloaded-artifact GUI verification remain separate release gates.
 import argparse
 import hashlib
 import json
+from video_validation import verify_videos
+from isolated_environment import isolated_environment
 import os
 from pathlib import Path
 import platform
@@ -26,7 +28,7 @@ from stage_validation import (inspect_macos, macos_bundle_or_system_path,
                               signing_entitlements, system_library)
 
 RUNTIME_FORMULAE = ('qtbase', 'qtdeclarative', 'qttools', 'qttranslations', 'qtwebengine',
-                   'qtimageformats', 'libarchive', 'icu4c', 'sdl2-compat', 'sdl3', 'poppler')
+                   'qtimageformats', 'qtmultimedia', 'libarchive', 'icu4c', 'sdl2-compat', 'sdl3', 'poppler')
 REQUIRED = ('Contents/MacOS/komamimic', 'Contents/MacOS/komamimic-script-worker',
             'Contents/Info.plist', 'Contents/Resources/komamimic.icns',
             'Contents/Resources/qt.conf', 'Contents/Resources/translations/qtbase_ja.qm',
@@ -194,7 +196,7 @@ def verified_stage(build, stage):
 
 
 def native_verify(app, probe, output, call, expected_version):
-    env = macos_probe_environment()
+    env = isolated_environment(output / 'environment', macos_probe_environment())
     # The deployed bundle contains cocoa, not the SDK's offscreen plugin.
     env.update(QT_QPA_PLATFORM='cocoa', QT_LOGGING_TO_CONSOLE='1', DYLD_PRINT_LIBRARIES='1')
     binary = app / 'Contents/MacOS/komamimic'
@@ -219,6 +221,7 @@ def native_verify(app, probe, output, call, expected_version):
                                     stdout=stdout, stderr=stderr, check=False, timeout=120)
         if result.returncode or not json.loads((output / 'native-readers.json').read_text())['all_passed']:
             raise ValueError('Installed app native readers failed')
+        verify_videos(test_probe, output / 'video-fixtures', output, env)
     finally:
         test_probe.unlink()
     # PATH isolation alone does not prevent dyld from loading an absolute SDK path.

@@ -251,6 +251,10 @@ class MacPackageTests(unittest.TestCase):
             calls.append((name, options))
             (output / (name + '.log')).write_text('KomaMimic 1.0.0\n')
         def timeout(command, **options):
+            for key in ('HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME',
+                        'TMPDIR', 'TMP', 'TEMP'):
+                self.assertTrue(Path(options['env'][key]).resolve().is_relative_to(
+                    (output / 'environment').resolve()), key)
             self.assertEqual(options['env']['QT_QPA_PLATFORM'], 'cocoa')
             self.assertNotIn('DYLD_LIBRARY_PATH', options['env'])
             options['stderr'].write('BEGIN QGuiApplication\n')
@@ -336,12 +340,13 @@ class MacPackageTests(unittest.TestCase):
                 options['stderr'].write('dyld[123]: <UUID> ' +
                     ('/opt/homebrew/lib/example.dylib' if leak else '/usr/lib/libSystem.B.dylib'))
                 return mock.Mock(returncode=0)
-            with mock.patch.object(package.subprocess, 'run', side_effect=run):
+            with mock.patch.object(package, 'verify_videos') as videos, mock.patch.object(package.subprocess, 'run', side_effect=run):
                 if leak:
                     with self.assertRaisesRegex(ValueError, 'Homebrew library'):
                         package.native_verify(self.app, self.stage / 'validation_probe', output, call, '1.0.0')
                 else:
                     package.native_verify(self.app, self.stage / 'validation_probe', output, call, '1.0.0')
+            videos.assert_called_once()
             self.assertFalse((self.app / 'Contents/MacOS/validation_probe').exists())
 
 

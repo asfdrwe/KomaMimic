@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
 #include "mainwindow.h"
+#include "videoview.h"
 #include "pageview.h"
 #include "processingdialog.h"
 #include <QAction>
@@ -24,10 +25,10 @@ void MainWindow::buildImageActions() {
     auto *modeGroup = new QActionGroup(this); modeGroup->setExclusionPolicy(QActionGroup::ExclusionPolicy::ExclusiveOptional);
     for (const auto &[id, mode] : scales) {
         auto *action = m_actions[id]; action->setCheckable(true); modeGroup->addAction(action);
-        connect(action, &QAction::triggered, this, [this, mode] { m_view->setScaleMode(mode); });
+        connect(action, &QAction::triggered, this, [this, mode] { if(m_mode==ViewMode::Video)m_video->setScale(mode!=ScaleMode::Actual);else m_view->setScaleMode(mode); });
     }
-    connect(m_actions["zoomIn"], &QAction::triggered, this, [this] { m_view->zoomBy(1.25); });
-    connect(m_actions["zoomOut"], &QAction::triggered, this, [this] { m_view->zoomBy(0.8); });
+    connect(m_actions["zoomIn"], &QAction::triggered, this, [this] { if(m_mode==ViewMode::Video)m_video->setScale(m_video->state().fit,m_video->state().zoom*1.25);else m_view->zoomBy(1.25); });
+    connect(m_actions["zoomOut"], &QAction::triggered, this, [this] { if(m_mode==ViewMode::Video)m_video->setScale(m_video->state().fit,m_video->state().zoom*.8);else m_view->zoomBy(0.8); });
     m_actions["noUpscale"]->setCheckable(true);
     connect(m_actions["noUpscale"], &QAction::toggled, m_view, &PageView::setNoUpscale);
     auto *algorithmGroup = new QActionGroup(this);

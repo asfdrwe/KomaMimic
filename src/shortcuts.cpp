@@ -21,8 +21,43 @@ QKeySequence defaultFullscreenShortcut() {
     return QKeySequence("F11");
 #endif
 }
+bool sharedVideoCommand(const QString &id) {
+    return id==QLatin1String("scaleFit") || id==QLatin1String("scaleActual") || id==QLatin1String("zoomIn") || id==QLatin1String("zoomOut") || id==QLatin1String("exitFullscreen");
+}
 QVector<ShortcutSpec> shortcutSpecs() {
     return QVector<ShortcutSpec>{
+        {"videoPlayPause", QCoreApplication::translate("KomaMimic", "動画：再生／一時停止"), QKeySequence("Space"), ShortcutScope::Video},
+        {"videoStop", QCoreApplication::translate("KomaMimic", "動画：先頭で停止"), {}, ShortcutScope::Video},
+        {"videoRestart", QCoreApplication::translate("KomaMimic", "動画：再生し直す"), {}, ShortcutScope::Video},
+        {"videoNext", QCoreApplication::translate("KomaMimic", "動画：通常時間進む（次の表示）"), QKeySequence("Right"), ShortcutScope::Video},
+        {"videoPrevious", QCoreApplication::translate("KomaMimic", "動画：通常時間戻る（前の表示）"), QKeySequence("Left"), ShortcutScope::Video},
+        {"videoNextOne", QCoreApplication::translate("KomaMimic", "動画：微小時間進む（1ページ進むに対応）"), {}, ShortcutScope::Video},
+        {"videoPreviousOne", QCoreApplication::translate("KomaMimic", "動画：微小時間戻る（1ページ戻るに対応）"), {}, ShortcutScope::Video},
+        {"videoLongNext", QCoreApplication::translate("KomaMimic", "動画：長時間進む"), {}, ShortcutScope::Video},
+        {"videoLongPrevious", QCoreApplication::translate("KomaMimic", "動画：長時間戻る"), {}, ShortcutScope::Video},
+        {"videoFirst", QCoreApplication::translate("KomaMimic", "動画：先頭へ"), {}, ShortcutScope::Video},
+        {"videoLast", QCoreApplication::translate("KomaMimic", "動画：末尾へ"), {}, ShortcutScope::Video},
+        {"videoGoTime", QCoreApplication::translate("KomaMimic", "動画：時刻を指定"), {}, ShortcutScope::Video},
+        {"videoVolumeUp", QCoreApplication::translate("KomaMimic", "動画：音量を上げる"), QKeySequence("Up"), ShortcutScope::Video},
+        {"videoVolumeDown", QCoreApplication::translate("KomaMimic", "動画：音量を下げる"), QKeySequence("Down"), ShortcutScope::Video},
+        {"videoMute", QCoreApplication::translate("KomaMimic", "動画：消音切替"), {}, ShortcutScope::Video},
+        {"videoRateUp", QCoreApplication::translate("KomaMimic", "動画：次の速度候補"), {}, ShortcutScope::Video},
+        {"videoRateDown", QCoreApplication::translate("KomaMimic", "動画：前の速度候補"), {}, ShortcutScope::Video},
+        {"videoRateReset", QCoreApplication::translate("KomaMimic", "動画：1倍へ"), {}, ShortcutScope::Video},
+        {"videoVideoTrack", QCoreApplication::translate("KomaMimic", "動画：映像トラック巡回"), {}, ShortcutScope::Video},
+        {"videoAudioTrack", QCoreApplication::translate("KomaMimic", "動画：音声トラック巡回"), {}, ShortcutScope::Video},
+        {"videoSubtitle", QCoreApplication::translate("KomaMimic", "動画：字幕巡回"), {}, ShortcutScope::Video},
+        {"videoAspect", QCoreApplication::translate("KomaMimic", "動画：アスペクト比巡回"), {}, ShortcutScope::Video},
+        {"videoDeinterlace", QCoreApplication::translate("KomaMimic", "動画：デインタレース方式巡回"), {}, ShortcutScope::Video},
+        {"videoFieldOrder", QCoreApplication::translate("KomaMimic", "動画：TFF／BFF切替"), {}, ShortcutScope::Video},
+        {"videoSetA", QCoreApplication::translate("KomaMimic", "動画：現在位置をAに設定"), {}, ShortcutScope::Video},
+        {"videoSetB", QCoreApplication::translate("KomaMimic", "動画：現在位置をBに設定"), {}, ShortcutScope::Video},
+        {"videoAB", QCoreApplication::translate("KomaMimic", "動画：A-B反復切替"), {}, ShortcutScope::Video},
+        {"videoClearAB", QCoreApplication::translate("KomaMimic", "動画：A-B指定クリア"), {}, ShortcutScope::Video},
+        {"videoCover", QCoreApplication::translate("KomaMimic", "現在の映像を表紙にする"), {}, ShortcutScope::Video},
+        {"videoRefreshCover", QCoreApplication::translate("KomaMimic", "動画の表紙を再生成"), QKeySequence("F6"), ShortcutScope::Video},
+        {"videoSettings", QCoreApplication::translate("KomaMimic", "動画の個別設定…"), {}, ShortcutScope::Video},
+        {"videoPreferences", QCoreApplication::translate("KomaMimic", "動画の環境設定…"), {}, ShortcutScope::Global},
         {"open", QCoreApplication::translate("KomaMimic", "画像・書庫を開く"), QKeySequence("Ctrl+O")},
         {"folder", QCoreApplication::translate("KomaMimic", "フォルダを選択"), QKeySequence("Ctrl+Shift+O")},
         {"next", QCoreApplication::translate("KomaMimic", "次のページ（見開き単位）"), QKeySequence("Right"), ShortcutScope::Reader},
@@ -129,6 +164,7 @@ QString shortcutScopeName(ShortcutScope scope) {
     case ShortcutScope::Reader: return QCoreApplication::translate("KomaMimic", "読書画面");
     case ShortcutScope::Thumbnails: return QCoreApplication::translate("KomaMimic", "サムネイル");
     case ShortcutScope::Tree: return QCoreApplication::translate("KomaMimic", "フォルダツリー");
+    case ShortcutScope::Video: return QCoreApplication::translate("KomaMimic", "動画画面");
     }
     return {};
 }
@@ -139,7 +175,8 @@ QString shortcutConflict(const QHash<QString, QKeySequence> &bindings) {
         if (key.isEmpty()) continue;
         if (key.count() > 1) return QCoreApplication::translate("KomaMimic", "操作ごとに1組のキーを設定してください。");
         for (int j = i + 1; j < specs.size(); ++j) {
-            if (specs[i].scope != specs[j].scope && specs[i].scope != ShortcutScope::Global && specs[j].scope != ShortcutScope::Global) continue;
+            const bool shared=(specs[j].scope==ShortcutScope::Video && sharedVideoCommand(specs[i].id)) || (specs[i].scope==ShortcutScope::Video && sharedVideoCommand(specs[j].id));
+            if (!shared && specs[i].scope != specs[j].scope && specs[i].scope != ShortcutScope::Global && specs[j].scope != ShortcutScope::Global) continue;
             const auto other = bindings.value(specs[j].id);
             // Keep explicitly saved shared Return bindings from older profiles readable.
             const bool acceptPair=(specs[i].id=="fullscreenGlobal" && (specs[j].id=="thumbAccept" || specs[j].id=="treeAccept"))
