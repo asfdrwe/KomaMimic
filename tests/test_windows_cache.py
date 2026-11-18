@@ -92,6 +92,26 @@ class WindowsCacheTests(unittest.TestCase):
             path.write_text('{"registries": []}', encoding='utf-8')
             self.assertNotEqual(self.key(), key)
 
+    def test_libarchive_source_pin_and_overlay_builder_change_the_dependency_family(self):
+        tools = self.root / 'tools'
+        tools.mkdir()
+        key = self.key()
+        recipe = tools / 'setup_windows_libarchive.py'
+        recipe.write_text('first pinned libarchive recipe', encoding='utf-8')
+        self.assertNotEqual(self.key(), key)
+        key = self.key()
+        recipe.write_text('changed pinned libarchive recipe', encoding='utf-8')
+        self.assertNotEqual(self.key(), key)
+        sources = tools / 'appimage-sources.json'
+        sources.write_text(json.dumps({'libarchive-3.8.11.tar.gz': {'sha256': 'first'}}))
+        key = self.key()
+        sources.write_text(json.dumps({'libarchive-3.8.11.tar.gz': {'sha256': 'changed'}}))
+        self.assertNotEqual(self.key(), key)
+        key = self.key()
+        sources.write_text(json.dumps({'libarchive-3.8.11.tar.gz': {'sha256': 'changed'},
+                                      'patchelf.tar.gz': {'sha256': 'Linux-only change'}}))
+        self.assertEqual(self.key(), key)
+
     def test_invalid_baseline_is_rejected(self):
         self.manifest['builtin-baseline'] = 'moving-branch'
         self.write_manifest()

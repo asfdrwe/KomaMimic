@@ -244,12 +244,13 @@ def linux_zip(target, files):
 
 def release_notes(tag, version):
     heading = 'Initial release' if version == '1.0.0' else 'Release ' + tag
+    guide = 'https://asfdrwe.github.io/KomaMimic' + ('/v2' if version.split('.')[0] == '2' else '')
     return (f'# KomaMimic {tag} — {heading}\n\n'
             '- Windows x86_64: extract the ZIP; Microsoft Visual C++ v14 x64 Redistributable is required.\n'
             '- macOS arm64: copy the app from the DMG to Applications. macOS 15+; no Developer ID signature or Apple notarization.\n'
             '- Linux x86_64: the ZIP contains the AppImage, desktop entry, icon, and source files.\n\n'
-            'See the [English installation guide](https://asfdrwe.github.io/KomaMimic/en/user/install/) '
-            'or [Japanese guide](https://asfdrwe.github.io/KomaMimic/user/install/).\n\n'
+            f'See the [English installation guide]({guide}/en/user/install/) '
+            f'or [Japanese guide]({guide}/user/install/).\n\n'
             'SHA256SUMS covers every attached file except itself. The application source archive is '
             'generated once on Linux; per-OS build manifests and RELEASE_MANIFEST.json record provenance.\n')
 

@@ -57,6 +57,9 @@ older runs.
 Both Build and the AppImage workflow also accept `workflow_call` from the
 [Release workflow](releasing.md). Their normal triggers remain unchanged. Release
 tag runs are not cancelled, and their concurrency groups differ from the caller's.
+Releaseからの呼出しではFedoraの重複ビルドを省き、Linuxのfull CTestと配布検査を
+Rocky／Ubuntu側で行う。通常のBuildのpush・PR・手動実行はFedoraを含む3 OSを維持する。
+Windows/macOSではCTestが生成した動画を配布物の復号検査へ渡し、素材の再生成を省く。
 
 Automatic push/PR runs are limited to changes in build or validation inputs:
 `src/`, `cmake/`, `scripts/`, `translations/`, `assets/`, `examples/`, `tests/`,
@@ -316,12 +319,16 @@ avoid long mirror-switching delays. DNF connection/low-speed timeouts are 20 sec
 with two retries; the Bootstrap step has a ten-minute limit. Bootstrap and detailed
 DNF logs are saved in diagnostics.
 
-Rocky's system libarchive lacks the RAR5 API, so libarchive 3.8.10 is built in the
+Rocky's system libarchive lacks the RAR5 API, so libarchive 3.8.11 is built in the
 same container after verifying the official source SHA-256. It is installed into
 a working prefix, and application headers, link targets, and runtime libraries all
 use that version. Compilation, linking, and invocation of the RAR5 API are checked
 before application configuration. Downloaded source, original copyright/license
 notices, and build logs are retained in diagnostics.
+固定した取得先・SHA-256は`tools/appimage-sources.json`にある。libarchiveは公式サイトを
+先に使い、取得エラーの場合は同じhashのGitHub Release原本を使う。
+Releaseではsource・生成ツールをvalidateで一度取得し、単独のAppImage実行では
+Rockyの依存導入前に取得する。取得後の処理は同runの入力を再検証して使う。
 
 Dependency installation, configuration, build/test logs, and installed RPM versions
 are kept in **diagnostics-rocky8-raven-x64** for 14 days. This workflow is independent

@@ -23,6 +23,14 @@ def dependency_identity(root):
         raise ValueError('Invalid vcpkg baseline')
     inputs = {}
     paths = [root / 'cmake/WindowsFast.cmake', *sorted((root / 'cmake/triplets').glob('*.cmake'))]
+    for name in ('tools/setup_windows_libarchive.py', 'cmake/ports/libarchive/fix-deps.patch'):
+        if (root / name).is_file():
+            paths.append(root / name)
+    source_config = root / 'tools/appimage-sources.json'
+    if source_config.is_file():
+        # Linux-only tools must not invalidate the Windows dependency family.
+        sources = json.loads(source_config.read_text(encoding='utf-8'))
+        inputs['libarchive-source'] = {k: v for k, v in sources.items() if k.startswith('libarchive-')}
     for name in ('vcpkg-configuration.json', 'cmake/windows-fast/vcpkg-configuration.json'):
         if (root / name).is_file():
             paths.append(root / name)

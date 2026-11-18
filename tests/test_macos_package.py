@@ -361,10 +361,12 @@ class MacPackageTests(unittest.TestCase):
             with mock.patch.object(package, 'verify_videos') as videos, mock.patch.object(package.subprocess, 'run', side_effect=run):
                 if leak:
                     with self.assertRaisesRegex(ValueError, 'Homebrew library'):
-                        package.native_verify(self.app, self.stage / 'validation_probe', output, call, '1.0.0')
+                        package.native_verify(self.app, self.stage / 'validation_probe', output, call, '1.0.0', self.root / 'ctest-videos')
                 else:
-                    package.native_verify(self.app, self.stage / 'validation_probe', output, call, '1.0.0')
+                    package.native_verify(self.app, self.stage / 'validation_probe', output, call, '1.0.0', self.root / 'ctest-videos')
             videos.assert_called_once()
+            self.assertEqual(videos.call_args.args[1], self.root / 'ctest-videos')
+            self.assertFalse(videos.call_args.kwargs['generate_fixtures'])
             self.assertFalse((self.app / 'Contents/MacOS/validation_probe').exists())
 
 

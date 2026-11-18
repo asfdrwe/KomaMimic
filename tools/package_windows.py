@@ -236,7 +236,7 @@ def extract_verified(package, destination):
     return app
 
 
-def native_verify(package, build, output):
+def native_verify(package, build, output, video_fixtures=None):
     app = extract_verified(package, output / 'extracted')
     system_root = os.environ.get('SystemRoot')
     if not system_root:
@@ -278,13 +278,15 @@ def native_verify(package, build, output):
             raise RuntimeError('Extracted ZIP native readers timed out; see ' + str(stderr_path)) from error
     if result.returncode or not json.loads(stdout_path.read_text(encoding='utf-8'))['all_passed']:
         raise ValueError('Extracted ZIP native readers failed')
-    verify_videos(app / 'validation_probe.exe', output / 'video-fixtures', output, env)
+    verify_videos(app / 'validation_probe.exe', video_fixtures or output / 'video-fixtures', output, env,
+                  generate_fixtures=video_fixtures is None)
 
 
-def pack(build, stage, output):
+def pack(build, stage, output, video_fixtures=None):
     if platform.system() != 'Windows':
         raise ValueError('Package and runtime checks require native Windows')
     build, stage, output = build.resolve(), stage.resolve(), output.resolve()
+    video_fixtures = video_fixtures.resolve() if video_fixtures is not None else None
     cache = cache_values(build)
     if Path(cache.get('CMAKE_HOME_DIRECTORY', '')).resolve() != ROOT or cache.get('KOMAMIMIC_WINDOWS_FAST') != 'ON':
         raise ValueError('Use this source build with the official prebuilt Qt SDK')
@@ -336,7 +338,7 @@ def pack(build, stage, output):
     package = output / (app.name + '.zip')
     write_zip(app, package)
     # Reopen and execute the ZIP itself with SDK/vcpkg paths removed.
-    native_verify(package, build, output / 'verification')
+    native_verify(package, build, output / 'verification', video_fixtures)
     if any(symbols.iterdir()):
         save_json(symbols / 'BUILD_INFO.json', dict(version=version, commit=commit, source_tree_dirty=dirty,
                                                   executable_sha256={n: digest(app / n) for n in ('komamimic.exe', 'komamimic-script-worker.exe')}))
@@ -358,6 +360,7 @@ if __name__ == '__main__':
     p.add_argument('--app', type=Path, required=True)
     p = commands.add_parser('pack')
     p.add_argument('--build-dir', type=Path, required=True)
+    p.add_argument('--video-fixtures', type=Path, help='Reuse the CTest video inputs instead of regenerating them')
     p.add_argument('--stage', type=Path, required=True)
     p.add_argument('--output', type=Path, required=True)
     p = commands.add_parser('verify')
@@ -375,7 +378,7 @@ if __name__ == '__main__':
                           args.output.resolve())
             print('Extracted ZIP runtime verification passed' + (' (including reader probe)' if args.build_dir else ' (CLI and worker)'))
         else:
-            pack(args.build_dir, args.stage, args.output)
+            pack(args.build_dir, args.stage, args.output, args.video_fixtures)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError, zipfile.BadZipFile) as error:
         print(error, file=sys.stderr)
         sys.exit(1)

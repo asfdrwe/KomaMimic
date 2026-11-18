@@ -40,9 +40,10 @@ The version examples above describe tag syntax, not a product roadmap.
 
 1. Validate the version and source selection, run release-logic regression tests,
    and build both documentation languages with MkDocs strict mode.
-2. Call `build.yml`: common source/actionlint/reproducibility checks, Fedora full
-   tests, Windows platform tests plus extracted-ZIP checks, and macOS full tests
-   plus signed app/ZIP/DMG checks.
+2. Call `build.yml`: common source/actionlint/reproducibility checks, Windows
+   platform tests plus extracted-ZIP checks, and macOS full tests plus signed
+   app/ZIP/DMG checks. Release sets `skip_linux: true`; Linux is built and fully
+   tested in the AppImage workflow instead of repeating the Fedora build.
 3. Call `rocky8-probe.yml`: Rocky full tests and AppDir staging, then AppImage
    packaging and extracted-runtime checks on Ubuntu 22.04.
 4. Require both reusable workflows to succeed. Download only named artifacts from
@@ -52,8 +53,18 @@ The version examples above describe tag syntax, not a product roadmap.
 6. Only for tag pushes, publish using the final job's `contents: write` token.
    Every earlier job has read-only contents permission. Manual runs never publish.
 
-Windows retains the official Qt SDK and vcpkg cache keys and native packaging
-commands. The existing OS jobs and tests are reused without duplicating them.
+Releaseのvalidateでは、libarchive・patchelfのsourceとappimagetool・runtimeの
+計4ファイルを先に取得し、固定SHA-256と照合する。成功した同runの中間artifactを
+RockyとWindowsへ渡し、Ubuntuへも生成用ツールを引き継ぐ。後続ジョブでは再ダウンロードせず
+hashを再確認して使う。取得失敗は3 OSビルド開始前に検出し、取得ログを
+`diagnostics-release-inputs`へ保存する。フルビルド・CTestの回数は増やさない。
+AppImageを単独実行した場合も、Rockyのビルド依存導入前に同じ入力検査を行う。
+
+Windows retains the official Qt SDK and vcpkg binary-cache reuse. Only libarchive
+is overlaid with the pinned 3.8.11 source; other ports keep the existing baseline.
+The existing OS jobs and tests are reused without duplicating them.
+Windows/macOSの配布検査もCTestの動画入力を再利用する。ZIP／DMGから取り出した
+実行物を専用環境で起動し、映像・音声を復号する検査は維持する。
 Tagged runs are not cancelled by subsequent runs. The Release and called-workflow
 concurrency groups are distinct; normal branch/PR Build cancellation is retained.
 The regular source-change Build trigger and the Pages workflow remain separate.

@@ -196,7 +196,7 @@ def verified_stage(build, stage):
     return app, records
 
 
-def native_verify(app, probe, output, call, expected_version):
+def native_verify(app, probe, output, call, expected_version, video_fixtures=None):
     env = isolated_environment(output / 'environment', macos_probe_environment())
     # The deployed bundle contains cocoa, not the SDK's offscreen plugin.
     env.update(QT_QPA_PLATFORM='cocoa', QT_LOGGING_TO_CONSOLE='1', DYLD_PRINT_LIBRARIES='1')
@@ -222,7 +222,8 @@ def native_verify(app, probe, output, call, expected_version):
                                     stdout=stdout, stderr=stderr, check=False, timeout=120)
         if result.returncode or not json.loads((output / 'native-readers.json').read_text())['all_passed']:
             raise ValueError('Installed app native readers failed')
-        verify_videos(test_probe, output / 'video-fixtures', output, env)
+        verify_videos(test_probe, video_fixtures or output / 'video-fixtures', output, env,
+                      generate_fixtures=video_fixtures is None)
     finally:
         test_probe.unlink()
     # PATH isolation alone does not prevent dyld from loading an absolute SDK path.
@@ -248,10 +249,11 @@ def multimedia_source(app, output):
             checksums.write(digest(path) + '  ' + path.name + '\n')
 
 
-def pack(build, stage, output):
+def pack(build, stage, output, video_fixtures=None):
     if platform.system() != 'Darwin' or platform.machine() != 'arm64':
         raise ValueError('DMG packaging requires native macOS arm64')
     build, stage, output = build.resolve(), stage.resolve(), output.resolve()
+    video_fixtures = video_fixtures.resolve() if video_fixtures is not None else None
     staged_app, source_files = verified_stage(build, stage)
     output.mkdir(parents=True, exist_ok=False)
     diagnostics = output / 'verification'
@@ -331,7 +333,7 @@ def pack(build, stage, output):
         call('install-copy', ['ditto', mount / app.name, installed])
         if inventory(installed) != manifest['files']:
             raise ValueError('Installed DMG app changed')
-        native_verify(installed, stage / 'validation_probe', diagnostics, call, version)
+        native_verify(installed, stage / 'validation_probe', diagnostics, call, version, video_fixtures)
         if inventory(installed) != manifest['files']:
             raise ValueError('Runtime verification modified installed app')
         call('installed-signature', ['codesign', '--verify', '--deep', '--strict', installed])
@@ -349,10 +351,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--build-dir', type=Path, required=True)
     parser.add_argument('--stage', type=Path, required=True)
+    parser.add_argument('--video-fixtures', type=Path, help='Reuse the CTest video inputs instead of regenerating them')
     parser.add_argument('--output', type=Path, required=True)
     args = parser.parse_args()
     try:
-        pack(args.build_dir, args.stage, args.output)
+        pack(args.build_dir, args.stage, args.output, args.video_fixtures)
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         print(error, file=sys.stderr)
         sys.exit(1)

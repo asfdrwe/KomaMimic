@@ -7,6 +7,7 @@ import hashlib
 import json
 from video_validation import verify_videos
 from isolated_environment import isolated_environment
+from fetch_release_inputs import download as download_pinned, verify as verify_pinned
 import os
 from pathlib import Path
 import re
@@ -14,7 +15,6 @@ import shutil
 import struct
 import subprocess
 import tarfile
-import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 # Keep the host graphics stack and its C++ runtime together. An older bundled
@@ -412,12 +412,7 @@ def stage(build, destination, sources, max_glibc):
 
 
 def download(entry, target):
-    with urllib.request.urlopen(entry['url'], timeout=120) as source, target.open('wb') as destination:
-        shutil.copyfileobj(source, destination)
-    actual = digest(target)
-    if actual != entry['sha256']:
-        raise ValueError('Packaging tool checksum mismatch: ' + entry['url']
-                         + '; expected=' + entry['sha256'] + '; actual=' + actual)
+    download_pinned(entry, target)
     target.chmod(0o755)
 
 
@@ -439,7 +434,7 @@ def desktop_integration(app, image, destination):
     return {p.name: digest(p) for p in (desktop, icon)}
 
 
-def pack(stage_dir, destination):
+def pack(stage_dir, destination, prepared_tools=None):
     destination.mkdir(parents=True, exist_ok=False)
     manifest = json.loads((stage_dir / 'BUILD_MANIFEST.json').read_text())
     app = (stage_dir / 'AppDir').resolve()
@@ -451,7 +446,12 @@ def pack(stage_dir, destination):
     tools = destination / 'tools'
     tools.mkdir()
     for name, entry in config.items():
-        download(entry, tools / name)
+        if prepared_tools is None:
+            download(entry, tools / name)
+        else:
+            verify_pinned(entry, prepared_tools / name)
+            copy(prepared_tools / name, tools / name)
+            (tools / name).chmod(0o755)
     image = destination / f'KomaMimic-{manifest["version"]}-linux-x86_64.AppImage'
     env = dict(os.environ, ARCH='x86_64', APPIMAGE_EXTRACT_AND_RUN='1')
     run([tools / 'appimagetool', '--no-appstream', '--runtime-file', tools / 'runtime',
@@ -562,6 +562,7 @@ if __name__ == '__main__':
     p.add_argument('--max-glibc', default='2.35')
     p = commands.add_parser('pack')
     p.add_argument('--stage', type=Path, required=True)
+    p.add_argument('--prepared-tools', type=Path, help='Reuse checksum-verified tools from the same workflow run')
     p.add_argument('--output', type=Path, required=True)
     p = commands.add_parser('verify')
     p.add_argument('--image', type=Path, required=True)
@@ -575,7 +576,8 @@ if __name__ == '__main__':
         stage(args.build_dir.resolve(), args.output.resolve(), args.sources.resolve(),
               tuple(map(int, args.max_glibc.split('.'))))
     elif args.command == 'pack':
-        pack(args.stage.resolve(), args.output.resolve())
+        pack(args.stage.resolve(), args.output.resolve(),
+             args.prepared_tools.resolve() if args.prepared_tools else None)
     else:
         verify(args.image.resolve(), args.probe.resolve(), args.output.resolve(), args.document_probe.resolve(),
                args.video_fixtures.resolve() if args.video_fixtures else None)

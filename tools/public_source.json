@@ -11,6 +11,8 @@
     "tests/CMakeLists.txt",
     "tests/fixtures/README.md",
     "cmake/applicationicon.rc.in",
+    "cmake/ports/libarchive/fix-deps.patch",
+    "cmake/ports/libarchive/LICENSE-vcpkg.txt",
     "mkdocs.yml",
     "requirements-docs.txt"
   ],

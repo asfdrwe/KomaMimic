@@ -42,6 +42,15 @@ on:
       - '.github/workflows/build.yml'
   workflow_dispatch:
   workflow_call:
+    inputs:
+      skip_linux:
+        description: Release already builds and fully tests Linux in the AppImage workflow
+        type: boolean
+        default: false
+      prepared_inputs:
+        description: Same-run artifact containing the verified libarchive source
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -66,6 +75,7 @@ jobs:
         run: |
           python3 -m unittest discover -s tests -p test_workflows.py
           python3 -m unittest discover -s tests -p test_windows_cache.py
+          python3 -m unittest discover -s tests -p test_windows_libarchive.py
       - name: Lint workflows
         run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/*.yml
       - name: Export source
@@ -82,6 +92,7 @@ jobs:
 
   linux:
     name: Fedora 44 x64 / Qt WebEngine
+    if: ${{ inputs.skip_linux != true }}
     env:
       # Fedora's CI container runs as root. This applies only to test processes.
       QTWEBENGINE_DISABLE_SANDBOX: '1'
@@ -136,7 +147,14 @@ jobs:
       - name: Check native Apple Silicon environment
         run: python3 -c 'import platform; assert platform.machine() == "arm64", platform.machine()'
       - name: Install dependencies
-        run: brew install cmake ninja qtbase qtdeclarative qttools qttranslations qtwebengine qtimageformats qtmultimedia ffmpeg vulkan-headers libarchive icu4c sdl2-compat poppler pkgconf
+        run: |
+          brew install cmake ninja qtbase qtdeclarative qttools qttranslations qtwebengine qtimageformats qtmultimedia ffmpeg vulkan-headers libarchive icu4c sdl2-compat poppler pkgconf
+          archive_pc="$(brew --prefix libarchive)/lib/pkgconfig"
+          if ! PKG_CONFIG_PATH="$archive_pc" pkg-config --atleast-version=3.8.11 libarchive; then
+            brew upgrade libarchive
+          fi
+          PKG_CONFIG_PATH="$archive_pc" pkg-config --atleast-version=3.8.11 libarchive
+          PKG_CONFIG_PATH="$archive_pc" pkg-config --modversion libarchive
       - name: Build matching Qt Multimedia with FFmpeg enabled
         run: |
           python3 tools/setup_macos_multimedia.py --output build-macos-multimedia
@@ -147,7 +165,7 @@ jobs:
           with open(os.environ['GITHUB_ENV'], 'a') as stream:
               stream.write('QT_PLUGIN_PATH=' + report['plugins'] + '\n')
           PY
-      - run: cmake -S . -B build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DKOMAMIMIC_TEST_SCOPE=full -DCMAKE_OSX_ARCHITECTURES=arm64 -DQt6Multimedia_DIR="$GITHUB_WORKSPACE/build-macos-multimedia/install/lib/cmake/Qt6Multimedia"
+      - run: cmake -S . -B build-ci -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=ON -DKOMAMIMIC_TEST_SCOPE=full -DCMAKE_OSX_ARCHITECTURES=arm64 -DKOMAMIMIC_MIN_LIBARCHIVE_VERSION=3.8.11 -DQt6Multimedia_DIR="$GITHUB_WORKSPACE/build-macos-multimedia/install/lib/cmake/Qt6Multimedia"
       - run: cmake --build build-ci --parallel 3
       - run: ./build-ci/komamimic --version
       - run: ./build-ci/komamimic --formats
@@ -163,7 +181,7 @@ jobs:
       - name: Package and verify arm64 app and unnotarized DMG
         run: |
           set -o pipefail
-          python3 tools/package_macos.py --build-dir build-ci --stage stage-macos --output dist/macos 2>&1 | tee stage-macos/package.log
+          python3 tools/package_macos.py --build-dir build-ci --stage stage-macos --video-fixtures build-ci/tests/video-fixtures --output dist/macos 2>&1 | tee stage-macos/package.log
       - name: Upload macOS distribution candidate
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
@@ -218,6 +236,12 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
+      - name: Download same-run libarchive source
+        if: ${{ inputs.prepared_inputs != '' }}
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: ${{ inputs.prepared_inputs }}
+          path: tmp/windows-pinned-inputs
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
@@ -266,6 +290,15 @@ jobs:
           ref: ${{ steps.dependencies.outputs.commit }}
           path: .ci/vcpkg
           persist-credentials: false
+      - name: Prepare libarchive security update without changing other ports
+        run: |
+          $overlayArgs = @('--vcpkg-root', "$env:GITHUB_WORKSPACE/.ci/vcpkg", '--output', "$env:GITHUB_WORKSPACE/.ci/libarchive-overlay")
+          if (Test-Path 'tmp/windows-pinned-inputs') {
+            $overlayArgs += @('--prepared-inputs', "$env:GITHUB_WORKSPACE/tmp/windows-pinned-inputs")
+          }
+          New-Item -ItemType Directory -Force results | Out-Null
+          python tools/setup_windows_libarchive.py @overlayArgs 2>&1 | Tee-Object -FilePath results/windows-libarchive.log
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Restore Release-only vcpkg packages
         id: vcpkg-cache
         uses: actions/cache/restore@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
@@ -296,7 +329,7 @@ jobs:
       - name: Release build and platform tests (including settings import and IPC)
         id: validation
         run: |
-          python tools/run_validation.py run --build-dir build-windows-fast --fixtures fixtures-ci --output results/windows-ci --jobs 4 --test-scope platform --windows-mode prebuilt --cmake-arg=-DVCPKG_INSTALL_OPTIONS=--x-buildtrees-root=D:/kfb
+          python tools/run_validation.py run --build-dir build-windows-fast --fixtures fixtures-ci --output results/windows-ci --jobs 4 --test-scope platform --windows-mode prebuilt --cmake-arg=-DVCPKG_INSTALL_OPTIONS=--x-buildtrees-root=D:/kfb --cmake-arg="-DVCPKG_OVERLAY_PORTS=$env:GITHUB_WORKSPACE/.ci/libarchive-overlay" --cmake-arg=-DKOMAMIMIC_MIN_LIBARCHIVE_VERSION=3.8.11
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Check for newly completed dependency packages
         id: vcpkg-cache-state
@@ -319,7 +352,7 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Package and verify Windows distribution ZIP
         run: |
-          python tools/package_windows.py pack --build-dir build-windows-fast --stage stage-windows --output dist/windows 2>&1 | Tee-Object -FilePath results/windows-package.log
+          python tools/package_windows.py pack --build-dir build-windows-fast --stage stage-windows --video-fixtures build-windows-fast/tests/video-fixtures --output dist/windows 2>&1 | Tee-Object -FilePath results/windows-package.log
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
       - name: Upload Windows distribution candidate
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -362,6 +395,7 @@ jobs:
             results/windows-ci/
             results/windows-cache-*.json
             results/windows-package.log
+            results/windows-libarchive.log
             results/vcpkg-build-logs/
             stage-windows/STAGE_MANIFEST.json
             stage-windows/*.log

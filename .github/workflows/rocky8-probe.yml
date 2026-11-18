@@ -3,6 +3,11 @@ name: Linux AppImage (Rocky 8)
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      prepared_inputs:
+        description: Same-run artifact of checksum-verified sources and packaging tools
+        type: string
+        default: ''
 
 permissions:
   contents: read
@@ -27,8 +32,7 @@ jobs:
       QTWEBENGINE_DISABLE_SANDBOX: '1'
       QTWEBENGINE_CHROMIUM_FLAGS: --disable-gpu
       PYTHONDONTWRITEBYTECODE: '1'
-      LIBARCHIVE_VERSION: '3.8.10'
-      LIBARCHIVE_SHA256: a1bffbe5152cfe869751179e7b16648c87c461cb8c46eee75062efbe164cc57c
+      LIBARCHIVE_VERSION: '3.8.11'
     steps:
       - name: Bootstrap container
         timeout-minutes: 10
@@ -67,10 +71,24 @@ jobs:
           with open('/etc/dnf/dnf.conf', 'w') as stream:
               config.write(stream)
           PY
-          dnf -v install -y git ca-certificates
+          dnf -v install -y git ca-certificates python3.11
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           persist-credentials: false
+      - name: Download same-run prepared inputs
+        if: ${{ inputs.prepared_inputs != '' }}
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: ${{ inputs.prepared_inputs }}
+          path: tmp/rocky8-probe/pinned-inputs
+      - name: Fetch pinned inputs for standalone runs
+        if: ${{ inputs.prepared_inputs == '' }}
+        run: |
+          mkdir -p "$PROBE_DIR"
+          python3.11 tools/fetch_release_inputs.py --output "$PROBE_DIR/pinned-inputs" 2>&1 | tee "$PROBE_DIR/input-downloads.log"
+      - name: Verify prepared inputs before installing build dependencies
+        run: |
+          python3.11 tools/fetch_release_inputs.py --output "$PROBE_DIR/pinned-inputs" --verify-only 2>&1 | tee "$PROBE_DIR/input-verification.log"
       - name: Install Rocky and Raven dependencies
         run: |
           mkdir -p "$PROBE_DIR/temp" "$PROBE_DIR/cache"
@@ -81,7 +99,7 @@ jobs:
           printf '%s\n' '%_install_langs all' >> /etc/rpm/macros
           printf 'Packaging RPM language filter: '
           rpm --eval '%{_install_langs}'
-          dnf install -y dnf-plugins-core epel-release python3.11
+          dnf install -y dnf-plugins-core epel-release
           dnf config-manager --set-enabled powertools
           dnf install -y https://pkgs.sysadmins.ws/el8/base/x86_64/raven-release.el8.noarch.rpm
 
@@ -221,11 +239,7 @@ jobs:
           exec > >(tee "$PROBE_DIR/libarchive-build.log") 2>&1
           export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
           source_archive="$PROBE_DIR/libarchive-$LIBARCHIVE_VERSION.tar.gz"
-          curl --fail --location --retry 3 --connect-timeout 20 \
-            --output "$source_archive" \
-            "https://github.com/libarchive/libarchive/releases/download/v$LIBARCHIVE_VERSION/libarchive-$LIBARCHIVE_VERSION.tar.gz"
-          printf '%s  %s\n' "$LIBARCHIVE_SHA256" "$source_archive" > "$PROBE_DIR/libarchive-SHA256SUMS.txt"
-          sha256sum --check "$PROBE_DIR/libarchive-SHA256SUMS.txt"
+          cp "$PROBE_DIR/pinned-inputs/libarchive-$LIBARCHIVE_VERSION.tar.gz" "$source_archive"
           tar -xzf "$source_archive" -C "$PROBE_DIR"
           prefix="$PROBE_DIR/libarchive-prefix"
           cmake -S "$PROBE_DIR/libarchive-$LIBARCHIVE_VERSION" \
@@ -320,6 +334,7 @@ jobs:
             -DICU_UC_LIBRARY_RELEASE:FILEPATH="$KOMA_PROBE_ICU_LIBRARY" \
             -Dpkgcfg_lib_POPPLER_cairo:FILEPATH="$KOMA_PROBE_CAIRO_LIBRARY" \
             -DLibArchive_INCLUDE_DIR="$PROBE_DIR/libarchive-prefix/include" \
+            -DKOMAMIMIC_MIN_LIBARCHIVE_VERSION=3.8.11 \
             -DLibArchive_LIBRARY="$PROBE_DIR/libarchive-prefix/lib/libarchive.so"
       - name: Build
         run: |
@@ -344,11 +359,7 @@ jobs:
           exec > >(tee "$PROBE_DIR/patchelf-build.log") 2>&1
           export TMPDIR="$PROBE_DIR/temp" XDG_CACHE_HOME="$PROBE_DIR/cache"
           archive="$PROBE_DIR/patchelf-0.19.2.tar.bz2"
-          curl --fail --location --retry 3 --connect-timeout 20 \
-            --output "$archive" https://github.com/NixOS/patchelf/releases/download/0.19.2/patchelf-0.19.2.tar.bz2
-          printf '%s  %s\n' d4ad9a4e5c689e09119ce2f30a94b0e8b4f98c78590123ea21665e34c6928801 "$archive" \
-            > "$PROBE_DIR/patchelf-SHA256SUMS.txt"
-          sha256sum --check "$PROBE_DIR/patchelf-SHA256SUMS.txt"
+          cp "$PROBE_DIR/pinned-inputs/patchelf-0.19.2.tar.bz2" "$archive"
           tar -xjf "$archive" -C "$PROBE_DIR"
           mkdir "$PROBE_DIR/patchelf-build"
           (
@@ -377,6 +388,8 @@ jobs:
             tmp/rocky8-probe/appimage-stage/validation_probe
             tmp/rocky8-probe/appimage-stage/document_probe
             tmp/rocky8-probe/build/tests/video-fixtures/*
+            tmp/rocky8-probe/pinned-inputs/appimagetool
+            tmp/rocky8-probe/pinned-inputs/runtime
             tmp/rocky8-probe/appimage-source/*
             tmp/rocky8-probe/libarchive-*.tar.gz
             tmp/rocky8-probe/poppler-*-source.tar.gz
@@ -471,6 +484,7 @@ jobs:
           export TMPDIR="$GITHUB_WORKSPACE/tmp/appimage-work/temp"
           export XDG_CACHE_HOME="$GITHUB_WORKSPACE/tmp/appimage-work/cache"
           python3 tools/build_appimage.py pack --stage tmp/appimage-work/stage \
+            --prepared-tools tmp/appimage-input/pinned-inputs \
             --output tmp/appimage-dist 2>&1 | tee tmp/appimage-work/pack.log
           desktop-file-validate tmp/appimage-dist/komamimic.desktop
           (cd tmp/appimage-dist && sha256sum --check SHA256SUMS)

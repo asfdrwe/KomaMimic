@@ -118,7 +118,7 @@ class ReleaseTests(unittest.TestCase):
     def artifact(self, system, contents=None):
         directory = self.inputs / system
         directory.mkdir(exist_ok=True)
-        extras = {'libarchive-3.8.10.tar.gz': b'synthetic libarchive source',
+        extras = {'libarchive-3.8.11.tar.gz': b'synthetic libarchive source',
                   'poppler-22.12.0-source.tar.gz': b'synthetic Poppler source'} if system == 'linux' else None
         source = self.source(directory / 'sources', contents or self.contents, extras)
         manifest = dict(version='1.0.0', commit=COMMIT, source_tree_dirty=False,
@@ -201,6 +201,14 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'Unexpected OS source selection'):
             self.assemble()
         self.assertFalse(self.output.exists())
+
+    def test_release_notes_link_to_the_matching_documentation_version(self):
+        v1 = release.release_notes('v1.7.3', '1.7.3')
+        v2 = release.release_notes('v2.0.0', '2.0.0')
+        self.assertIn('https://asfdrwe.github.io/KomaMimic/user/install/', v1)
+        self.assertNotIn('/v2/', v1)
+        self.assertIn('https://asfdrwe.github.io/KomaMimic/v2/user/install/', v2)
+        self.assertIn('https://asfdrwe.github.io/KomaMimic/v2/en/user/install/', v2)
 
     def test_release_notes_changelog_section(self):
         path = self.root / 'docs/site/en/changelog.md'
@@ -319,7 +327,7 @@ class ReleaseTests(unittest.TestCase):
                 release.read_source(directory, '1.0.0')
 
     def test_missing_dependency_source_is_rejected(self):
-        (self.inputs / 'linux/sources/libarchive-3.8.10.tar.gz').unlink()
+        (self.inputs / 'linux/sources/libarchive-3.8.11.tar.gz').unlink()
         with self.assertRaises(ValueError):
             self.assemble()
         self.assertFalse(self.output.exists())

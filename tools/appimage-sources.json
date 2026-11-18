@@ -1,0 +1,13 @@
+{
+  "libarchive-3.8.11.tar.gz": {
+    "url": "https://www.libarchive.org/downloads/libarchive-3.8.11.tar.gz",
+    "mirrors": [
+      "https://github.com/libarchive/libarchive/releases/download/v3.8.11/libarchive-3.8.11.tar.gz"
+    ],
+    "sha256": "900fe9fc7237c2b04f090f3c3648de8fe597525771f5035016537ce2d667d12b"
+  },
+  "patchelf-0.19.2.tar.bz2": {
+    "url": "https://github.com/NixOS/patchelf/releases/download/0.19.2/patchelf-0.19.2.tar.bz2",
+    "sha256": "d4ad9a4e5c689e09119ce2f30a94b0e8b4f98c78590123ea21665e34c6928801"
+  }
+}

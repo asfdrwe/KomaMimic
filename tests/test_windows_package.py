@@ -175,7 +175,7 @@ class WindowsPackageTests(unittest.TestCase):
         info = dict(system='Windows', status='STAGED_NOT_MANUALLY_VERIFIED',
                     source_manifest_sha256=package.digest(stage / 'SOURCE_MANIFEST.json'), files=package.inventory(stage))
         package.save_json(stage / 'STAGE_MANIFEST.json', info)
-        def verify(archive, build, output):
+        def verify(archive, build, output, video_fixtures=None):
             package.extract_verified(archive, output / 'extracted')
         def git(command, **options):
             return '1' * 40 + '\n' if command[-1] == 'HEAD' else ''
@@ -230,8 +230,10 @@ class WindowsPackageTests(unittest.TestCase):
                 mock.patch.object(package, 'execute', side_effect=execute),
                 mock.patch.object(package, 'verify_videos') as videos,
                 mock.patch.object(package.subprocess, 'run', side_effect=probe)):
-            package.native_verify(archive, build, self.directory / 'verify')
+            package.native_verify(archive, build, self.directory / 'verify', self.directory / 'ctest-videos')
         videos.assert_called_once()
+        self.assertEqual(videos.call_args.args[1], self.directory / 'ctest-videos')
+        self.assertFalse(videos.call_args.kwargs['generate_fixtures'])
         self.assertEqual(len(seen), 4)
         for command, options in seen:
             for key in ('HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME',

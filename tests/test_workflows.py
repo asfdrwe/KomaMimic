@@ -128,3 +128,59 @@ class WorkflowIsolationTests(unittest.TestCase):
         diagnostics = consumer.split('name: diagnostics-appimage-ubuntu22-x64', 1)[1]
         self.assertIn('tmp/appimage-work/verify/*.json', diagnostics)
         self.assertIn('tmp/appimage-work/verify/*.log', diagnostics)
+
+    def test_release_prepares_inputs_once_before_both_native_build_workflows(self):
+        release = self.text('release.yml')
+        validate = job(release, 'validate')
+        self.assertIn('tools/fetch_release_inputs.py --output tmp/release-pinned-inputs', validate)
+        self.assertIn('name: komamimic-release-pinned-inputs', validate)
+        self.assertIn('path: tmp/release-pinned-inputs/*', validate)
+        for name in ('build', 'appimage'):
+            self.assertRegex(job(release, name), r'needs: validate')
+        self.assertIn('prepared_inputs: komamimic-release-pinned-inputs', job(release, 'appimage'))
+        rocky = self.text('rocky8-probe.yml')
+        prepare = rocky.index('Verify prepared inputs before installing build dependencies')
+        self.assertLess(prepare, rocky.index('Install Rocky and Raven dependencies'))
+        self.assertIn("if: ${{ inputs.prepared_inputs == '' }}", rocky)
+        self.assertIn('name: ${{ inputs.prepared_inputs }}', rocky)
+        self.assertIn('--verify-only', rocky)
+        self.assertIn('--prepared-tools tmp/appimage-input/pinned-inputs', rocky)
+        self.assertIn('tmp/rocky8-probe/pinned-inputs/appimagetool', rocky)
+        self.assertIn('tmp/rocky8-probe/pinned-inputs/runtime', rocky)
+        self.assertNotIn('curl --fail', rocky)
+
+    def test_release_downloads_are_same_run_and_preserve_all_required_failure_gates(self):
+        release = self.text('release.yml')
+        self.assertIn('needs: [validate, build, appimage]', job(release, 'assemble'))
+        self.assertIn('needs: [validate, build, appimage, assemble]', job(release, 'publish'))
+        for name in ('release.yml', 'rocky8-probe.yml', 'build.yml'):
+            text = self.text(name)
+            for block in re.findall(r'uses: actions/download-artifact@[^\n]+\n(.*?)(?=\n      -|\Z)', text, re.S):
+                self.assertNotRegex(block, r'(?:run-id|github-token|repository):')
+        self.assertIn("LIBARCHIVE_VERSION: '3.8.11'", self.text('rocky8-probe.yml'))
+
+    def test_only_release_skips_the_duplicate_fedora_build(self):
+        build = self.text('build.yml')
+        expression = condition(job(build, 'linux'))
+        for value in ('false', "''"):
+            self.assertTrue(allowed(expression.replace('inputs.skip_linux', value).replace('false', 'False').replace('true', 'True'),
+                                    'refs/heads/dev2', 'workflow_dispatch'))
+        self.assertFalse(allowed(expression.replace('inputs.skip_linux', 'True').replace('true', 'True'),
+                                 'refs/heads/dev2', 'workflow_dispatch'))
+        self.assertRegex(build, r'skip_linux:[\s\S]*?default: false')
+        release_build = job(self.text('release.yml'), 'build')
+        self.assertIn('skip_linux: true', release_build)
+        self.assertIn('prepared_inputs: komamimic-release-pinned-inputs', release_build)
+        self.assertIn('ctest --test-dir build-ci', job(build, 'macos'))
+        self.assertIn('ctest --test-dir', job(self.text('rocky8-probe.yml'), 'rocky8'))
+
+    def test_native_packages_reuse_ctest_inputs_and_enforce_updated_libarchive(self):
+        build = self.text('build.yml')
+        for name, directory in (('windows', 'build-windows-fast'), ('macos', 'build-ci')):
+            target = job(build, name)
+            self.assertIn('--video-fixtures ' + directory + '/tests/video-fixtures', target)
+            self.assertIn('-DKOMAMIMIC_MIN_LIBARCHIVE_VERSION=3.8.11', target)
+        windows = job(build, 'windows')
+        self.assertIn('tools/setup_windows_libarchive.py @overlayArgs', windows)
+        self.assertIn('-DVCPKG_OVERLAY_PORTS=$env:GITHUB_WORKSPACE/.ci/libarchive-overlay', windows)
+        self.assertIn('results/windows-libarchive.log', windows.split('Upload diagnostics', 1)[1])

@@ -54,6 +54,30 @@ jobs:
         run: |
           python tools/check_source.py --tracked
           python -m unittest discover -s tests -p test_release.py
+          python -m unittest discover -s tests -p test_fetch_release_inputs.py
+          python -m unittest discover -s tests -p test_workflows.py
+          python -m unittest discover -s tests -p test_video_validation.py
+      - name: Fetch and verify pinned inputs before native builds
+        shell: bash
+        run: |
+          mkdir -p tmp
+          python tools/fetch_release_inputs.py --output tmp/release-pinned-inputs 2>&1 | tee tmp/release-inputs.log
+      - name: Save verified inputs for the called AppImage workflow
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: komamimic-release-pinned-inputs
+          path: tmp/release-pinned-inputs/*
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
+      - name: Save input download diagnostics
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: diagnostics-release-inputs
+          path: tmp/release-inputs.log
+          if-no-files-found: ignore
+          retention-days: 14
       - name: Check Japanese and English documentation
         run: |
           python -m pip install -r requirements-docs.txt
@@ -61,14 +85,19 @@ jobs:
           python tools/build_docs.py --output tmp/release-site
 
   build:
-    name: Reuse three-OS Build and native package checks
+    name: Reuse Windows and macOS Build and native package checks
     needs: validate
     uses: ./.github/workflows/build.yml
+    with:
+      skip_linux: true
+      prepared_inputs: komamimic-release-pinned-inputs
 
   appimage:
     name: Reuse Rocky build and Ubuntu AppImage checks
     needs: validate
     uses: ./.github/workflows/rocky8-probe.yml
+    with:
+      prepared_inputs: komamimic-release-pinned-inputs
 
   assemble:
     name: Verify provenance and assemble release assets

@@ -4,6 +4,7 @@
 *.py text eol=lf
 *.sh text eol=lf
 *.cmake text eol=lf
+cmake/ports/libarchive/*.patch text eol=lf whitespace=-space-before-tab
 *.yml text eol=lf
 *.yaml text eol=lf
 *.json text eol=lf

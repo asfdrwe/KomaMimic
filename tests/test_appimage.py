@@ -193,6 +193,42 @@ sys.exit(7 if case == 'exit-error' else 0)
             for name, checksum in checksums.items():
                 self.assertEqual(appimage.digest(destination / name), checksum)
 
+    def test_pack_uses_prepared_tools_offline_and_rejects_changed_or_missing_bytes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            stage, prepared, source = (root / name for name in ('stage', 'prepared', 'source'))
+            app = stage / 'AppDir'
+            app.mkdir(parents=True)
+            prepared.mkdir()
+            (source / 'tools').mkdir(parents=True)
+            shutil.copy2(appimage.ROOT / 'assets/komamimic.desktop', app / 'komamimic.desktop')
+            shutil.copy2(appimage.ROOT / 'assets/icons/komamimic-256.png', app / 'komamimic.png')
+            (stage / 'BUILD_MANIFEST.json').write_text(json.dumps(dict(
+                version='2.0.0', files={p.name: appimage.digest(p) for p in app.iterdir()})))
+            config = {}
+            for name in ('appimagetool', 'runtime'):
+                (prepared / name).write_bytes(('pinned fixture ' + name).encode())
+                (prepared / name).chmod(0o644)  # upload/download-artifact loses executable mode.
+                config[name] = dict(url='https://example.invalid/' + name, sha256=appimage.digest(prepared / name))
+            (source / 'tools/appimage-tools.json').write_text(json.dumps(config))
+            def create_image(command, **kwargs):
+                self.assertTrue(os.access(command[0], os.X_OK))
+                self.assertTrue(os.access(command[command.index('--runtime-file') + 1], os.X_OK))
+                Path(command[-1]).write_bytes(b'packaged with prepared tools')
+            with (patch.object(appimage, 'ROOT', source), patch.object(appimage, 'download') as download,
+                  patch.object(appimage, 'run', side_effect=create_image) as run):
+                image = appimage.pack(stage, root / 'valid', prepared)
+                self.assertEqual(image.read_bytes(), b'packaged with prepared tools')
+                self.assertEqual(run.call_count, 1)
+                (prepared / 'runtime').write_bytes(b'changed runtime')
+                with self.assertRaisesRegex(ValueError, 'checksum mismatch'):
+                    appimage.pack(stage, root / 'changed', prepared)
+                (prepared / 'runtime').unlink()
+                with self.assertRaises(FileNotFoundError):
+                    appimage.pack(stage, root / 'missing', prepared)
+                self.assertEqual(run.call_count, 1)
+            download.assert_not_called()
+
     @unittest.skipUnless(sys.platform.startswith('linux') and shutil.which('gio')
                          and shutil.which('desktop-file-validate'), 'requires Linux desktop tools')
     def test_desktop_launch_preserves_home_and_file_arguments(self):
