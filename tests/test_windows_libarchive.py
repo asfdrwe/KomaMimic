@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """Preserve the pinned port and its dependency graph while updating libarchive alone."""
 import hashlib
+import difflib
 import io
 import json
 from pathlib import Path
 import shutil
 import subprocess
+import tarfile
 import sys
 import tempfile
 import unittest
@@ -13,6 +15,49 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
 import setup_windows_libarchive as overlay
+verify_source_patches = overlay.verify_source_patches
+
+# Preserve the blank lines present in the release input and in the CI failure.
+CRYPTO_SOURCE = '''# release fixture
+#
+# Find mbed TLS
+IF(ENABLE_MBEDTLS)
+  FIND_PACKAGE(MbedTLS)
+  IF(MBEDTLS_FOUND)
+    SET(HAVE_LIBMBEDCRYPTO 1)
+    LIST(APPEND ADDITIONAL_LIBS ${MBEDCRYPTO_LIBRARY})
+    INCLUDE_DIRECTORIES(${MBEDTLS_INCLUDE_DIRS})
+
+    CMAKE_PUSH_CHECK_STATE()
+    LIST(APPEND CMAKE_REQUIRED_INCLUDES ${MBEDTLS_INCLUDE_DIRS})
+  ENDIF(MBEDTLS_FOUND)
+ENDIF(ENABLE_MBEDTLS)
+
+IF(ENABLE_NETTLE)
+  FIND_PACKAGE(Nettle)
+  IF(NETTLE_FOUND)
+    SET(HAVE_LIBNETTLE 1)
+    LIST(APPEND ADDITIONAL_LIBS ${NETTLE_LIBRARIES})
+    INCLUDE_DIRECTORIES(${NETTLE_INCLUDE_DIR})
+
+    CMAKE_PUSH_CHECK_STATE()
+    LIST(APPEND CMAKE_REQUIRED_INCLUDES ${NETTLE_INCLUDE_DIR})
+  ENDIF(NETTLE_FOUND)
+ENDIF(ENABLE_NETTLE)
+
+IF(ENABLE_OPENSSL AND NOT CMAKE_SYSTEM_NAME MATCHES "Darwin")
+  FIND_PACKAGE(OpenSSL)
+  IF(OPENSSL_FOUND)
+    SET(HAVE_LIBCRYPTO 1)
+    INCLUDE_DIRECTORIES(${OPENSSL_INCLUDE_DIR})
+    LIST(APPEND ADDITIONAL_LIBS ${OPENSSL_CRYPTO_LIBRARY})
+
+    CMAKE_PUSH_CHECK_STATE()
+    SET(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_CRYPTO_LIBRARY})
+    SET(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
+  ENDIF(OPENSSL_FOUND)
+ENDIF()
+'''
 
 
 class WindowsLibarchiveTests(unittest.TestCase):
@@ -45,11 +90,15 @@ class WindowsLibarchiveTests(unittest.TestCase):
         self.config = mock.patch.object(overlay, 'configuration', return_value={self.name:self.entry})
         self.config.start()
         self.addCleanup(self.config.stop)
+        self.preflight = mock.patch.object(overlay, 'verify_source_patches')
+        self.preflight_mock = self.preflight.start()
+        self.addCleanup(self.preflight.stop)
 
     def test_preserves_original_port_patches_dependencies_and_cached_source(self):
         with mock.patch.object(overlay, 'download') as download:
             port = overlay.setup(self.vcpkg, self.output, self.inputs)
         download.assert_not_called()
+        self.preflight_mock.assert_called_once_with(self.inputs / self.name, '3.8.11', port)
         self.assertEqual((self.original / 'portfile.cmake').read_text(), self.recipe)
         manifest = json.loads((port / 'vcpkg.json').read_text())
         self.assertEqual(manifest, {**self.manifest, 'version':'3.8.11'})
@@ -115,3 +164,61 @@ include("${PORTFILE}")
             with self.assertRaisesRegex(ValueError, 'Unrecognized pinned'):
                 overlay.setup(self.vcpkg, self.output)
         download.assert_not_called()
+
+    def patch_fixture(self):
+        archive = self.root / 'release-fixture.tar.gz'
+        with tarfile.open(archive, 'w:gz') as release:
+            for name, data in (('CMakeLists.txt', CRYPTO_SOURCE.encode()),
+                               ('libarchive/CMakeLists.txt', b'# subdirectory fixture\n'),
+                               ('build/cmake/CreatePkgConfigFile.cmake', b'# pkgconfig fixture\n')):
+                info = tarfile.TarInfo('libarchive-3.8.11/' + name)
+                info.size = len(data)
+                release.addfile(info, io.BytesIO(data))
+        port = self.root / 'patches'
+        port.mkdir()
+        baseline = ''.join(difflib.unified_diff(CRYPTO_SOURCE.splitlines(True),
+            CRYPTO_SOURCE.replace('# release fixture', '# buildsystem fixture', 1).splitlines(True),
+            fromfile='a/CMakeLists.txt', tofile='b/CMakeLists.txt'))
+        (port / 'fix-buildsystem.patch').write_text(baseline)
+        return archive, port
+
+    @unittest.skipUnless(shutil.which('git'), 'requires Git patch application')
+    def test_release_crypto_patch_preserves_blank_context_inside_a_parent_repository(self):
+        archive, port = self.patch_fixture()
+        # The generated overlay is inside the checkout in CI. --no-index must
+        # apply to the extracted files without modifying that checkout's index.
+        subprocess.run(['git', 'init', '-q', str(self.root)], check=True, capture_output=True)
+        source = (overlay.ROOT / 'cmake/ports/libarchive/fix-deps.patch').read_text()
+        blocks = source.split('@@ ')
+        selected = []
+        needles = ('+    LIST(APPEND LIBARCHIVE_LIBS_PRIVATE ${MBEDCRYPTO_LIBRARY})',
+                   '+    STRING(APPEND LIBSREQUIRED " nettle")',
+                   '+    LIST(APPEND ADDITIONAL_LIBS OpenSSL::Crypto)')
+        for block in blocks[1:]:
+            if any(needle in block for needle in needles):
+                selected.append('@@ ' + block)
+        self.assertEqual(len(selected), 3)
+        (port / 'fix-deps.patch').write_text('--- a/CMakeLists.txt\n+++ b/CMakeLists.txt\n' + ''.join(selected))
+        before = hashlib.sha256(archive.read_bytes()).digest()
+        verify_source_patches(archive, '3.8.11', port)
+        self.assertEqual(hashlib.sha256(archive.read_bytes()).digest(), before)
+        self.assertFalse((self.root / '.git/index').exists())
+
+    @unittest.skipUnless(shutil.which('git'), 'requires Git patch application')
+    def test_source_preflight_rejects_the_reported_blank_stripped_patch(self):
+        archive, port = self.patch_fixture()
+        # Exact failed hunk shape from the Windows diagnostic, which omitted
+        # the release file's blank line before CMAKE_PUSH_CHECK_STATE().
+        (port / 'fix-deps.patch').write_text('''--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -825,6 +845,7 @@
+   IF(MBEDTLS_FOUND)
+     SET(HAVE_LIBMBEDCRYPTO 1)
+     LIST(APPEND ADDITIONAL_LIBS ${MBEDCRYPTO_LIBRARY})
++    LIST(APPEND LIBARCHIVE_LIBS_PRIVATE ${MBEDCRYPTO_LIBRARY})
+     INCLUDE_DIRECTORIES(${MBEDTLS_INCLUDE_DIRS})
+     CMAKE_PUSH_CHECK_STATE()
+     LIST(APPEND CMAKE_REQUIRED_INCLUDES ${MBEDTLS_INCLUDE_DIRS})
+''')
+        with self.assertRaisesRegex(RuntimeError, 'release source cannot apply fix-deps.patch'):
+            verify_source_patches(archive, '3.8.11', port)

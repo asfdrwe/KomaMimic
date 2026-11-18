@@ -8,8 +8,31 @@ from pathlib import Path
 import re
 import shlex
 import shutil
+import subprocess
+import tarfile
+import tempfile
 
 from fetch_release_inputs import ROOT, configuration, download, verify
+
+
+def verify_source_patches(archive, version, port):
+    # Check the actual verified release bytes, not a web-rendered source view.
+    # Only three small CMake inputs are written; no compiler or build is run.
+    relatives = ('CMakeLists.txt', 'libarchive/CMakeLists.txt', 'build/cmake/CreatePkgConfigFile.cmake')
+    with tempfile.TemporaryDirectory(prefix='libarchive-patch-check-', dir=port.parent) as temporary:
+        source = Path(temporary)
+        with tarfile.open(archive) as upstream:
+            for relative in relatives:
+                target = source / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(upstream.extractfile('libarchive-' + version + '/' + relative).read())
+        for name in ('fix-buildsystem.patch', 'fix-deps.patch'):
+            result = subprocess.run(['git', 'apply', '--no-index', '--verbose', '--ignore-whitespace',
+                                     '--whitespace=nowarn', str((port / name).resolve())],
+                                    cwd=source, text=True, capture_output=True)
+            print(result.stdout + result.stderr, end='', flush=True)
+            if result.returncode:
+                raise RuntimeError('Verified libarchive release source cannot apply ' + name)
 
 
 def setup(vcpkg, output, prepared_inputs=None):
@@ -49,14 +72,14 @@ def setup(vcpkg, output, prepared_inputs=None):
     port = output / 'libarchive'
     output.mkdir(exist_ok=False)
     shutil.copytree(original, port)
-    # The source update changes CMake context in eight dependency-patch hunks.
-    # Keep the same dependency fixes, rebased for 3.8.11, and their original license.
+    # Keep the dependency fixes and their license, with release-source context.
     for filename in ('fix-deps.patch', 'LICENSE-vcpkg.txt'):
         shutil.copy2(ROOT / 'cmake/ports/libarchive' / filename, port / filename)
     (port / 'portfile.cmake').write_text(recipe[:block.start()] + replacement + recipe[block.end():], encoding='utf-8')
     manifest['version'] = version
     manifest.pop('port-version', None)
     (port / 'vcpkg.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+    verify_source_patches(archive, version, port)
     print('Prepared libarchive ' + version + ' overlay: ' + str(port), flush=True)
     return port
 
