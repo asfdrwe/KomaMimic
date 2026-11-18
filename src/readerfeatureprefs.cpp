@@ -633,7 +633,13 @@ void ReaderFeatures::preferences(const QString &pageName) {
   editors["cache/behind"]->setToolTip(QCoreApplication::translate("KomaMimic", "進んでいる方向とは反対側のページを先に読み込みます。0で無効。"));
   check(cache,QCoreApplication::translate("KomaMimic", "サムネイルをディスクに保存する"),"cache/thumbnailsEnabled",true);
   editors["cache/thumbnailsEnabled"]->setToolTip(QCoreApplication::translate("KomaMimic", "表紙・ページサムネイルを保存し、次回起動時も再利用します。無効にしても保存済み画像は残ります。削除ボタンで消せます。"));
-  spin(cache,QCoreApplication::translate("KomaMimic", "サムネイルのディスク使用量の上限（MiB）"),"cache/thumbnailMegabytes",512,16,16384);
+  auto *diskCapacity=new QDoubleSpinBox(&dialog);
+  diskCapacity->setDecimals(0);
+  diskCapacity->setRange(16,double(ThumbnailDiskCache::MaximumMegabytes));
+  diskCapacity->setValue(w->m_settings->value("cache/thumbnailMegabytes",512).toLongLong());
+  diskCapacity->setObjectName("cache/thumbnailMegabytes");
+  cache->addRow(QCoreApplication::translate("KomaMimic", "サムネイルのディスク使用量の上限（MiB）"),diskCapacity);
+  editors["cache/thumbnailMegabytes"]=diskCapacity;
   auto *diskLimit=editors["cache/thumbnailMegabytes"];
   auto *diskEnabled=qobject_cast<QCheckBox *>(editors["cache/thumbnailsEnabled"]);
   diskLimit->setEnabled(diskEnabled->isChecked());
@@ -812,6 +818,7 @@ void ReaderFeatures::preferences(const QString &pageName) {
     for(auto i=values.cbegin();i!=values.cend();++i)if(auto *editor=editors.value(i.key())) {
       if(auto *box=qobject_cast<QCheckBox *>(editor))box->setChecked(i.value().toBool());
       else if(auto *number=qobject_cast<QSpinBox *>(editor))number->setValue(i.value().toInt());
+      else if(auto *number=qobject_cast<QDoubleSpinBox *>(editor))number->setValue(i.value().toDouble());
       else if(auto *text=qobject_cast<QLineEdit *>(editor))text->setText(i.value().toString());
     }
   });
@@ -868,7 +875,7 @@ void ReaderFeatures::preferences(const QString &pageName) {
     else if (auto *spin = qobject_cast<QSpinBox *>(it.value()))
       value = spin->value();
     else if (auto *number = qobject_cast<QDoubleSpinBox *>(it.value()))
-      value = number->value();
+      value = it.key()=="cache/thumbnailMegabytes" ? QVariant(qint64(number->value())) : QVariant(number->value());
     else if (auto *choice = qobject_cast<QComboBox *>(it.value()))
       value = (it.key()=="scripts/filter" || it.key()=="ui/language") ? choice->currentData() : QVariant(choice->currentIndex());
     else if (auto *edit = qobject_cast<QLineEdit *>(it.value()))
@@ -886,7 +893,7 @@ void ReaderFeatures::preferences(const QString &pageName) {
   w->m_actions["toolbarToggle"]->setChecked(w->m_settings->value("window/readerToolbar", false).toBool());
   w->setFullscreen(fullscreen->isChecked());
   if (w->isFullScreen()) w->setFullscreenChromeVisible(w->m_topChromeVisible, w->m_bottomChromeVisible);
-  w->m_thumbnailDiskCache->configure(w->m_settings->value("cache/thumbnailsEnabled",true).toBool(),w->m_settings->value("cache/thumbnailMegabytes",512).toInt());
+  w->m_thumbnailDiskCache->configure(w->m_settings->value("cache/thumbnailsEnabled",true).toBool(),w->m_settings->value("cache/thumbnailMegabytes",512).toLongLong());
   w->m_cacheMaintenanceNeeded=true;
   w->m_view->setBackgroundColor(QColor(w->m_settings->value("display/background").toString()));
   w->restoreThumbnailSettings();

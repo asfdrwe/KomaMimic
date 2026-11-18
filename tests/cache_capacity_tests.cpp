@@ -33,6 +33,24 @@ private slots:
         cache.image("0",[]{return ImageResult{TestData::solid(Qt::green,{1,1}),{}};},{},true);
         QCOMPARE(cache.stats().entries,20002);
     }
+    void capacityAcceptsLargeValuesWithoutChangingCache() {
+        QTemporaryDir d;ThumbnailDiskCache cache(d.path());
+        int generated=0;
+        const auto pixels=[&]{++generated;return ImageResult{TestData::solid(Qt::blue),{}};};
+        QVERIFY(!cache.image("saved",pixels).image.isNull());
+        const auto files=QDir(d.path()).entryInfoList({"*.png"},QDir::Files);QCOMPARE(files.size(),1);
+        const auto file=files.first();
+        const auto read=[&]{QFile input(file.absoluteFilePath());return input.open(QIODevice::ReadOnly)?input.readAll():QByteArray{};};
+        const auto bytes=read();QVERIFY(!bytes.isEmpty());
+        const auto modified=file.lastModified();
+        for(qint64 amount:{10000LL,32768LL,2147483648LL,ThumbnailDiskCache::MaximumMegabytes}) {
+            cache.configure(true,amount);QCOMPARE(cache.limitBytes(),amount*1024*1024);
+            QCOMPARE(cache.lookup("saved").image.pixelColor(0,0),QColor(Qt::blue));
+            QCOMPARE(read(),bytes);
+            QCOMPARE(QFileInfo(file.absoluteFilePath()).lastModified(),modified);
+        }
+        QCOMPARE(generated,1);
+    }
     void capacityUsesCreationOrder() {
         QTemporaryDir d;ThumbnailDiskCache cache(d.path());cache.configure(true,16);
         QImage noise(768,768,QImage::Format_RGB32);quint32 state=104729;

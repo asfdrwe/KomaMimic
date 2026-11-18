@@ -52,10 +52,10 @@ QString ThumbnailDiskCache::defaultDirectory() {
     return root.isEmpty() ? QString{} : QDir(root).filePath("thumbnails-v2");
 }
 ThumbnailDiskCache::ThumbnailDiskCache(QString directory):m_directory(std::move(directory)) {}
-void ThumbnailDiskCache::configure(bool enabled,int megabytes) {
+void ThumbnailDiskCache::configure(bool enabled,qint64 megabytes) {
     // Capacity/enable changes do not mean "forget generated work".
     m_enabled.store(enabled);
-    m_limit.store(qint64(std::clamp(megabytes,16,16384))*1024*1024);
+    m_limit.store(std::clamp<qint64>(megabytes,16,MaximumMegabytes)*1024*1024);
 }
 quint64 ThumbnailDiskCache::availabilityVersion(const QByteArray &key) {
     QMutexLocker guard(&m_memoryMutex);return m_versions.value(key);

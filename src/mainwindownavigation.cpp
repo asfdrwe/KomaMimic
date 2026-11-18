@@ -310,7 +310,7 @@ void MainWindow::populateDirectory(const QString &path, bool navigate, bool hist
             if(cancel())return Listing{};
             iterator.next();auto entry=iterator.fileInfo();
             (void)entry.size();(void)entry.lastModified();
-            if(entry.isDir() || isArchivePath(entry.fileName()) || isImagePath(entry.fileName()) || isDocumentPath(entry.fileName()) || isVideoPath(entry.fileName()))result.entries.append(entry);
+            if(entry.isDir() || isNavigationFile(entry.fileName()))result.entries.append(entry);
         }
         if(sort==6){std::mt19937 generator(seed);std::shuffle(result.entries.begin(),result.entries.end(),generator);}
         if((sort==4 || sort==6) && reverse)std::reverse(result.entries.begin(),result.entries.end());
@@ -327,7 +327,7 @@ void MainWindow::populateDirectory(const QString &path, bool navigate, bool hist
         m_neighborDirectory=directory;m_neighborPaths.clear();
         for(const auto &entry:result.entries) {
             m_thumbnailChanges->observe(entry,result.resolved);
-            if(!entry.isDir() && (isArchivePath(entry.fileName()) || isDocumentPath(entry.fileName()) || isVideoPath(entry.fileName())))m_neighborPaths.append(entry.absoluteFilePath());
+            if(!entry.isDir() && isNavigationFile(entry.fileName()))m_neighborPaths.append(entry.absoluteFilePath());
         }
         m_displayJobs->retain("directory-siblings");
         m_siblingFolders.clear();m_siblingIndex=-1;
@@ -481,7 +481,7 @@ void MainWindow::historyFolder(int delta) {
     if (target < 0 || target >= m_history.size() || !QFileInfo(m_history[target]).isDir()) return;
     m_historyIndex = target; populateDirectory(m_history[target], true, false);
 }
-void MainWindow::loadBook(const QString &path, ViewMode mode, bool startAtLastPage) {
+void MainWindow::loadBook(const QString &path, ViewMode mode, bool startAtLastPage, bool selectSourceFile) {
     if(m_video)m_video->leave();
     const bool video=isVideoPath(path) || (VideoOptions::load(*m_settings).animations && isAnimatedImagePath(path));
     if(video)m_displayJobs->retain("history-store");
@@ -535,7 +535,7 @@ void MainWindow::loadBook(const QString &path, ViewMode mode, bool startAtLastPa
         if(m_features)m_features->openedVideo();highlightBook();refreshState();return;
     }
     m_view->setMessage(QCoreApplication::translate("KomaMimic", "画像・書庫を読み込んでいます…\n") + bookDisplayName(m_currentPath)); setMode(mode); highlightBook(); refreshState();
-    auto completed = [this, generation, startAtLastPage](Book::OpenResult result,bool cancelled) {
+    auto completed = [this, generation, startAtLastPage, selectSourceFile](Book::OpenResult result,bool cancelled) {
         if(cancelled)return;
         if (generation != m_bookGeneration) return;
         if (!result.book) { m_loading=false;m_restoreDocumentLocation=false; m_lastError = result.error; if(m_features)m_features->openFailed(); m_pageTitle->setText(result.error); m_view->setMessage(result.error); refreshState(); return; }
@@ -550,6 +550,11 @@ void MainWindow::loadBook(const QString &path, ViewMode mode, bool startAtLastPa
         if(startAtLastPage){m_anchor=pageCount()-1;if(documentViewActive()){m_pendingDocumentLocation=currentDocumentLocation();m_pendingDocumentLocation.offset=std::numeric_limits<int>::max();m_restoreDocumentLocation=true;}}
         if (m_restoreDocumentLocation && !documentViewActive()) {
             m_anchor=resolveDocumentLocation(m_pendingDocumentLocation);m_restoreDocumentLocation=false;
+        }
+        // Explicit file navigation must select its image even when saved page
+        // edits or sorting restored a different order for the folder book.
+        if(selectSourceFile && !startAtLastPage && m_book->filesystem && isImagePath(m_currentPath)) {
+            for(int i=0;i<pageCount();++i)if(m_book->pages[i].filePath==m_currentPath){m_anchor=i;break;}
         }
         if (documentViewActive() && m_mode == ViewMode::Pages) setMode(ViewMode::Reader);
         m_loading=false;

@@ -10,6 +10,10 @@
 
 ## Controls and persistence
 
+「前の書庫／次の書庫」（既定Shift+←／Shift+→）は現在表示しているファイルを基準に、同じフォルダの単体画像・書庫・文書・動画を既存の並び順で移動する。単体画像を候補から除外せず、GIF等の表示モードによって候補と順序を変えない。読書の次／前の表示は従来どおりフォルダの画像だけ、または書庫内画像を移動し、文書内操作と動画内シークも維持する。既存の操作名・ID・キー割当・プレイリスト順序を維持する。
+
+ディスクキャッシュ容量（`cache/thumbnailMegabytes`）はMiB単位、既定512。手動設定に固定の容量上限を設けず、入力・保存・起動時適用を64 bit整数で扱う。バイト数の64 bit整数で表現できる範囲だけを上限とする。容量変更だけで既存キャッシュを無効化・再生成・再保存しない。
+
 Action IDs and storage keys are independent of display names and translations.
 Preserve common, reading, thumbnail, and tree assignment scopes without conflicting
 with text-field editing. Return confirms a list selection. The default full-screen

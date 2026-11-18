@@ -37,6 +37,9 @@ right-to-left, next/previous keys follow the table above. For images, Space togg
 automatic spreads; for documents, it switches the book's single-page/spread layout.
 Return confirms a selection in lists; it is not shared with full screen.
 
+Next / previous archive (Shift+→ / Shift+←) moves from the currently displayed file through individual images, archives, documents, and videos in the same folder, using the existing sort order. For example, `01.jpg ⇄ 01.mkv ⇄ 02.jpg ⇄ 02.mkv` includes every image. Changing the display mode for animated images does not change this order.
+Reading-mode → / ← still moves through images only in a folder, or through images inside the current archive. Document navigation and short seeks within videos are unchanged.
+
 ![Reading and navigating pages](../../assets/screenshots/basic-page-ja.png)
 
 ## Mouse

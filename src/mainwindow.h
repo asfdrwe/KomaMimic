@@ -137,6 +137,8 @@ private:
     void jump(int anchor);
     void stepPage(int direction, bool onePage = false);
     QString adjacentArchive(int direction) const;
+    QString navigationFilePath() const;
+    static bool isNavigationFile(const QString &path);
     bool archiveNeighborsKnown() const;
     void requestAdjacentBook(int direction,ViewMode mode,bool startAtLastPage=false);
     QString m_neighborDirectory;
@@ -164,7 +166,7 @@ private:
     void acceptThumbnail();
     void cancelThumbnail();
     void refreshThumbnails();
-    void loadBook(const QString &path, ViewMode mode, bool startAtLastPage = false);
+    void loadBook(const QString &path, ViewMode mode, bool startAtLastPage = false, bool selectSourceFile = false);
     void buildNavigationActions();
     void attachScopedShortcuts();
     void updateShortcutBindings();

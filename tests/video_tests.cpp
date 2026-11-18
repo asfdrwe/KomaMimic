@@ -548,6 +548,60 @@ private slots:
     QCOMPARE(readVideoState(settings, path).coverTime, qint64(3200));
     QVERIFY(green(cover().image));
   }
+  void mixedFilesUseOneNavigationOrder_data() {
+    QTest::addColumn<bool>("listed");QTest::addColumn<bool>("animations");QTest::addColumn<bool>("reverse");QTest::addColumn<bool>("documents");
+    QTest::newRow("direct-reader-gif")<<false<<false<<false<<false;
+    QTest::newRow("listed-video-gif-reverse")<<true<<true<<true<<false;
+    QTest::newRow("including-epub")<<false<<false<<false<<true;
+  }
+  void mixedFilesUseOneNavigationOrder() {
+    QFETCH(bool,listed);QFETCH(bool,animations);QFETCH(bool,reverse);QFETCH(bool,documents);
+    if(documents && !TestData::webEngineIpcAvailable())QSKIP("Qt WebEngine IPC is unavailable in this environment");
+    QTemporaryDir dir;
+    const auto folder=dir.filePath("files");QVERIFY(QDir().mkpath(folder));
+    QStringList paths;
+    for(const auto &name:{"01.jpg","01.mkv","02.jpg","02.mkv","03.gif","04.epub","05.zip"})paths<<QDir(folder).filePath(name);
+    QVERIFY(TestData::solid(Qt::red).save(paths[0],"JPG"));
+    QVERIFY(QFile::copy(fixture("multi.mkv"),paths[1]));
+    QVERIFY(TestData::solid(Qt::green).save(paths[2],"JPG"));
+    QVERIFY(QFile::copy(fixture("multi.mkv"),paths[3]));
+    QVERIFY(QFile::copy(fixture("animation.gif"),paths[4]));
+    QVERIFY(TestData::write(paths[5],TestData::zip({
+      {"mimetype","application/epub+zip"},
+      {"META-INF/container.xml","<container xmlns=\"urn:oasis:names:tc:opendocument:xmlns:container\"><rootfiles><rootfile full-path=\"OPS/book.opf\" media-type=\"application/oebps-package+xml\"/></rootfiles></container>"},
+      {"OPS/book.opf","<package xmlns=\"http://www.idpf.org/2007/opf\" version=\"3.0\" unique-identifier=\"id\"><metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\"><dc:identifier id=\"id\">navigation</dc:identifier><dc:title>Navigation</dc:title><dc:language>en</dc:language></metadata><manifest><item id=\"page\" href=\"page.xhtml\" media-type=\"application/xhtml+xml\"/></manifest><spine><itemref idref=\"page\"/></spine></package>"},
+      {"OPS/page.xhtml","<html xmlns=\"http://www.w3.org/1999/xhtml\"><head><title>Navigation</title></head><body><p>Navigation</p></body></html>"}
+    })));
+    QVERIFY(TestData::write(paths[6],TestData::zip({{"1.png",TestData::png(TestData::solid(Qt::blue))}})));
+    if(!documents){QVERIFY(QFile::remove(paths[5]));paths.removeAt(5);}
+    const auto config=dir.filePath("settings.ini");
+    {QSettings s(config,QSettings::IniFormat);s.setValue("video/autoplay",false);s.setValue("video/animations",animations);s.setValue("covers/reverse",reverse);}
+    MainWindow window(config);window.show();TestData::singlePage(window);
+    if(listed){window.openDirectory(folder);QTRY_VERIFY(!window.m_directoryLoading);}
+    // Image-page navigation stays within images; file navigation must use the
+    // displayed image, not the path initially used to open the folder book.
+    window.openBook(paths[0]);QTRY_VERIFY(window.renderReady());
+    if(reverse)window.previousPage();else window.nextPage();
+    QTRY_VERIFY(window.renderReady());
+    QCOMPARE(window.navigationFilePath(),paths[2]);
+    QTRY_VERIFY(window.command(reverse?"nextBook":"previousBook")->isEnabled());
+    window.command(reverse?"nextBook":"previousBook")->trigger();
+    QTRY_COMPARE(window.bookPath(),paths[1]);QTRY_VERIFY(window.renderReady());
+    if(reverse)std::reverse(paths.begin(),paths.end());
+    window.openBook(paths.first());QTRY_VERIFY(window.renderReady());
+    for(int direction:{1,-1}) {
+      for(int index=direction>0?1:paths.size()-2;index>=0 && index<paths.size();index+=direction) {
+        auto *action=window.command(direction>0?"nextBook":"previousBook");QTRY_VERIFY(action->isEnabled());action->trigger();
+        QTRY_COMPARE_WITH_TIMEOUT(window.bookPath(),paths[index],10000);QTRY_VERIFY_WITH_TIMEOUT(window.renderReady(),10000);
+        QCOMPARE(window.navigationFilePath(),paths[index]);
+        const bool video=isVideoPath(paths[index]) || (animations && isAnimatedImagePath(paths[index]));
+        QCOMPARE(window.viewMode(),video?MainWindow::ViewMode::Video:MainWindow::ViewMode::Reader);
+      }
+      QTRY_VERIFY(!window.command(direction>0?"nextBook":"previousBook")->isEnabled());
+      QCOMPARE(window.navigationFilePath(),direction>0?paths.last():paths.first());
+    }
+    window.close();
+  }
   void mixedModeNavigationAndKeys() {
     QTemporaryDir dir;
     const auto one = dir.filePath("1.avi"), zip = dir.filePath("2.zip"),

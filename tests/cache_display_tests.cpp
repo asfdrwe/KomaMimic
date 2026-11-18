@@ -32,6 +32,11 @@ public:
         QFile output;if(!output.open(stdout,QIODevice::WriteOnly))return 8;output.write(QJsonDocument(QJsonObject{{"directory",cache->directory()}}).toJson(QJsonDocument::Compact));return 0;
     }
 private slots:
+    void startupPreservesLargeDiskCapacity() {
+        QTemporaryDir d;const auto ini=d.filePath("settings.ini");
+        {QSettings s(ini,QSettings::IniFormat);s.setValue("cache/thumbnailMegabytes",2147483648LL);}
+        MainWindow w(ini);QCOMPARE(w.m_thumbnailDiskCache->limitBytes(),2147483648LL*1024*1024);
+    }
     void initTestCase() {QCoreApplication::setApplicationName("CacheDisplayRegression");}
     void writingPixelsRemainReadableAfterLruEviction_data() {
         QTest::addColumn<bool>("replacement");QTest::newRow("new")<<false;QTest::newRow("replacement")<<true;

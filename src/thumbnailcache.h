@@ -6,6 +6,7 @@
 #include <QCache>
 #include <QLoggingCategory>
 #include <atomic>
+#include <limits>
 
 Q_DECLARE_LOGGING_CATEGORY(thumbnailCacheLog)
 
@@ -20,7 +21,9 @@ public:
     QString directory() const {return m_directory;}
     bool enabled() const {return m_enabled.load();}
     qint64 limitBytes() const {return m_limit.load();}
-    void configure(bool enabled,int megabytes);
+    // Only the byte counter's representable range limits a user-selected capacity.
+    static constexpr qint64 MaximumMegabytes=std::numeric_limits<qint64>::max()/(1024*1024);
+    void configure(bool enabled,qint64 megabytes);
     ImageResult lookupMemory(const QByteArray &key,const std::function<bool()> &cancel={});
     ImageResult lookup(const QByteArray &key,const std::function<bool()> &cancel={});
     quint64 availabilityVersion(const QByteArray &key);

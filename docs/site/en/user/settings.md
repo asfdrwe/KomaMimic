@@ -50,6 +50,8 @@ Thumbnail disk storage is enabled by default with a 512 MiB limit and can be cle
 from this dialog. Thumbnails can be regenerated; they do not replace settings or
 reading-history backups.
 
+Capacity is specified in MiB without a fixed application cap on the manually chosen value; values of 10000 MiB or more can be entered and saved. Changing capacity does not regenerate or rewrite existing thumbnails.
+
 | OS | Default thumbnail cache |
 |---|---|
 | Windows | `%LOCALAPPDATA%\KomaMimic\KomaMimic\cache\thumbnails-v2` |

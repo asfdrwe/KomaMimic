@@ -13,6 +13,7 @@ CIではこのモジュールをCTestと配布の両方で使い、プラグイ�
 CTestの`video_fixtures`がbuild配下へ素材とmanifestを生成し、`video_tests`が実Qtの画素・シーク・字幕・トラック・保存・キャッシュを確認します。
 `full`と`platform`の両方に登録しています。通常試験は利用者のスピーカーを開かず復号データを利用します。
 `video_software_tests`は別プロセスでハードウェア復号を無効にし、同じ動画suiteを実行します。
+混在ファイルの移動は、単体画像・動画・GIF・書庫の往復を正順／逆順、直接開く／一覧経由、GIFの読書／動画表示で検査する。画像だけのページ送りと現在画像を基準にしたファイル移動を区別し、保存済みページ順があっても指定画像を表示する。EPUBを含む行はQt WebEngineのIPCが利用できない環境だけスキップする。
 Bob/Linearの実再生試験は、固定の通知回数で打ち切らず、異なる時刻のフレームで
 正しい順序の第1・第2フィールドが2組そろうまで待つ。3秒の制限と順序の検査は維持する。
 同じ時刻を持つ別フレームをまとめず、実際のフレームごとにフィールドを集計する。
@@ -69,6 +70,7 @@ up to 60 seconds for completion on Windows, including GUI startup and settings
 writes; other OSes use 15 seconds. A subprocess timeout logs its arguments,
 elapsed time, stdout and stderr before failing the test. Cache checks run in
 `cache_tests` and `cache_capacity_tests`, each with a 300-second limit on every OS.
+Both scopes check large disk-capacity input (including 10000 MiB and values beyond 32-bit MiB storage), settings persistence and startup application. Capacity changes must preserve existing thumbnail pixels, file contents and creation timestamps without generating an image again.
 The capacity suite contains the 20,001-file check and creation-order capacity management. Both use the same
 filesystem resource lock. Each case logs its start and elapsed milliseconds so a
 timeout retains the active case and completed costs. For local full runs on

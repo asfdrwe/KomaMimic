@@ -13,6 +13,8 @@
 #include <QColorSpace>
 #include <QCryptographicHash>
 #include <QDialog>
+#include <QDoubleSpinBox>
+#include <QLineEdit>
 #include <QDateTime>
 #include <QElapsedTimer>
 #include <QLabel>
@@ -539,6 +541,34 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
         QCOMPARE(cachedPageThumbnail(updated,0,cache,{},true,false,true).image.pixelColor(0,0),QColor(Qt::blue));
         QCOMPARE(cachedPageThumbnail(book,0,cache).image.pixelColor(0,0),QColor(Qt::blue));
     }
+    void diskCapacityPreservesLargeSettings() {
+        QTemporaryDir d;const auto ini=d.filePath("settings.ini");
+        for(qint64 amount:{10000LL,32768LL,2147483648LL}) {
+            {
+                MainWindow w(ini);w.show();bool edited=false;
+                QTimer::singleShot(0,&w,[&] {
+                    auto *dialog=w.findChild<QDialog *>("preferencesDialog");QVERIFY(dialog);
+                    QTimer::singleShot(2000,dialog,&QDialog::reject);
+                    auto *limit=dialog->findChild<QDoubleSpinBox *>("cache/thumbnailMegabytes");QVERIFY(limit);
+                    auto *input=limit->findChild<QLineEdit *>();QVERIFY(input);
+                    input->setFocus();input->selectAll();QTest::keyClicks(input,QString::number(amount));
+                    QTest::keyClick(input,Qt::Key_Tab);
+                    QCOMPARE(qint64(limit->value()),amount);edited=true;dialog->accept();
+                });
+                w.command("preferences")->trigger();QVERIFY(edited);
+                QCOMPARE(QSettings(ini,QSettings::IniFormat).value("cache/thumbnailMegabytes").toLongLong(),amount);
+                w.close();
+            }
+            MainWindow restored(ini);bool checked=false;
+            QTimer::singleShot(0,&restored,[&] {
+                auto *dialog=restored.findChild<QDialog *>("preferencesDialog");QVERIFY(dialog);
+                QTimer::singleShot(2000,dialog,&QDialog::reject);
+                auto *limit=dialog->findChild<QDoubleSpinBox *>("cache/thumbnailMegabytes");QVERIFY(limit);
+                QCOMPARE(qint64(limit->value()),amount);checked=true;dialog->reject();
+            });
+            restored.command("preferences")->trigger();QVERIFY(checked);
+        }
+    }
     void preferencesAndAppearance() {
         QTemporaryDir d;const auto settings=d.filePath("settings.ini");
         {
@@ -547,7 +577,7 @@ void v2ExplicitRefreshRepairsIncorrectCover() {
                 auto *dialog=w.findChild<QDialog *>("preferencesDialog");if(!dialog)return;
                 auto *mode=dialog->findChild<QComboBox *>("display/appearance");
                 auto *enabled=dialog->findChild<QCheckBox *>("cache/thumbnailsEnabled");
-                auto *limit=dialog->findChild<QSpinBox *>("cache/thumbnailMegabytes");
+                auto *limit=dialog->findChild<QDoubleSpinBox *>("cache/thumbnailMegabytes");
                 auto *memory=dialog->findChild<QSpinBox *>("cache/megabytes");
                 if(mode && enabled && limit && memory) {mode->setCurrentIndex(2);enabled->setChecked(false);limit->setValue(64);memory->setValue(192);edited=true;}
                 dialog->accept();
