@@ -115,3 +115,16 @@ class WorkflowIsolationTests(unittest.TestCase):
         windows = job(text, 'windows')
         self.assertIn('Tee-Object -FilePath results/windows-package.log', windows)
         self.assertIn('results/windows-package.log', windows.split('Upload diagnostics', 1)[1])
+
+    def test_appimage_reuses_builder_video_samples_and_retains_probe_diagnostics(self):
+        text = self.text('rocky8-probe.yml')
+        producer = text.split('name: komamimic-appimage-input', 1)[1].split('if-no-files-found:', 1)[0]
+        self.assertIn('tmp/rocky8-probe/build/tests/video-fixtures/*', producer)
+        consumer = job(text, 'appimage')
+        download = consumer.split('uses: actions/download-artifact@', 1)[1].split('      - name:', 1)[0]
+        self.assertIn('name: komamimic-appimage-input', download)
+        self.assertIn('path: tmp/appimage-input', download)
+        self.assertIn('--video-fixtures tmp/appimage-input/build/tests/video-fixtures', consumer)
+        diagnostics = consumer.split('name: diagnostics-appimage-ubuntu22-x64', 1)[1]
+        self.assertIn('tmp/appimage-work/verify/*.json', diagnostics)
+        self.assertIn('tmp/appimage-work/verify/*.log', diagnostics)

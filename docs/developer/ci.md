@@ -363,6 +363,11 @@ fixtures. A separate `document_probe` renders TXT, Markdown and reflow/fixed EPU
 with the deployed WebEngine and the xcb QPA plugin under Xvfb. This also creates
 a GL context; successful parsing alone cannot pass the document deployment check.
 The Ubuntu job supplies its Mesa/GBM and C++ runtimes, without Qt or Raven.
+動画検査の入力はRockyのCTestで生成・使用した`build/tests/video-fixtures`を
+同じrunの中間artifactで渡し、`verify --video-fixtures`で再利用する。
+Ubuntu側では生成用の`ffmpeg`コマンドを必要とせず、配布物のQt Multimediaで
+映像・音声を実際に復号する検査を自動／ソフトウェアの両設定で実行する。
+動画生成・復号のログとJSONも診断artifactへ保存する。
 The probe is an intermediate test artifact and is not shipped in the AppImage.
 Its `--output` option writes `document-render.json` separately from Chromium's
 stdout/stderr. Both diagnostic streams and the report are retained in the

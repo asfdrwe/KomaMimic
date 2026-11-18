@@ -376,6 +376,7 @@ jobs:
             tmp/rocky8-probe/appimage-stage/BUILD_MANIFEST.json
             tmp/rocky8-probe/appimage-stage/validation_probe
             tmp/rocky8-probe/appimage-stage/document_probe
+            tmp/rocky8-probe/build/tests/video-fixtures/*
             tmp/rocky8-probe/appimage-source/*
             tmp/rocky8-probe/libarchive-*.tar.gz
             tmp/rocky8-probe/poppler-*-source.tar.gz
@@ -478,6 +479,7 @@ jobs:
           python3 tools/build_appimage.py verify --image tmp/appimage-dist/*.AppImage \
             --probe tmp/appimage-input/appimage-stage/validation_probe \
             --document-probe tmp/appimage-input/appimage-stage/document_probe \
+            --video-fixtures tmp/appimage-input/build/tests/video-fixtures \
             --output tmp/appimage-work/verify 2>&1 | tee tmp/appimage-work/verify.log
           cp -a tmp/appimage-input/appimage-source tmp/appimage-dist/sources
           cp tmp/appimage-input/libarchive-*.tar.gz tmp/appimage-dist/sources/
@@ -507,10 +509,8 @@ jobs:
           name: diagnostics-appimage-ubuntu22-x64
           path: |
             tmp/appimage-work/*.log
-            tmp/appimage-work/verify/native-reader.json
-            tmp/appimage-work/verify/document-render.json
-            tmp/appimage-work/verify/document-render-stdout.log
-            tmp/appimage-work/verify/document-render-stderr.log
+            tmp/appimage-work/verify/*.json
+            tmp/appimage-work/verify/*.log
             tmp/appimage-dist/BUILD_MANIFEST.json
             tmp/appimage-dist/*.AppImage
           if-no-files-found: warn

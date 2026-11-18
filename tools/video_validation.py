@@ -10,17 +10,22 @@ from isolated_environment import isolated_environment
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def verify_videos(probe, fixtures, output, env):
+def verify_videos(probe, fixtures, output, env, *, generate_fixtures=True):
     fixtures, output = Path(fixtures), Path(output)
     # Fixture generation uses the host's tools. The probe below deliberately
     # uses the packager's isolated runtime environment instead.
     with (output / 'video-fixtures.log').open('w', encoding='utf-8') as log:
-        generated = subprocess.run([sys.executable, str(ROOT / 'tests/fixtures/generate_video_samples.py'),
-                                    '--output', str(fixtures)], stdout=log, stderr=subprocess.STDOUT,
-                                   check=False, timeout=180,
-                                   env=isolated_environment(output / 'video-environments' / 'fixtures'))
-    if generated.returncode:
-        raise RuntimeError('Video fixture generation failed; see video-fixtures.log')
+        if generate_fixtures:
+            generated = subprocess.run([sys.executable, str(ROOT / 'tests/fixtures/generate_video_samples.py'),
+                                        '--output', str(fixtures)], stdout=log, stderr=subprocess.STDOUT,
+                                       check=False, timeout=180,
+                                       env=isolated_environment(output / 'video-environments' / 'fixtures'))
+            if generated.returncode:
+                raise RuntimeError('Video fixture generation failed; see video-fixtures.log')
+        else:
+            log.write('Using pre-generated video fixtures: ' + str(fixtures) + '\n')
+            if not (fixtures / 'sample.mp4').is_file():
+                raise ValueError('Prepared video sample is missing: ' + str(fixtures / 'sample.mp4'))
     for policy in ('automatic', 'software'):
         runtime = isolated_environment(output / 'video-environments' / policy, env)
         runtime['QT_MEDIA_BACKEND'] = 'ffmpeg'

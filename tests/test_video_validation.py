@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-only
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -59,6 +60,28 @@ class VideoValidationTests(unittest.TestCase):
         with mock.patch.object(video.subprocess, 'run', side_effect=run), self.assertRaisesRegex(ValueError, 'outside'):
             video.verify_videos(root / 'probe', root / 'fixtures', root, {})
         self.assertFalse(any('--video' in command for command, options in seen))
+
+    def test_prepared_video_uses_only_the_deployed_probe_without_host_tools(self):
+        root, seen, run = self.run_probe()
+        fixtures = root / 'prepared'
+        fixtures.mkdir()
+        (fixtures / 'sample.mp4').write_bytes(b'prepared sample fixture')
+        with (mock.patch.object(video.subprocess, 'run', side_effect=run),
+              mock.patch.dict(os.environ, PATH='')):
+            video.verify_videos(root / 'app/probe', fixtures, root, dict(PATH=''), generate_fixtures=False)
+        self.assertEqual(len(seen), 4)
+        for command, options in seen:
+            self.assertEqual(command[0], str(root / 'app/probe'))
+            self.assertEqual(options['env']['PATH'], '')
+        self.assertEqual(seen[1][0][-1], str(fixtures))
+        self.assertIn('pre-generated', (root / 'video-fixtures.log').read_text())
+
+    def test_missing_prepared_video_fails_before_any_probe(self):
+        root, seen, run = self.run_probe()
+        with mock.patch.object(video.subprocess, 'run', side_effect=run):
+            with self.assertRaisesRegex(ValueError, 'Prepared video sample is missing'):
+                video.verify_videos(root / 'probe', root / 'missing', root, {}, generate_fixtures=False)
+        self.assertEqual(seen, [])
 
     def test_loaded_or_audio_only_is_not_a_success(self):
         for data in (dict(all_passed=True),
