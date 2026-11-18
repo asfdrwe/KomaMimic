@@ -21,12 +21,12 @@ class VideoValidationTests(unittest.TestCase):
         def run(command, **options):
             seen.append((command, options))
             if '--standard-paths' in command:
-                options['stdout'].write(json.dumps(dict.fromkeys(
-                    ('cache', 'config', 'data', 'generic_data', 'temp'), options['env']['HOME'])))
+                Path(command[command.index('--output') + 1]).write_text(json.dumps(dict.fromkeys(
+                    ('cache', 'config', 'data', 'generic_data', 'temp'), options['env']['HOME'])), encoding='utf-8')
                 return mock.Mock(returncode=0)
             if '--video' in command:
-                options['stdout'].write(json.dumps(data if data is not None else dict(
-                    all_passed=True, video_decoded=True, audio_decoded=True, frames=3, audio_buffers=2)))
+                Path(command[command.index('--output') + 1]).write_text(json.dumps(data if data is not None else dict(
+                    all_passed=True, video_decoded=True, audio_decoded=True, frames=3, audio_buffers=2)), encoding='utf-8')
                 return mock.Mock(returncode=code)
             return mock.Mock(returncode=0)
         return root, seen, run
@@ -53,8 +53,8 @@ class VideoValidationTests(unittest.TestCase):
         root, seen, normal = self.run_probe()
         def run(command, **options):
             if '--standard-paths' in command:
-                options['stdout'].write(json.dumps(dict.fromkeys(
-                    ('cache', 'config', 'data', 'generic_data', 'temp'), str(root / 'normal-profile'))))
+                Path(command[command.index('--output') + 1]).write_text(json.dumps(dict.fromkeys(
+                    ('cache', 'config', 'data', 'generic_data', 'temp'), str(root / 'normal-profile'))), encoding='utf-8')
                 return mock.Mock(returncode=0)
             return normal(command, **options)
         with mock.patch.object(video.subprocess, 'run', side_effect=run), self.assertRaisesRegex(ValueError, 'outside'):
@@ -73,7 +73,7 @@ class VideoValidationTests(unittest.TestCase):
         for command, options in seen:
             self.assertEqual(command[0], str(root / 'app/probe'))
             self.assertEqual(options['env']['PATH'], '')
-        self.assertEqual(seen[1][0][-1], str(fixtures))
+        self.assertEqual(seen[1][0][seen[1][0].index('--video') + 1], str(fixtures))
         self.assertIn('pre-generated', (root / 'video-fixtures.log').read_text())
 
     def test_missing_prepared_video_fails_before_any_probe(self):
@@ -98,3 +98,34 @@ class VideoValidationTests(unittest.TestCase):
             video.verify_videos(root / 'probe', root / 'fixtures', root, {})
         with mock.patch.object(video.subprocess, 'run', side_effect=subprocess.TimeoutExpired('probe', 30)), self.assertRaises(subprocess.TimeoutExpired):
             video.verify_videos(root / 'probe', root / 'fixtures', root, {})
+
+    def test_json_report_survives_empty_or_noisy_stdout(self):
+        for noise in ('', 'native multimedia diagnostic\n'):
+            with self.subTest(stdout=noise):
+                root, seen, normal = self.run_probe()
+                def run(command, **options):
+                    if '--output' in command:
+                        options['stdout'].write(noise)
+                    return normal(command, **options)
+                with mock.patch.object(video.subprocess, 'run', side_effect=run):
+                    video.verify_videos(root / 'probe', root / 'fixtures', root, {})
+                for policy in ('automatic', 'software'):
+                    self.assertTrue(json.loads((root / ('video-' + policy + '.json')).read_text())['all_passed'])
+                    self.assertEqual((root / ('video-' + policy + '-stdout.log')).read_text(), noise)
+
+    def test_empty_missing_invalid_or_stale_report_cannot_pass_with_exit_zero(self):
+        for payload in (None, '', '{invalid', '[]', 'stale'):
+            with self.subTest(report=payload):
+                root, seen, normal = self.run_probe()
+                report = root / 'video-software.json'
+                report.write_text('{"all_passed":true,"video_decoded":true,"audio_decoded":true,"frames":3,"audio_buffers":2}')
+                def run(command, **options):
+                    if '--video' in command and options['env'].get('QT_FFMPEG_DECODING_HW_DEVICE_TYPES') == ',':
+                        self.assertFalse(report.exists())
+                        if payload not in (None, 'stale'):
+                            report.write_text(payload)
+                        return mock.Mock(returncode=0)
+                    return normal(command, **options)
+                with mock.patch.object(video.subprocess, 'run', side_effect=run):
+                    with self.assertRaisesRegex(RuntimeError, 'Missing or invalid deployed video report: software'):
+                        video.verify_videos(root / 'probe', root / 'fixtures', root, {})

@@ -811,6 +811,31 @@ private slots:
     QCOMPARE(ThumbnailActivity::generations.load(), generations);
     QVERIFY(!window.m_thumbnailPreloadTimer->isActive());
   }
+  void deployedProbeWritesReportsWithoutStdout() {
+    QTemporaryDir dir;
+    for(const auto &mode:{"--standard-paths","--video"}) {
+      QProcess child;child.setStandardOutputFile(QProcess::nullDevice());
+      const auto path=dir.filePath(QString::fromLatin1(mode)+".json");
+      QStringList arguments{QString::fromLatin1(mode)};
+      if(arguments.first()=="--video")arguments<<QString::fromUtf8(KOMAMIMIC_VIDEO_FIXTURES);
+      arguments<<"--output"<<path;
+      child.start(QString::fromUtf8(KOMAMIMIC_VIDEO_PROBE),arguments);
+      QVERIFY(child.waitForFinished(15000));
+      const auto log=child.readAllStandardError();
+      QCOMPARE(child.exitStatus(),QProcess::NormalExit);
+      QVERIFY2(child.exitCode()==0,log.constData());
+      QFile report(path);QVERIFY(report.open(QIODevice::ReadOnly));
+      const auto data=QJsonDocument::fromJson(report.readAll()).object();
+      if(arguments.first()=="--video") {
+        QVERIFY(data.value("all_passed").toBool());QVERIFY(data.value("video_decoded").toBool());QVERIFY(data.value("audio_decoded").toBool());
+        QVERIFY(data.value("frames").toInt()>=3);QVERIFY(data.value("audio_buffers").toInt()>=2);
+      } else QVERIFY(!data.value("cache").toString().isEmpty());
+    }
+    QProcess failed;
+    failed.start(QString::fromUtf8(KOMAMIMIC_VIDEO_PROBE),{"--standard-paths","--output",dir.path()});
+    QVERIFY(failed.waitForFinished(10000));QCOMPARE(failed.exitCode(),2);
+    QVERIFY(failed.readAllStandardError().contains("Cannot write probe report"));
+  }
   void decodePolicyOnlyChangesInNewProcess() {
     QTemporaryDir dir;
     const auto config = dir.filePath("s.ini");

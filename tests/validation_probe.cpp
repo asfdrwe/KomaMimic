@@ -31,6 +31,26 @@ int main(int argc, char **argv) {
   progress("BEGIN QGuiApplication");
   QGuiApplication app(argc, argv);
   progress("PASS QGuiApplication: " + QGuiApplication::platformName());
+  auto arguments = app.arguments();
+  QString outputPath;
+  if (arguments.size() >= 3 && arguments.at(arguments.size() - 2) == "--output") {
+    outputPath = arguments.takeLast();
+    arguments.removeLast();
+  }
+  const auto writeReport = [&](const QByteArray &bytes) {
+    if (outputPath.isEmpty()) {
+      if (fwrite(bytes.constData(), 1, size_t(bytes.size()), stdout) == size_t(bytes.size()) && fflush(stdout) == 0)
+        return true;
+      progress("Cannot write probe report to stdout");
+      return false;
+    }
+    QFile output(outputPath);
+    if (!output.open(QIODevice::WriteOnly | QIODevice::Truncate) || output.write(bytes) != bytes.size() || !output.flush()) {
+      progress("Cannot write probe report: " + outputPath + ": " + output.errorString());
+      return false;
+    }
+    return true;
+  };
   const QJsonObject locations{
       {"cache",
        QStandardPaths::writableLocation(QStandardPaths::CacheLocation)},
@@ -50,15 +70,14 @@ int main(int argc, char **argv) {
         return 2;
       }
     }
-  if (app.arguments().size() == 2 &&
-      app.arguments().at(1) == "--standard-paths") {
+  if (arguments.size() == 2 &&
+      arguments.at(1) == "--standard-paths") {
     const auto json = QJsonDocument(locations).toJson();
-    fwrite(json.constData(), 1, size_t(json.size()), stdout);
-    return 0;
+    return writeReport(json) ? 0 : 2;
   }
-  if (app.arguments().size() == 3 &&
-      app.arguments().at(1) == "--decode-policy") {
-    QSettings settings(app.arguments().at(2), QSettings::IniFormat);
+  if (arguments.size() == 3 &&
+      arguments.at(1) == "--decode-policy") {
+    QSettings settings(arguments.at(2), QSettings::IniFormat);
     initializeVideoDecoding(settings);
     const auto first = qgetenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES");
     settings.setValue("video/decode",
@@ -71,10 +90,9 @@ int main(int argc, char **argv) {
                 {"unchanged",
                  first == qgetenv("QT_FFMPEG_DECODING_HW_DEVICE_TYPES")}})
             .toJson();
-    fwrite(result.constData(), 1, size_t(result.size()), stdout);
-    return 0;
+    return writeReport(result) ? 0 : 2;
   }
-  if (app.arguments().size() == 3 && app.arguments().at(1) == "--video") {
+  if (arguments.size() == 3 && arguments.at(1) == "--video") {
     QMediaPlayer player;
     QVideoSink sink;
     QAudioBufferOutput audio;
@@ -111,10 +129,10 @@ int main(int argc, char **argv) {
                      });
     deadline.start(10000);
     player.setSource(
-        QUrl::fromLocalFile(app.arguments().at(2) + "/sample.mp4"));
+        QUrl::fromLocalFile(arguments.at(2) + "/sample.mp4"));
     player.play();
     loop.exec();
-    player.stop();
+    progress(QString("VIDEO decoded: frames=%1; audio_buffers=%2; error=%3").arg(frames).arg(buffers).arg(error));
     const bool passed = frames >= 3 && buffers >= 2 && error.isEmpty();
     const auto result =
         QJsonDocument(QJsonObject{{"all_passed", passed},
@@ -125,12 +143,17 @@ int main(int argc, char **argv) {
                                   {"qt_version", qVersion()},
                                   {"error", error}})
             .toJson();
-    fwrite(result.constData(), 1, size_t(result.size()), stdout);
+    // Save and flush the result before stopping/tearing down native media.
+    // Deployment checks use a separate file rather than buffered CRT stdout.
+    const bool written = writeReport(result);
+    progress(written ? "PASS video report saved" : "FAIL video report save");
+    player.stop();
+    if (!written) return 2;
     return passed ? 0 : 1;
   }
-  if (app.arguments().size() != 2)
+  if (arguments.size() != 2)
     return 2;
-  const QString root = app.arguments().at(1) + '/';
+  const QString root = arguments.at(1) + '/';
   QJsonArray results;
   bool failed = false;
   const auto check = [&](const QString &name, bool ok,
@@ -257,6 +280,6 @@ int main(int argc, char **argv) {
   const auto output =
       QJsonDocument(QJsonObject{{"all_passed", !failed}, {"results", results}})
           .toJson();
-  fwrite(output.constData(), 1, size_t(output.size()), stdout);
+  if (!writeReport(output)) return 2;
   return failed ? 1 : 0;
 }
