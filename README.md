@@ -43,7 +43,6 @@ links between matching pages. Core developer documentation is maintained in Engl
 For the v1 image and document viewer, use the
 [v1 English guide](https://asfdrwe.github.io/KomaMimic/en/) or
 [v1 日本語ガイド](https://asfdrwe.github.io/KomaMimic/).
-The [v2 guide is also available in this repository](docs/site/en/index.md).
 
 ## Build from source
 
