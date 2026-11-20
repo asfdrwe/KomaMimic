@@ -8,7 +8,7 @@
         
         <link rel="canonical" href="https://asfdrwe.github.io/KomaMimic/v2/user/install/">
         <link rel="shortcut icon" href="../../img/favicon.ico">
-        <title>インストール - KomaMimic v2 Guide (development)</title>
+        <title>インストール - KomaMimic v2 Guide</title>
         <link href="../../css/bootstrap.min.css" rel="stylesheet">
         <link href="../../css/fontawesome.min.css" rel="stylesheet">
         <link href="../../css/brands.min.css" rel="stylesheet">
@@ -24,7 +24,7 @@
     <body>
         <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
             <div class="container">
-                <a class="navbar-brand" href="../..">KomaMimic v2 Guide (development)</a>
+                <a class="navbar-brand" href="../..">KomaMimic v2 Guide</a>
                 <!-- Expander button -->
                 <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -213,7 +213,7 @@
 </li>
                                     
 <li>
-    <a href="https://asfdrwe.github.io/KomaMimic/v2/" class="dropdown-item">v2 (development / 開発中)</a>
+    <a href="https://asfdrwe.github.io/KomaMimic/v2/" class="dropdown-item">v2</a>
 </li>
                                 </ul>
                             </li>
@@ -278,8 +278,10 @@
                     <div class="col-md-9" role="main">
 
 <h1 id="_1">インストール</h1>
-<p>v2.0.0は開発中です。v2配布物の検証はまだ完了していません。以下の手順・名前例はv1で確認したもので、正式なv2インストール案内はCIと配布成果物の確認後に更新します。</p>
+<p>このページは、画像・文書の閲覧に動画再生を加えたv2.0.0のインストール・更新・アンインストール手順です。</p>
 <p>日本語 | <a href="../../en/user/install/">English</a></p>
+<h3 id="v17x">v1.7.xからの更新</h3>
+<p>既存の設定と<code>thumbnails-v2</code>キャッシュを引き続き利用できます。動画機能の追加に伴う画像・文書キャッシュの削除や移行は不要です。</p>
 <h3 id="thumbnails-v2"><code>thumbnails-v2</code> への更新</h3>
 <p>旧版の <code>thumbnails-v1</code> キャッシュは新版に引き継がれません。ディスク領域を回収したい場合は、<strong>新版を入れる前に</strong>旧版の「環境設定 → キャッシュ」で削除してください。新版のキャッシュ削除は旧版の保存先を消しません。詳しくは<a href="../settings/">設定とキャッシュ</a>を参照してください。</p>
 <h2 id="windowszip">Windows（ZIP版）</h2>
@@ -296,20 +298,20 @@ Qtなどの主要ライブラリを同梱しており、Qt SDK・Visual Studio�
 このランタイムの導入・更新を確認してください。</p>
 <h3 id="_3">入手とチェックサム</h3>
 <p><a href="https://github.com/asfdrwe/KomaMimic/releases">GitHubのReleases</a>から
-<code>KomaMimic-1.0.0-windows-x86_64.zip</code>を取得します。以下はv1.0.0のファイル名の例です。
+<code>KomaMimic-2.0.0-windows-x86_64.zip</code>を取得します。以下はv2.0.0のファイル名の例です。
 別の版を使う場合は、取得した名前に置き換えてください。</p>
 <h4 id="_4">配布物の検査</h4>
 <p>配布物の検査をしたい場合は、配布用ZIPと<code>SHA256SUMS</code>があるフォルダーでPowerShellを開き、次を実行します。</p>
-<pre><code class="language-powershell">Get-FileHash -LiteralPath .\KomaMimic-1.0.0-windows-x86_64.zip -Algorithm SHA256
+<pre><code class="language-powershell">Get-FileHash -LiteralPath .\KomaMimic-2.0.0-windows-x86_64.zip -Algorithm SHA256
 </code></pre>
 <p>表示された<code>Hash</code>を、<code>SHA256SUMS</code>にある同じZIP名の行の先頭64文字と照合してください。
 英字の大文字・小文字の違いは無視できます。</p>
 <h3 id="_5">展開と起動</h3>
-<p>配布用の<code>KomaMimic-1.0.0-windows-x86_64.zip</code>を右クリックし、<strong>すべて展開</strong>を選びます。
-展開した<code>KomaMimic-1.0.0-windows-x86_64</code>フォルダーを、書込み可能な好きな場所へ置きます。
+<p>配布用の<code>KomaMimic-2.0.0-windows-x86_64.zip</code>を右クリックし、<strong>すべて展開</strong>を選びます。
+展開した<code>KomaMimic-2.0.0-windows-x86_64</code>フォルダーを、書込み可能な好きな場所へ置きます。
 例えば、エクスプローラーで<code>%LOCALAPPDATA%</code>を開き、<code>Programs</code>フォルダー（なければ作成）の
 中へ置けば、起動ファイルは次の場所になります。</p>
-<pre><code class="language-text">%LOCALAPPDATA%\Programs\KomaMimic-1.0.0-windows-x86_64\komamimic.exe
+<pre><code class="language-text">%LOCALAPPDATA%\Programs\KomaMimic-2.0.0-windows-x86_64\komamimic.exe
 </code></pre>
 <p><code>komamimic.exe</code>をダブルクリックして起動します。
 同じフォルダーのworker・DLL・サブフォルダーも必要なので、一式を保持してください。
@@ -372,10 +374,10 @@ Qtなどの主要ライブラリを同梱しているため、HomebrewやQt SDK�
 Developer ID署名とAppleによる公証は行っていないため、初回起動時は以下の許可操作が必要です。</p>
 <h3 id="_8">入手とチェックサム</h3>
 <p><a href="https://github.com/asfdrwe/KomaMimic/releases">GitHubのReleases</a>から
-<code>KomaMimic-1.0.0-macos-arm64.dmg</code>を取得します。以下はv1.0.0のファイル名の例です。
+<code>KomaMimic-2.0.0-macos-arm64.dmg</code>を取得します。以下はv2.0.0のファイル名の例です。
 別の版を使う場合は、取得した名前に置き換えてください。</p>
 <p>チェックサムを確認する場合は、DMGがあるフォルダーでターミナルを開き、次を実行します。</p>
-<pre><code class="language-sh">shasum -a 256 KomaMimic-1.0.0-macos-arm64.dmg
+<pre><code class="language-sh">shasum -a 256 KomaMimic-2.0.0-macos-arm64.dmg
 </code></pre>
 <p>表示された先頭64文字を、配布する<code>SHA256SUMS</code>にある同じDMG名の行と照合してください。</p>
 <h3 id="_9">配置と起動</h3>
@@ -435,11 +437,11 @@ Finderの「移動」→「フォルダへ移動」で、これらのパスを�
 <p>Ubuntu 22.04相当（glibc 2.35）以降の環境を基準に、自動検査を行っています。Fedora 44でも起動と基本動作を確認しています。</p>
 <h3 id="_12">入手と展開</h3>
 <p><a href="https://github.com/asfdrwe/KomaMimic/releases">GitHubのReleases</a>で配布するLinux用AppImageを取得します。
-<code>KomaMimic-1.0.0-linux-x86_64.zip</code>をダウンロードし、ZIPを展開してください。</p>
-<p>実行するファイルは <code>KomaMimic-1.0.0-linux-x86_64.AppImage</code> です。
+<code>KomaMimic-2.0.0-linux-x86_64.zip</code>をダウンロードし、ZIPを展開してください。</p>
+<p>実行するファイルは <code>KomaMimic-2.0.0-linux-x86_64.AppImage</code> です。
 同じ場所の <code>sources/</code> は対応ソースであり、起動のために展開・ビルドする必要はありません。
 <code>komamimic.desktop</code>と<code>komamimic.png</code>は、アプリケーションメニューへ登録するためのファイルです。
-以下のファイル名はv1.0.0の例です。別の版を使う場合は取得した名前に置き換えてください。</p>
+以下のファイル名はv2.0.0の例です。別の版を使う場合は取得した名前に置き換えてください。</p>
 <p><code>SHA256SUMS</code>が付属している場合は、ZIPを展開したフォルダーで端末を開き、整合性を確認できます。</p>
 <pre><code class="language-sh">sha256sum --check SHA256SUMS
 </code></pre>
@@ -447,9 +449,9 @@ Finderの「移動」→「フォルダへ移動」で、これらのパスを�
 <p>AppImageを置く場所の例として、ホームフォルダー内の <code>.local/bin/</code> を使います。
 AppImageがあるフォルダーで端末を開き、次を実行します。</p>
 <pre><code class="language-sh">mkdir -p &quot;$HOME/.local/bin&quot;
-mv KomaMimic-1.0.0-linux-x86_64.AppImage &quot;$HOME/.local/bin/&quot;
-chmod u+x &quot;$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage&quot;
-&quot;$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage&quot;
+mv KomaMimic-2.0.0-linux-x86_64.AppImage &quot;$HOME/.local/bin/&quot;
+chmod u+x &quot;$HOME/.local/bin/KomaMimic-2.0.0-linux-x86_64.AppImage&quot;
+&quot;$HOME/.local/bin/KomaMimic-2.0.0-linux-x86_64.AppImage&quot;
 </code></pre>
 <p>ファイルマネージャーから起動する場合も、先にファイルのプロパティで実行権限を許可します。
 その後、AppImageをダブルクリックするか、ファイルマネージャーの「実行」を選びます。
@@ -470,14 +472,14 @@ cp komamimic.png &quot;$HOME/.local/share/icons/hicolor/256x256/apps/&quot;
 <p>通常起動ではFUSEを使います。<code>Cannot mount AppImage</code>、<code>No suitable fusermount binary</code>などが
 表示される場合は、OSのFUSE設定を確認するか、次の展開実行を使ってください。
 端末から起動するとエラー内容を確認できます。</p>
-<pre><code class="language-sh">&quot;$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage&quot; --appimage-extract-and-run
+<pre><code class="language-sh">&quot;$HOME/.local/bin/KomaMimic-2.0.0-linux-x86_64.AppImage&quot; --appimage-extract-and-run
 </code></pre>
 <p>この方法はFUSEを使わず、一時フォルダーへ展開して起動します。展開先には十分な空き容量が必要です。
 通常起動に比べて起動までに時間がかかることがあります。</p>
 <p>展開したファイルを残して繰り返し使いたい場合は、新しい専用フォルダーを作って展開します。</p>
-<pre><code class="language-sh">mkdir &quot;$HOME/.local/bin/KomaMimic-1.0.0-extracted&quot;
-cd &quot;$HOME/.local/bin/KomaMimic-1.0.0-extracted&quot;
-../KomaMimic-1.0.0-linux-x86_64.AppImage --appimage-extract
+<pre><code class="language-sh">mkdir &quot;$HOME/.local/bin/KomaMimic-2.0.0-extracted&quot;
+cd &quot;$HOME/.local/bin/KomaMimic-2.0.0-extracted&quot;
+../KomaMimic-2.0.0-linux-x86_64.AppImage --appimage-extract
 ./squashfs-root/AppRun
 </code></pre>
 <p>以後はこのフォルダー内の <code>squashfs-root/AppRun</code> から起動します。

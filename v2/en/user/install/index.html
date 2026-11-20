@@ -8,7 +8,7 @@
         
         <link rel="canonical" href="https://asfdrwe.github.io/KomaMimic/v2/en/user/install/">
         <link rel="shortcut icon" href="../../../img/favicon.ico">
-        <title>Installation - KomaMimic v2 Guide (development)</title>
+        <title>Installation - KomaMimic v2 Guide</title>
         <link href="../../../css/bootstrap.min.css" rel="stylesheet">
         <link href="../../../css/fontawesome.min.css" rel="stylesheet">
         <link href="../../../css/brands.min.css" rel="stylesheet">
@@ -24,7 +24,7 @@
     <body>
         <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
             <div class="container">
-                <a class="navbar-brand" href="../../..">KomaMimic v2 Guide (development)</a>
+                <a class="navbar-brand" href="../../..">KomaMimic v2 Guide</a>
                 <!-- Expander button -->
                 <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -213,7 +213,7 @@
 </li>
                                     
 <li>
-    <a href="https://asfdrwe.github.io/KomaMimic/v2/" class="dropdown-item">v2 (development / 開発中)</a>
+    <a href="https://asfdrwe.github.io/KomaMimic/v2/" class="dropdown-item">v2</a>
 </li>
                                 </ul>
                             </li>
@@ -278,9 +278,11 @@
                     <div class="col-md-9" role="main">
 
 <h1 id="installation">Installation</h1>
-<p>v2.0.0 is under development and its packages have not yet completed validation. The procedures and filename examples below were verified for v1; v2 installation instructions will be updated after CI and packaged artifacts are checked.</p>
+<p>This page describes installation, updates, and removal for v2.0.0, which adds local video playback to image and document viewing.</p>
 <p><a href="../../../user/install/">日本語</a> | English</p>
 <p>Screenshots on this page show the Japanese UI.</p>
+<h3 id="updating-from-v17x">Updating from v1.7.x</h3>
+<p>Existing settings and <code>thumbnails-v2</code> caches remain usable. Adding video playback does not require clearing or migrating the image and document caches.</p>
 <h3 id="upgrading-to-thumbnails-v2">Upgrading to <code>thumbnails-v2</code></h3>
 <p>The earlier <code>thumbnails-v1</code> cache is not migrated. To reclaim its disk space, clear the old cache from Preferences → Cache in the <strong>old version before upgrading</strong>. Clearing the cache in the new version does not delete the old cache directory. See <a href="../settings/">Settings and caches</a> for details.</p>
 <h2 id="windows-zip">Windows (ZIP)</h2>
@@ -297,22 +299,22 @@ and follow the installer. This runtime is not included in the application ZIP.</
 <p>If an error reports missing <code>VCRUNTIME140.dll</code> or <code>MSVCP140.dll</code>, also check that
 this runtime is installed and up to date.</p>
 <h3 id="download-and-checksum">Download and checksum</h3>
-<p>Download <code>KomaMimic-1.0.0-windows-x86_64.zip</code> from
+<p>Download <code>KomaMimic-2.0.0-windows-x86_64.zip</code> from
 <a href="https://github.com/asfdrwe/KomaMimic/releases">GitHub Releases</a>. These filenames use
-v1.0.0 as an example; substitute the downloaded name for other versions.</p>
+v2.0.0 as an example; substitute the downloaded name for other versions.</p>
 <h4 id="verifying-the-package">Verifying the package</h4>
 <p>To check the package, open PowerShell in the folder containing the distribution
 ZIP and <code>SHA256SUMS</code>, then run:</p>
-<pre><code class="language-powershell">Get-FileHash -LiteralPath .\KomaMimic-1.0.0-windows-x86_64.zip -Algorithm SHA256
+<pre><code class="language-powershell">Get-FileHash -LiteralPath .\KomaMimic-2.0.0-windows-x86_64.zip -Algorithm SHA256
 </code></pre>
 <p>Compare the displayed <code>Hash</code> with the first 64 characters on the line for that ZIP
 in <code>SHA256SUMS</code>. Letter case does not matter.</p>
 <h3 id="extraction-and-startup">Extraction and startup</h3>
-<p>Right-click <code>KomaMimic-1.0.0-windows-x86_64.zip</code> and choose <strong>Extract All</strong>. Place the
-extracted <code>KomaMimic-1.0.0-windows-x86_64</code> folder in a writable location. For example,
+<p>Right-click <code>KomaMimic-2.0.0-windows-x86_64.zip</code> and choose <strong>Extract All</strong>. Place the
+extracted <code>KomaMimic-2.0.0-windows-x86_64</code> folder in a writable location. For example,
 open <code>%LOCALAPPDATA%</code> in Explorer and place it inside <code>Programs</code> (create that folder
 if needed). The executable is then:</p>
-<pre><code class="language-text">%LOCALAPPDATA%\Programs\KomaMimic-1.0.0-windows-x86_64\komamimic.exe
+<pre><code class="language-text">%LOCALAPPDATA%\Programs\KomaMimic-2.0.0-windows-x86_64\komamimic.exe
 </code></pre>
 <p>Double-click <code>komamimic.exe</code>. Keep the whole folder: its worker, DLLs, and
 subfolders are required. Run from the extracted folder, not directly inside the
@@ -380,11 +382,11 @@ Major libraries, including Qt, are bundled; Homebrew and Qt SDK are not required
 There is no Developer ID signature or Apple notarization, so the initial launch
 requires the permission steps below.</p>
 <h3 id="download-and-checksum_1">Download and checksum</h3>
-<p>Download <code>KomaMimic-1.0.0-macos-arm64.dmg</code> from
+<p>Download <code>KomaMimic-2.0.0-macos-arm64.dmg</code> from
 <a href="https://github.com/asfdrwe/KomaMimic/releases">GitHub Releases</a>. These filenames use
-v1.0.0 as an example; substitute the downloaded name for other versions.</p>
+v2.0.0 as an example; substitute the downloaded name for other versions.</p>
 <p>To check the checksum, open Terminal in the folder containing the DMG and run:</p>
-<pre><code class="language-sh">shasum -a 256 KomaMimic-1.0.0-macos-arm64.dmg
+<pre><code class="language-sh">shasum -a 256 KomaMimic-2.0.0-macos-arm64.dmg
 </code></pre>
 <p>Compare the first 64 characters with the line for the same DMG in the distributed
 <code>SHA256SUMS</code>.</p>
@@ -454,11 +456,11 @@ AppImage wherever you prefer and launch it.</p>
 Startup and basic operation have also been checked on Fedora 44.</p>
 <h3 id="download-and-extraction">Download and extraction</h3>
 <p>Download the Linux AppImage from <a href="https://github.com/asfdrwe/KomaMimic/releases">GitHub Releases</a>.
-Download <code>KomaMimic-1.0.0-linux-x86_64.zip</code> and extract it.</p>
-<p>The executable is <code>KomaMimic-1.0.0-linux-x86_64.AppImage</code>. The adjacent <code>sources/</code>
+Download <code>KomaMimic-2.0.0-linux-x86_64.zip</code> and extract it.</p>
+<p>The executable is <code>KomaMimic-2.0.0-linux-x86_64.AppImage</code>. The adjacent <code>sources/</code>
 contains source files; you do not need to extract or build them to run the app.
 <code>komamimic.desktop</code> and <code>komamimic.png</code> register the app in the application menu.
-The filenames below use v1.0.0 as an example; substitute the downloaded names for
+The filenames below use v2.0.0 as an example; substitute the downloaded names for
 other versions.</p>
 <p>If <code>SHA256SUMS</code> is included, open a terminal in the extracted ZIP folder and verify
 integrity:</p>
@@ -468,9 +470,9 @@ integrity:</p>
 <p>This example uses <code>.local/bin/</code> in your home folder. Open a terminal in the folder
 containing the AppImage and run:</p>
 <pre><code class="language-sh">mkdir -p &quot;$HOME/.local/bin&quot;
-mv KomaMimic-1.0.0-linux-x86_64.AppImage &quot;$HOME/.local/bin/&quot;
-chmod u+x &quot;$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage&quot;
-&quot;$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage&quot;
+mv KomaMimic-2.0.0-linux-x86_64.AppImage &quot;$HOME/.local/bin/&quot;
+chmod u+x &quot;$HOME/.local/bin/KomaMimic-2.0.0-linux-x86_64.AppImage&quot;
+&quot;$HOME/.local/bin/KomaMimic-2.0.0-linux-x86_64.AppImage&quot;
 </code></pre>
 <p>To launch from a file manager, first allow execution in the file's properties.
 Then double-click the AppImage or choose the file manager's Run action. Names and
@@ -491,14 +493,14 @@ filenames may contain spaces or Japanese characters.</p>
 <p>Normal startup uses FUSE. For <code>Cannot mount AppImage</code>, <code>No suitable fusermount binary</code>,
 or similar errors, check your OS's FUSE setup or use extraction-based execution
 below. Launching from a terminal shows the error details.</p>
-<pre><code class="language-sh">&quot;$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage&quot; --appimage-extract-and-run
+<pre><code class="language-sh">&quot;$HOME/.local/bin/KomaMimic-2.0.0-linux-x86_64.AppImage&quot; --appimage-extract-and-run
 </code></pre>
 <p>This extracts into a temporary folder and runs without FUSE. The temporary location
 needs sufficient free space; startup may take longer than normal.</p>
 <p>To keep an extracted copy for repeated use, create a new dedicated folder:</p>
-<pre><code class="language-sh">mkdir &quot;$HOME/.local/bin/KomaMimic-1.0.0-extracted&quot;
-cd &quot;$HOME/.local/bin/KomaMimic-1.0.0-extracted&quot;
-../KomaMimic-1.0.0-linux-x86_64.AppImage --appimage-extract
+<pre><code class="language-sh">mkdir &quot;$HOME/.local/bin/KomaMimic-2.0.0-extracted&quot;
+cd &quot;$HOME/.local/bin/KomaMimic-2.0.0-extracted&quot;
+../KomaMimic-2.0.0-linux-x86_64.AppImage --appimage-extract
 ./squashfs-root/AppRun
 </code></pre>
 <p>Afterward, launch <code>squashfs-root/AppRun</code> in that folder. Retain the complete extracted

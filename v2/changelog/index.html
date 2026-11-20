@@ -8,7 +8,7 @@
         
         <link rel="canonical" href="https://asfdrwe.github.io/KomaMimic/v2/changelog/">
         <link rel="shortcut icon" href="../img/favicon.ico">
-        <title>更新履歴 - KomaMimic v2 Guide (development)</title>
+        <title>更新履歴 - KomaMimic v2 Guide</title>
         <link href="../css/bootstrap.min.css" rel="stylesheet">
         <link href="../css/fontawesome.min.css" rel="stylesheet">
         <link href="../css/brands.min.css" rel="stylesheet">
@@ -24,7 +24,7 @@
     <body>
         <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
             <div class="container">
-                <a class="navbar-brand" href="..">KomaMimic v2 Guide (development)</a>
+                <a class="navbar-brand" href="..">KomaMimic v2 Guide</a>
                 <!-- Expander button -->
                 <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -213,7 +213,7 @@
 </li>
                                     
 <li>
-    <a href="https://asfdrwe.github.io/KomaMimic/v2/" class="dropdown-item">v2 (development / 開発中)</a>
+    <a href="https://asfdrwe.github.io/KomaMimic/v2/" class="dropdown-item">v2</a>
 </li>
                                 </ul>
                             </li>
@@ -258,7 +258,7 @@
             
             <li class="nav-item" data-bs-level="1"><a href="#_1" class="nav-link">更新履歴</a>
               <ul class="nav flex-column">
-            <li class="nav-item" data-bs-level="2"><a href="#v200" class="nav-link">v2.0.0（開発中・未公開）</a>
+            <li class="nav-item" data-bs-level="2"><a href="#v200" class="nav-link">v2.0.0</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -335,8 +335,17 @@
 
 <h1 id="_1">更新履歴</h1>
 <p>日本語 | <a href="../en/changelog/">English</a></p>
-<h2 id="v200">v2.0.0（開発中・未公開）</h2>
-<p>動画モード、再生・表示設定、動画表紙、Multimediaの配布と自動テストを追加しています。v1文書を保持し、v2文書を別URLへ分離します。</p>
+<h2 id="v200">v2.0.0</h2>
+<ul>
+<li>動画モードを追加。再生・一時停止・停止・シーク、速度・音量、音声トラック・内蔵字幕の選択、A-B区間リピートに対応しました。</li>
+<li>動画の表示比率・回転・反転、Blend/Bob/Linearデインタレースと手動TFF/BFF指定、動画用の消灯抑止・最小化時動作を追加しました。</li>
+<li>現在の映像を表紙として登録し、選択したトラックと時刻を保存できるようにしました。既存の画像・文書と同じキャッシュ優先順を維持します。</li>
+<li>動画デコードの「自動／ソフトウェア」設定と、変更保存後の再起動案内を追加しました。GIF等は引き続き読書モードを既定とし、動画モードへ切り替えられます。</li>
+<li>前後の書庫移動に単体画像も含め、同じフォルダの画像・書庫・文書・動画を既存順で移動できるようにしました。通常の画像ページ送りは維持します。</li>
+<li>ディスクキャッシュ容量設定の固定上限を撤廃しました。既定容量・単位・既存キャッシュの利用は維持します。</li>
+<li>Qt Multimediaの配布と、Windows・macOS・Linuxの配布物での動画・音声復号検査を追加しました。形式・字幕等の制限は<a href="../user/video/">動画ガイド</a>を参照してください。</li>
+<li>v1文書は従来URLに維持し、v2文書は<code>/v2/</code>へ公開します。v1.xは画像・文書ビューアとして保守します。</li>
+</ul>
 <h2 id="v173">v1.7.3</h2>
 <ul>
 <li>Linux AppImageをメニューから起動し、入力方式の環境変数が未指定または空の場合にも、同梱IBusプラグインを候補として試すようにしました。明示された候補順や他の入力方式の指定は保持します。</li>

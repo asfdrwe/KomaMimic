@@ -8,7 +8,7 @@
         
         <link rel="canonical" href="https://asfdrwe.github.io/KomaMimic/v2/en/changelog/">
         <link rel="shortcut icon" href="../../img/favicon.ico">
-        <title>Changelog - KomaMimic v2 Guide (development)</title>
+        <title>Changelog - KomaMimic v2 Guide</title>
         <link href="../../css/bootstrap.min.css" rel="stylesheet">
         <link href="../../css/fontawesome.min.css" rel="stylesheet">
         <link href="../../css/brands.min.css" rel="stylesheet">
@@ -24,7 +24,7 @@
     <body>
         <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
             <div class="container">
-                <a class="navbar-brand" href="../..">KomaMimic v2 Guide (development)</a>
+                <a class="navbar-brand" href="../..">KomaMimic v2 Guide</a>
                 <!-- Expander button -->
                 <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -213,7 +213,7 @@
 </li>
                                     
 <li>
-    <a href="https://asfdrwe.github.io/KomaMimic/v2/" class="dropdown-item">v2 (development / 開発中)</a>
+    <a href="https://asfdrwe.github.io/KomaMimic/v2/" class="dropdown-item">v2</a>
 </li>
                                 </ul>
                             </li>
@@ -258,7 +258,7 @@
             
             <li class="nav-item" data-bs-level="1"><a href="#changelog" class="nav-link">Changelog</a>
               <ul class="nav flex-column">
-            <li class="nav-item" data-bs-level="2"><a href="#v200-development-unreleased" class="nav-link">v2.0.0 (development, unreleased)</a>
+            <li class="nav-item" data-bs-level="2"><a href="#v200" class="nav-link">v2.0.0</a>
               <ul class="nav flex-column">
               </ul>
             </li>
@@ -335,8 +335,17 @@
 
 <h1 id="changelog">Changelog</h1>
 <p><a href="../../changelog/">日本語</a> | English</p>
-<h2 id="v200-development-unreleased">v2.0.0 (development, unreleased)</h2>
-<p>Adds video mode, playback and display preferences, video covers, Multimedia deployment, and automated checks. The v1 guide is preserved and v2 documentation uses a separate URL.</p>
+<h2 id="v200">v2.0.0</h2>
+<ul>
+<li>Add video playback with play, pause, stop, seeking, speed and volume controls, audio and embedded subtitle selection, and A-B repeat.</li>
+<li>Add video aspect ratio, rotation, mirroring, Blend/Bob/Linear deinterlacing with manual TFF/BFF selection, idle inhibition, and minimize behavior settings.</li>
+<li>Register the current video frame as a cover and save its selected track and timestamp, retaining the existing cache priorities used by images and documents.</li>
+<li>Add automatic/software video decoding preferences and a restart notice after saving a change. GIF and similar images still use reading mode by default and can be switched to video mode.</li>
+<li>Include individual images in previous/next archive navigation, following the existing order through images, archives, documents, and videos in the same folder. Ordinary image page navigation is unchanged.</li>
+<li>Remove the fixed upper limit on the disk cache capacity setting while retaining its default, unit, and existing cached images.</li>
+<li>Deploy Qt Multimedia and check actual video and audio decoding in Windows, macOS, and Linux packages. See the <a href="https://asfdrwe.github.io/KomaMimic/v2/en/user/video/">video guide</a> for format and subtitle limitations.</li>
+<li>Keep v1 documentation at its existing URLs and publish v2 documentation under <code>/v2/</code>. Maintain v1.x as the image and document viewer series.</li>
+</ul>
 <h2 id="v173">v1.7.3</h2>
 <ul>
 <li>Also try the bundled IBus input plugin when launching the Linux AppImage from a menu with input-method variables unset or empty. Preserve explicit preference lists and other input-method selections.</li>
