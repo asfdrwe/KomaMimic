@@ -20,9 +20,6 @@ affiliated with the original project and does not include its code, artwork, or 
   MangaMeeya, without video playback. Its published documentation remains at
   the existing site URLs.
 
-The v2 guide is published under `/v2/`. The v1 guide stays at the site
-root, with an additional copy under `/v1/`. See the version-specific links below.
-
 ## ZIP covers and cache reuse in v1.7.0
 
 Existing memory and disk thumbnails take priority. Visible thumbnail generation
