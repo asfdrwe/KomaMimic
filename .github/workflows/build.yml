@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main-v1]
     # Build only when application, dependency, test or validation inputs change.
     # Pages validates documentation and tools/public_source.json separately.
     paths:
@@ -23,6 +23,7 @@ on:
       - '.github/actions/**'
       - '.github/workflows/build.yml'
   pull_request:
+    branches: [main-v1]
     paths:
       - 'src/**'
       - 'cmake/**'
@@ -62,6 +63,8 @@ jobs:
         with:
           persist-credentials: false
       - run: python3 tools/check_source.py --tracked
+      - name: Test v1 workflow branch boundaries
+        run: python3 -m unittest discover -s tests -p test_workflows.py
       - name: Test Windows dependency cache rules
         run: python3 -m unittest discover -s tests -p test_windows_cache.py
       - name: Lint workflows

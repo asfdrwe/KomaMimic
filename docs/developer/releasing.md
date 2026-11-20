@@ -5,29 +5,30 @@ the existing Build and Rocky/Ubuntu AppImage workflows, assembles their verified
 outputs, uploads them to a draft, checks the uploaded assets, and publishes the
 complete Release. It never creates or moves Git tags.
 
-## v1.7.3のタグ作成前
+## v1.xの保守とリリース
 
-v1.7.3では、Linux AppImageのメニュー起動で入力方式の環境変数が未指定または空の場合にも、
-入力モジュール候補へ同梱IBusを追加します。
-利用者が明示した候補順や他の入力方式の指定は保持します。
-C++本体・依存関係・workflow YAMLの変更はありません。Qtの下限6.8は維持します。
-詳細は[更新履歴](../site/changelog.md)と[仕様](specification.md)を参照してください。
-
-版番号`1.7.3`を`CMakeLists.txt`・両vcpkg manifest・READMEへ揃え、
-日英サイトの更新履歴をv1.7.3へ確定します。開発者向け更新履歴は共通履歴を参照します。
-Release validatorはこれらとタグ`v1.7.3`の一致を検証します。
-版番号更新のcommitが`main`へ反映されるまでタグをpushしません。
-既存タグは移動・変更しません。
+v1.xは`main-v1`、v2.xは`main`で開発・保守します。現在のv1公開済みタグは
+`v1.7.3`です。新しいv1.xを公開するときは、main-v1上で版番号を更新します。
+例えばv1.8.0なら、`CMakeLists.txt`・両vcpkg manifest・READMEへ`1.8.0`を揃え、
+日英サイトの更新履歴を更新します。開発者向け更新履歴は共通履歴を参照します。
+Release validatorはこれらと新しいタグ`v1.8.0`の一致を検証します。
+例示したv1.8.0は実装や版番号更新の指示ではありません。
 
 キャッシュ形式は引き続き`thumbnails-v2`です。既存v2キャッシュを削除する必要はありません。
 `thumbnails-v1`の読込・移行は行いません。古い画像の明示更新にはF6を使います。
 
 ローカルのLinux/macOS/Windows起動・CTestと、配布成果物の動作確認は区別します。
-版番号更新commitをpushし、BuildとPagesを確認してから、`main`で
+版番号更新commitをmain-v1へpushし、Buildと文書検査を確認してから、`main-v1`で
 **Release → Run workflow**を手動実行します。この実行は成果物を組み立てて検証し、
 GitHub Releaseは公開しません。成果物・依存ライセンス表示・対応ソース・checksumを確認し、
-成功後に管理者が対象commitへ注釈付き`v1.7.3`タグを作成してpushします。
+成功後に管理者が対象commitへ新しい注釈付きv1.xタグを作成してpushします。
 既存の公開タグを再試行のために移動しません。
+
+タグpushでは、そのタグのcommitにあるRelease workflowが動きます。v1.xの公開のために
+v2のmainへマージする必要はありません。文書サイトはmainから一括公開するため、
+main-v1の文書workflowは検査のみです。新しいv1文書も公開するときは、main側の
+`tools/build_docs.py`の`V1_TAG`と`V1_COMMIT`をその公開タグ・commitへ更新し、
+mainからPagesを実行します。v1のURLはルートと`/en/`を維持し、v2は`/v2/`以下です。
 
 ## Version and tag checks
 
@@ -137,7 +138,7 @@ Before the administrator tags a public commit, finish dependency-notice,
 corresponding-source, patch/build-information, version, and documentation review as
 described in [packaging](packaging.md) and the [README](../../README.md#distribution).
 Review the dry-run bundle. Push the public commit and workflow updates to the
-default branch before tagging it. The administrator then creates and pushes the
+v1 maintenance branch `main-v1` before tagging it. The administrator then creates and pushes the
 matching tag. No Apple secret or PAT is required for this path; the publish job
 uses `GITHUB_TOKEN`.
 

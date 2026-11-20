@@ -50,6 +50,7 @@ jobs:
       - name: Check source and release failure paths
         run: |
           python tools/check_source.py --tracked
+          python -m unittest discover -s tests -p test_workflows.py
           python -m unittest discover -s tests -p test_release.py
       - name: Check Japanese and English documentation
         run: |

@@ -2,7 +2,7 @@ name: Documentation and Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main-v1]
     paths:
       - 'docs/site/**'
       - 'mkdocs.yml'
@@ -11,7 +11,9 @@ on:
       - 'tools/check_source.py'
       - 'tools/export_source.py'
       - 'tools/public_source.json'
+      - 'tests/test_workflows.py'
   pull_request:
+    branches: [main-v1]
     paths:
       - 'docs/site/**'
       - 'mkdocs.yml'
@@ -20,6 +22,7 @@ on:
       - 'tools/check_source.py'
       - 'tools/export_source.py'
       - 'tools/public_source.json'
+      - 'tests/test_workflows.py'
   workflow_dispatch:
 
 permissions:
@@ -44,28 +47,9 @@ jobs:
           cache-dependency-path: requirements-docs.txt
       - name: Check public source
         run: python tools/check_source.py --tracked
+      - name: Test v1 workflow branch boundaries
+        run: python -m unittest discover -s tests -p test_workflows.py
       - name: Install documentation dependencies
         run: python -m pip install -r requirements-docs.txt
       - name: Build documentation
         run: python -m mkdocs build --strict --site-dir "$RUNNER_TEMP/komamimic-site"
-      - name: Upload Pages artifact
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
-        with:
-          path: ${{ runner.temp }}/komamimic-site
-
-  deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    needs: build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

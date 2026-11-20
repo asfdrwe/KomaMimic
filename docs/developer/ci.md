@@ -2,26 +2,26 @@
 
 ## Documentation and GitHub Pages
 
-`.github/workflows/pages.yml` runs on changes to `docs/site/**` on main, MkDocs
-configuration and dependencies, the documentation workflow, and public-source
-selection tools. Pull requests run checks and builds only. Pushes to main and manual
-runs selecting main publish to GitHub Pages after a successful build.
-`docs/site/` contains the Japanese guide and its English translation under `en/`;
-`docs/developer/` is not included in the site. One MkDocs build produces both
-languages, with matching-page language links and shared screenshot assets.
+`main-v1`はv1.xの保守ブランチです。`.github/workflows/pages.yml`は、
+`main-v1`へのpushと同ブランチ宛てのPRで、文書・MkDocs設定・依存関係・
+文書workflow・公開ソース選択ツール・workflow回帰試験の変更を検査します。
+手動実行でも`main-v1`を選択します。権限はcontents readのみで、Pages artifactの
+アップロード・deploy job・公開用権限はありません。
 
-For initial setup, select **GitHub Actions** under repository Settings → Pages →
-Build and deployment → Source. Commit and push the workflow manually, then check
-both build and deploy in **Documentation and Pages**. For a manual run, select main
-under Run workflow. The public URL is https://asfdrwe.github.io/KomaMimic/ ; the
-English guide is at https://asfdrwe.github.io/KomaMimic/en/ .
+`docs/site/`の日本語ガイドと`en/`の英訳を一度のMkDocs strict buildで検査します。
+`docs/developer/`はサイトに含めません。言語切替と共有画像は従来どおりです。
 
-Actions are pinned to commit SHAs. The build has read-only contents permission;
-only deploy receives pages and id-token write permissions. No PAT needs to be added
-as a workflow secret. Local checks, from the repository root:
+公開サイト全体はv2.xの`main`から生成・公開します。v1は
+https://asfdrwe.github.io/KomaMimic/ と https://asfdrwe.github.io/KomaMimic/en/ 、
+v2は`/v2/`と`/v2/en/`です。main側の文書生成器はv1の公開済みタグとcommitを
+固定して取得するため、main-v1の変更だけでは公開文書は更新されません。
+v1の新しい文書を公開するときは、main側の参照タグ・commitを更新してPagesを実行します。
+
+Actionsはcommit SHAで固定します。ローカル検査は公開リポジトリのルートから実行します。
 
 ```sh
 python3 tools/check_source.py --tracked
+python3 -m unittest discover -s tests -p test_workflows.py
 python3 -m mkdocs build --strict --site-dir ../tmp/site-preview
 ```
 
@@ -31,7 +31,7 @@ See GitHub's [custom Pages workflow documentation](https://docs.github.com/en/pa
 
 The application build and automated-test workflow is
 `.github/workflows/build.yml`. Distinguish local workflow definitions from actual
-successful jobs on GitHub. It accepts main pushes, pull requests, and manual runs,
+successful jobs on GitHub. It accepts main-v1 pushes, pull requests targeting main-v1, and manual runs,
 with read-only contents permission.
 
 | Job | Work | Saved output |
@@ -62,16 +62,18 @@ runs Build. Manual runs are available regardless of changed paths. Update Build'
 | Change | Application build/tests | MkDocs/Pages |
 |---|---|---|
 | Only `docs/developer/**` | Skipped | Skipped |
-| Only `docs/site/**`, including images | Skipped | Runs; PRs do not publish |
-| Only `mkdocs.yml`, `requirements-docs.txt`, or `tools/public_source.json` | Skipped | Runs; PRs do not publish |
+| Only `docs/site/**`, including images | Skipped | Runs; checks only |
+| Only `mkdocs.yml`, `requirements-docs.txt`, or `tools/public_source.json` | Skipped | Runs; checks only |
 | Only `README.md` | Skipped | Skipped |
 | Build workflow itself | Runs | Skipped |
 | Only Rocky AppImage workflow | Skipped | Skipped; AppImage is manual |
 | Only application code | Runs | Skipped |
 | Application code and `docs/site/**` | Runs | Runs |
 
-The site workflow also watches its own definition, documentation dependencies, and
-public-selection tools. Application Build runs for selection-tool code changes;
+The site workflow also watches its own definition, documentation dependencies,
+public-selection tools, and `tests/test_workflows.py`. Both workflows execute the
+maintenance-branch and documentation-publication regression checks.
+Application Build runs for selection-tool code changes;
 documentation configuration alone follows the table above.
 
 Failures remain job failures. Diagnostics are saved for 14 days on both success and
@@ -92,7 +94,7 @@ The Linux job in Build saves logs only. The separate workflow below creates the
 Linux AppImage. Build does not create tags, GitHub Releases, or automatic releases.
 
 For initial setup, the administrator commits and pushes the workflow and documents,
-then checks jobs under **Build**. Run workflow can also run main manually. No PAT
+then checks jobs under **Build**. Run workflow can also run main-v1 manually. No PAT
 is required. Actions are pinned to commit SHAs. Windows keeps separate Qt SDK and
 vcpkg binary caches. Dependency identities exclude application release metadata
 and retain dependency, triplet, runner-image and ABI checks. Qt is not rebuilt from source. Disabling WebEngine's sandbox in the root
@@ -246,7 +248,7 @@ behavior must be checked in macOS Actions.
 ## Linux AppImage generation on Rocky 8
 
 `.github/workflows/rocky8-probe.yml` is a manually dispatched and reusable AppImage workflow.
-Start it with **Linux AppImage (Rocky 8) → Run workflow → main**. On an Ubuntu 24.04
+Start it with **Linux AppImage (Rocky 8) → Run workflow → main-v1**. On an Ubuntu 24.04
 runner, it uses a Rocky Linux 8.10 x86_64 container (`rockylinux/rockylinux:8.10`),
 installs Rocky, EPEL, and Raven RPMs, and runs a GCC Toolset 12 Release build, CLI
 checks, and the [full CTest scope](testing.md#test-scopes). Qt and WebEngine use Raven RPMs, not source builds.
