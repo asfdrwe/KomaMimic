@@ -22,6 +22,13 @@ navigation, assets and search index; building v2 never overwrites root v1 pages.
 The Release workflow uses the same builder. Update the v1 pin deliberately only
 when publishing another v1 documentation snapshot. Do not replace it with main.
 
+文書の公開先はv1をルート、v2を`/v2/`に維持する。READMEの主案内はv2の
+日本語・英語ガイドへ向け、v1の従来URLも別に案内する。ブランチ名の変更と
+文書URLの変更は連動させない。今後の`main-v1`でv1.x、`main`でv2.xを保守する
+運用へ切り替えた後も、サイト全体の公開は`main`のPages workflowに集約する。
+v1の新しい文書を公開する際は、そのリリースのタグとcommitへ参照を更新する。
+`main-v1`の先端を自動取得する構成にはしない。
+
 Local checks, with outputs under the workspace's `tmp/`:
 
 ```sh

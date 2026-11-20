@@ -1,6 +1,6 @@
 # KomaMimic v2 Guide (development)
 
-The provisional version is v2.0.0. This development guide is separate from the published v1 guide.
+v2 is the latest development series, preparing for the v2.0.0 release. This guide is built for `/v2/`.
 
 [日本語](../index.md) | English
 
@@ -9,6 +9,12 @@ Screenshots on this page show the Japanese UI.
 KomaMimic is a comic and image viewer for Windows, macOS, and Linux. Choose folders
 and archives from a cover list and read single pages, spreads, or full screen.
 It also supports PDF, TXT, Markdown, EPUB, and JavaScript image readers and filters.
+KomaMimic is an independent implementation inspired by MangaMeeya; v2 extends
+its image and document viewing features with local video playback.
+
+v1 continues as the maintained image and document viewer series without video
+playback. The [v1 English guide](https://asfdrwe.github.io/KomaMimic/en/)
+remains at its existing URL.
 
 ![KomaMimic with the Japanese UI](../assets/screenshots/readme-ja.png)
 

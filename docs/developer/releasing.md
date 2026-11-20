@@ -11,6 +11,10 @@ complete Release. It never creates or moves Git tags.
 番号変更だけではtag・Release・サイトを公開しません。v1タグは変更しません。
 公開済みv1文書は固定したv1.7.3 commitから生成し、従来URLと`/v1/`に保持します。
 v2文書は`/v2/`へ生成します。PagesとReleaseの文書検査は同じ生成器を使います。
+READMEの主リンクは`/v2/`と`/v2/en/`へ向け、v1の従来URLも併記します。
+v2のReleaseノートのインストール案内も`/v2/`以下を使います。
+v2を正式公開するまでは、READMEとガイドの開発中表記を維持します。
+今後`main-v1`をv1.x、`main`をv2.xの保守先に切り替えても、文書URLは変更しません。
 
 通常の手動Release実行は検査と成果物組立のみです。公開前に管理者が3 OSの検査・
 依存ライセンス表示・対応ソース・checksumを確認し、最終commitと一致する新しいtagを

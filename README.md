@@ -2,22 +2,26 @@
 
 ![KomaMimic icon](assets/icons/komamimic-128.png)
 
-KomaMimic is a comic and image viewer for Windows, macOS, and Linux. Browse folders
-and archives by their covers, read single pages or spreads, and customize keyboard
-and mouse controls. It also reads PDF, plain text, Markdown, and EPUB, and supports
+KomaMimic is a comic, image, and document viewer for Windows, macOS, and Linux.
+Browse folders and archives by their covers, read single pages or spreads, and
+customize keyboard and mouse controls. It also reads PDF, plain text, Markdown, and EPUB, and supports
 JavaScript image readers and filters through Script API 1.
 
 KomaMimic is an independent implementation inspired by MangaMeeya. It is not
 affiliated with the original project and does not include its code, artwork, or DLLs.
 
-## v2.0.0 development version
+## Versions
 
-This is the provisional v2.0.0 development branch. It adds local video playback
-with Qt Multimedia, video controls, saved cover selection, and video preferences.
-This version number does not identify a published release.
+- **v2 is the latest development series**, extending the MangaMeeya-inspired
+  image and document viewer with local video playback, video controls, saved
+  cover selection, and video preferences through Qt Multimedia. This branch is
+  preparing v2.0.0; the version number does not identify a published release.
+- **v1 is the maintained image and document viewer series**, inspired by
+  MangaMeeya, without video playback. Its published documentation remains at
+  the existing site URLs.
 
-The published v1 guide remains at the existing site URLs and under `/v1/`.
-The v2 development guide is built separately under `/v2/`.
+The v2 development guide is built under `/v2/`. The v1 guide stays at the site
+root, with an additional copy under `/v1/`. See the version-specific links below.
 
 ## ZIP covers and cache reuse in v1.7.0
 
@@ -68,14 +72,20 @@ The English guide reuses Japanese UI screenshots and labels them on each page.
 
 ## Documentation
 
-- [User and script developer guide (English)](https://asfdrwe.github.io/KomaMimic/en/)
-- [日本語ユーザ＆スクリプト開発者ガイド](https://asfdrwe.github.io/KomaMimic/)
+- [v2 user and script developer guide (English, development)](https://asfdrwe.github.io/KomaMimic/v2/en/)
+- [v2 日本語ユーザ＆スクリプト開発者ガイド（開発中）](https://asfdrwe.github.io/KomaMimic/v2/)
 - [Installation, updates, and removal](docs/site/en/user/install.md)
 - [Core developer documentation (English)](docs/developer/index.md)
 - [Contributing](#contributing)
 
 The user and script developer guide is available in Japanese and English, with
 links between matching pages. Core developer documentation is maintained in English.
+
+For the v1 image and document viewer, use the
+[v1 English guide](https://asfdrwe.github.io/KomaMimic/en/) or
+[v1 日本語ガイド](https://asfdrwe.github.io/KomaMimic/).
+The v2 site is prepared for publication. Until deployment, read the
+[v2 guide in this repository](docs/site/en/index.md).
 
 ## Build from source
 
