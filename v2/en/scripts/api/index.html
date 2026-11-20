@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://asfdrwe.github.io/KomaMimic/v2/en/scripts/api/">
+        <link rel="shortcut icon" href="../../../img/favicon.ico">
+        <title>API 1 specification - KomaMimic v2 Guide (development)</title>
+        <link href="../../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../../css/brands.min.css" rel="stylesheet">
+        <link href="../../../css/solid.min.css" rel="stylesheet">
+        <link href="../../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../../..">KomaMimic v2 Guide (development)</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">日本語</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../.." class="dropdown-item">はじめに</a>
+</li>
+                                    
+<li>
+    <a href="../../../user/install/" class="dropdown-item">インストール</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">利用ガイド</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../../user/basic/" class="dropdown-item">基本操作</a>
+</li>
+            
+<li>
+    <a href="../../../user/views/" class="dropdown-item">表示と画像加工</a>
+</li>
+            
+<li>
+    <a href="../../../user/documents/" class="dropdown-item">文書を読む</a>
+</li>
+            
+<li>
+    <a href="../../../user/video/" class="dropdown-item">動画を再生する</a>
+</li>
+            
+<li>
+    <a href="../../../user/library/" class="dropdown-item">本棚と履歴</a>
+</li>
+            
+<li>
+    <a href="../../../user/settings/" class="dropdown-item">設定とキャッシュ</a>
+</li>
+            
+<li>
+    <a href="../../../user/formats/" class="dropdown-item">対応形式</a>
+</li>
+            
+<li>
+    <a href="../../../user/migration/" class="dropdown-item">設定の取り込み</a>
+</li>
+            
+<li>
+    <a href="../../../user/compatibility/" class="dropdown-item">MangaMeeyaとの違い</a>
+</li>
+            
+<li>
+    <a href="../../../user/macos/" class="dropdown-item">macOSの違い</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">スクリプト開発</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../../scripts/" class="dropdown-item">導入と登録</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/api/" class="dropdown-item">API 1仕様</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/examples/" class="dropdown-item">最小例</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/bundled/" class="dropdown-item">同梱スクリプト</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../../changelog/" class="dropdown-item">更新履歴</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">English</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../" class="dropdown-item">Introduction</a>
+</li>
+                                    
+<li>
+    <a href="../../user/install/" class="dropdown-item">Installation</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">User guide</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../user/basic/" class="dropdown-item">Basic controls</a>
+</li>
+            
+<li>
+    <a href="../../user/views/" class="dropdown-item">Display and image processing</a>
+</li>
+            
+<li>
+    <a href="../../user/documents/" class="dropdown-item">Reading documents</a>
+</li>
+            
+<li>
+    <a href="../../user/video/" class="dropdown-item">Playing videos</a>
+</li>
+            
+<li>
+    <a href="../../user/library/" class="dropdown-item">Bookshelves and history</a>
+</li>
+            
+<li>
+    <a href="../../user/settings/" class="dropdown-item">Settings and caches</a>
+</li>
+            
+<li>
+    <a href="../../user/formats/" class="dropdown-item">Supported formats</a>
+</li>
+            
+<li>
+    <a href="../../user/migration/" class="dropdown-item">Importing settings</a>
+</li>
+            
+<li>
+    <a href="../../user/compatibility/" class="dropdown-item">Differences from MangaMeeya</a>
+</li>
+            
+<li>
+    <a href="../../user/macos/" class="dropdown-item">macOS differences</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">Script development</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../" class="dropdown-item">Installation and registration</a>
+</li>
+            
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">API 1 specification</a>
+</li>
+            
+<li>
+    <a href="../examples/" class="dropdown-item">Minimal examples</a>
+</li>
+            
+<li>
+    <a href="../bundled/" class="dropdown-item">Bundled scripts</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../changelog/" class="dropdown-item">Changelog</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Versions / バージョン</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="https://asfdrwe.github.io/KomaMimic/" class="dropdown-item">v1</a>
+</li>
+                                    
+<li>
+    <a href="https://asfdrwe.github.io/KomaMimic/v2/" class="dropdown-item">v2 (development / 開発中)</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../examples/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/asfdrwe/KomaMimic/edit/master/docs/en/scripts/api.md" class="nav-link"><i class="fa-brands fa-github"></i> Edit on GitHub</a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#javascript-api-1" class="nav-link">JavaScript API 1</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#manifest" class="nav-link">Manifest</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#single-image-readers" class="nav-link">Single-image readers</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#multipage-readers" class="nav-link">Multipage readers</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#context" class="nav-link">Context</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#filters" class="nav-link">Filters</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#settings-schema" class="nav-link">Settings schema</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#execution-limits-and-diagnostics" class="nav-link">Execution limits and diagnostics</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="javascript-api-1">JavaScript API 1</h1>
+<p><a href="../../../scripts/api/">日本語</a> | English</p>
+<p>The API number is independent of the application version; manifest <code>apiVersion</code>
+is <code>1</code>. Do not use ES modules, Node.js require, or asynchronous functions returning
+Promises. Define <code>decode</code> as an ordinary function, with <code>inspect</code> or <code>filter</code> when
+needed.</p>
+<h2 id="manifest">Manifest</h2>
+<pre><code class="language-json">{
+  &quot;apiVersion&quot;: 1,
+  &quot;id&quot;: &quot;org.example.reader.toy&quot;,
+  &quot;name&quot;: &quot;Toy image&quot;,
+  &quot;extensions&quot;: [&quot;toy&quot;],
+  &quot;magic&quot;: &quot;544f59&quot;,
+  &quot;script&quot;: &quot;decode.js&quot;,
+  &quot;license&quot;: &quot;GPL-3.0-only&quot;
+}
+</code></pre>
+<p>Readers declare extensions and magic; filters specify <code>kind: "filter"</code>. Magic is
+1–32 leading bytes expressed as hexadecimal and takes precedence over extension
+matching. List enumeration uses extensions, so automatic discovery of unknown
+extensions is not guaranteed. Extensions contain 1–12 lowercase alphanumeric
+characters; script is an ordinary <code>.js</code> file directly inside the package. Paths
+outside the package and symlinks are rejected. Conflicting formats across different
+IDs cause registration errors.</p>
+<p>IDs contain 1–64 alphanumeric characters, underscores, periods, or hyphens. Script
+names use alphanumeric characters, underscores, or hyphens followed by <code>.js</code>.
+Avoid magic definitions whose prefixes overlap those of other readers. Name and
+license are descriptive fields; the app does not automatically determine ownership
+or license compatibility.</p>
+<h2 id="single-image-readers">Single-image readers</h2>
+<p><code>decode(input, context)</code> returns <code>{width, height, pixels}</code>. Input is an ArrayBuffer
+containing the entire encoded file; the application handles file access and archive
+extraction. Width/height must be positive integers. Pixels must be an ArrayBuffer
+of exactly <code>width * height * 4</code> bytes: RGBA8, top-to-bottom and left-to-right,
+non-premultiplied, without row padding.</p>
+<p>Return <code>.buffer</code>, not the Uint8Array itself. A subarray still references the whole
+underlying buffer; use <code>slice().buffer</code> when needed. Thumbnails also decode the
+entire image before the application scales it down.</p>
+<h2 id="multipage-readers">Multipage readers</h2>
+<p>Add <code>multipage: true</code> to the manifest. <code>inspect(input, context)</code> returns
+<code>{pages: pageCount}</code>, with 1–10000 pages. Decode returns the zero-based page selected
+by <code>context.pageIndex</code>. Inspect and decode must be consistent for the same input
+and settings. This is not an animation-frame API.</p>
+<h2 id="context">Context</h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>apiVersion</td>
+<td>1</td>
+</tr>
+<tr>
+<td>maxBytes</td>
+<td>Encoded input limit: 64 MiB</td>
+</tr>
+<tr>
+<td>maxPixels</td>
+<td>Output pixel limit: 48 × 1024 × 1024</td>
+</tr>
+<tr>
+<td>maxPages</td>
+<td>Page limit: 10000</td>
+</tr>
+<tr>
+<td>pageIndex</td>
+<td>Zero-based target page</td>
+</tr>
+<tr>
+<td>settings</td>
+<td>Settings after applying schema defaults, types, and ranges</td>
+</tr>
+</tbody>
+</table>
+<h2 id="filters">Filters</h2>
+<p><code>filter(image, context)</code> returns an array of at most 32 operations. Image is a
+descriptor containing only width/height. Full pixel data is not passed to JavaScript;
+the application validates operations and performs native processing.</p>
+<table>
+<thead>
+<tr>
+<th>op</th>
+<th>Parameters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>grayscale / invert / flipH / flipV</td>
+<td>None</td>
+</tr>
+<tr>
+<td>gamma</td>
+<td>value: 0.1–10</td>
+</tr>
+<tr>
+<td>brightness / contrast</td>
+<td>value: -100–100, used as an integer</td>
+</tr>
+<tr>
+<td>rotate</td>
+<td>value: multiples of 90 from -270 to 270</td>
+</tr>
+<tr>
+<td>resize</td>
+<td>width/height: 1–16384; their product must not exceed maxPixels</td>
+</tr>
+</tbody>
+</table>
+<p>Filters run after normal native processing and apply to display and processed-image
+saving. They do not apply to original-byte saving, the document view, or cover
+previews. Animation is filtered frame by frame, preserving delays. Failure is not
+silently replaced with unprocessed output. Enable image processing to use filters.</p>
+<h2 id="settings-schema">Settings schema</h2>
+<pre><code class="language-json">&quot;settings&quot;: {
+  &quot;grayscale&quot;: {&quot;type&quot;: &quot;boolean&quot;, &quot;default&quot;: true},
+  &quot;gamma&quot;: {&quot;type&quot;: &quot;number&quot;, &quot;minimum&quot;: 0.1, &quot;maximum&quot;: 5, &quot;default&quot;: 1},
+  &quot;contrast&quot;: {&quot;type&quot;: &quot;integer&quot;, &quot;minimum&quot;: -100, &quot;maximum&quot;: 100, &quot;default&quot;: 10}
+}
+</code></pre>
+<p>Keys start with a letter, contain only alphanumeric characters or underscores, and
+have at most 32 characters. Up to 32 items are allowed. Boolean/integer/number
+settings generate fields in Preferences. Readers can use the same schema. Numeric
+minimum/maximum values are within -1000000–1000000, with
+<code>minimum ≤ default ≤ maximum</code>. Integer bounds and defaults must also be integers.
+Omitting numeric bounds uses ±1000000; omitting default uses minimum.</p>
+<p>Values are stored under <code>scripts/&lt;id&gt;/&lt;key&gt;</code>; values outside the schema are not
+passed. A settings snapshot is taken when opening the book. Strings, path
+permissions, and per-book script settings are not provided. The selected filter ID
+is stored under <code>scripts/filter</code>. IDs <code>0</code> and <code>1</code> are reserved and must not be used.</p>
+<h2 id="execution-limits-and-diagnostics">Execution limits and diagnostics</h2>
+<table>
+<thead>
+<tr>
+<th>Target</th>
+<th>Limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Manifest / JS source</td>
+<td>16 KiB / 256 KiB</td>
+</tr>
+<tr>
+<td>Input / output</td>
+<td>64 MiB / 48 Mi pixels</td>
+</tr>
+<tr>
+<td>Request header / filter operation-list JSON</td>
+<td>1 MiB / 16 KiB</td>
+</tr>
+<tr>
+<td>Normal request</td>
+<td>10 seconds, including parent-side startup and transfer</td>
+</tr>
+</tbody>
+</table>
+<p>Each request uses a fresh worker QJSEngine. Exceptions, invalid dimensions or byte
+counts, and timeouts produce diagnostics. Cancellation or deadlines stop the
+worker; old-generation results cannot update the GUI. Linux virtual address space
+and Windows Job Objects impose a 2 GiB limit. macOS has no equally reliable limit;
+input, output, and time limits apply instead. This is neither an application-wide
+RSS limit nor a general sandbox protecting the whole OS.</p>
+<p>Native filesystem/network/process/QObject/QML import capabilities are not exposed.
+Standard JavaScript date/time, random numbers, and similar facilities are not
+completely prohibited. CLI <code>--formats</code> / <code>--commands</code> reports invalid saved
+registrations to stderr and returns exit code 2.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../../js/base.js"></script>
+        <script src="../../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

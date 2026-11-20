@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://asfdrwe.github.io/KomaMimic/v2/en/user/install/">
+        <link rel="shortcut icon" href="../../../img/favicon.ico">
+        <title>Installation - KomaMimic v2 Guide (development)</title>
+        <link href="../../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../../css/brands.min.css" rel="stylesheet">
+        <link href="../../../css/solid.min.css" rel="stylesheet">
+        <link href="../../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../../..">KomaMimic v2 Guide (development)</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">日本語</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../.." class="dropdown-item">はじめに</a>
+</li>
+                                    
+<li>
+    <a href="../../../user/install/" class="dropdown-item">インストール</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">利用ガイド</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../../user/basic/" class="dropdown-item">基本操作</a>
+</li>
+            
+<li>
+    <a href="../../../user/views/" class="dropdown-item">表示と画像加工</a>
+</li>
+            
+<li>
+    <a href="../../../user/documents/" class="dropdown-item">文書を読む</a>
+</li>
+            
+<li>
+    <a href="../../../user/video/" class="dropdown-item">動画を再生する</a>
+</li>
+            
+<li>
+    <a href="../../../user/library/" class="dropdown-item">本棚と履歴</a>
+</li>
+            
+<li>
+    <a href="../../../user/settings/" class="dropdown-item">設定とキャッシュ</a>
+</li>
+            
+<li>
+    <a href="../../../user/formats/" class="dropdown-item">対応形式</a>
+</li>
+            
+<li>
+    <a href="../../../user/migration/" class="dropdown-item">設定の取り込み</a>
+</li>
+            
+<li>
+    <a href="../../../user/compatibility/" class="dropdown-item">MangaMeeyaとの違い</a>
+</li>
+            
+<li>
+    <a href="../../../user/macos/" class="dropdown-item">macOSの違い</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">スクリプト開発</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../../scripts/" class="dropdown-item">導入と登録</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/api/" class="dropdown-item">API 1仕様</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/examples/" class="dropdown-item">最小例</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/bundled/" class="dropdown-item">同梱スクリプト</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../../changelog/" class="dropdown-item">更新履歴</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">English</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../" class="dropdown-item">Introduction</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Installation</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">User guide</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../basic/" class="dropdown-item">Basic controls</a>
+</li>
+            
+<li>
+    <a href="../views/" class="dropdown-item">Display and image processing</a>
+</li>
+            
+<li>
+    <a href="../documents/" class="dropdown-item">Reading documents</a>
+</li>
+            
+<li>
+    <a href="../video/" class="dropdown-item">Playing videos</a>
+</li>
+            
+<li>
+    <a href="../library/" class="dropdown-item">Bookshelves and history</a>
+</li>
+            
+<li>
+    <a href="../settings/" class="dropdown-item">Settings and caches</a>
+</li>
+            
+<li>
+    <a href="../formats/" class="dropdown-item">Supported formats</a>
+</li>
+            
+<li>
+    <a href="../migration/" class="dropdown-item">Importing settings</a>
+</li>
+            
+<li>
+    <a href="../compatibility/" class="dropdown-item">Differences from MangaMeeya</a>
+</li>
+            
+<li>
+    <a href="../macos/" class="dropdown-item">macOS differences</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">Script development</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../scripts/" class="dropdown-item">Installation and registration</a>
+</li>
+            
+<li>
+    <a href="../../scripts/api/" class="dropdown-item">API 1 specification</a>
+</li>
+            
+<li>
+    <a href="../../scripts/examples/" class="dropdown-item">Minimal examples</a>
+</li>
+            
+<li>
+    <a href="../../scripts/bundled/" class="dropdown-item">Bundled scripts</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../changelog/" class="dropdown-item">Changelog</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Versions / バージョン</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="https://asfdrwe.github.io/KomaMimic/" class="dropdown-item">v1</a>
+</li>
+                                    
+<li>
+    <a href="https://asfdrwe.github.io/KomaMimic/v2/" class="dropdown-item">v2 (development / 開発中)</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../../" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../basic/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/asfdrwe/KomaMimic/edit/master/docs/en/user/install.md" class="nav-link"><i class="fa-brands fa-github"></i> Edit on GitHub</a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#installation" class="nav-link">Installation</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#windows-zip" class="nav-link">Windows (ZIP)</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#macos-dmg" class="nav-link">macOS (DMG)</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#linux-appimage" class="nav-link">Linux (AppImage)</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="installation">Installation</h1>
+<p>v2.0.0 is under development and its packages have not yet completed validation. The procedures and filename examples below were verified for v1; v2 installation instructions will be updated after CI and packaged artifacts are checked.</p>
+<p><a href="../../../user/install/">日本語</a> | English</p>
+<p>Screenshots on this page show the Japanese UI.</p>
+<h3 id="upgrading-to-thumbnails-v2">Upgrading to <code>thumbnails-v2</code></h3>
+<p>The earlier <code>thumbnails-v1</code> cache is not migrated. To reclaim its disk space, clear the old cache from Preferences → Cache in the <strong>old version before upgrading</strong>. Clearing the cache in the new version does not delete the old cache directory. See <a href="../settings/">Settings and caches</a> for details.</p>
+<h2 id="windows-zip">Windows (ZIP)</h2>
+<p>The Windows ZIP is for x86_64 (64-bit Intel/AMD). Bundled Qt 6.11 supports Windows
+10 (1809 or later) and Windows 11; see the
+<a href="https://doc.qt.io/qt-6.11/supported-platforms.html#windows">Qt support table</a>.
+Major libraries, including Qt, are bundled. Qt SDK, Visual Studio, and vcpkg are
+not required.</p>
+<h3 id="required-runtime">Required runtime</h3>
+<p><strong>Microsoft Visual C++ v14 x64 Redistributable</strong> is required. If it is missing or
+outdated, obtain the latest X64 package from Microsoft's
+<a href="https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist">official download instructions</a>
+and follow the installer. This runtime is not included in the application ZIP.</p>
+<p>If an error reports missing <code>VCRUNTIME140.dll</code> or <code>MSVCP140.dll</code>, also check that
+this runtime is installed and up to date.</p>
+<h3 id="download-and-checksum">Download and checksum</h3>
+<p>Download <code>KomaMimic-1.0.0-windows-x86_64.zip</code> from
+<a href="https://github.com/asfdrwe/KomaMimic/releases">GitHub Releases</a>. These filenames use
+v1.0.0 as an example; substitute the downloaded name for other versions.</p>
+<h4 id="verifying-the-package">Verifying the package</h4>
+<p>To check the package, open PowerShell in the folder containing the distribution
+ZIP and <code>SHA256SUMS</code>, then run:</p>
+<pre><code class="language-powershell">Get-FileHash -LiteralPath .\KomaMimic-1.0.0-windows-x86_64.zip -Algorithm SHA256
+</code></pre>
+<p>Compare the displayed <code>Hash</code> with the first 64 characters on the line for that ZIP
+in <code>SHA256SUMS</code>. Letter case does not matter.</p>
+<h3 id="extraction-and-startup">Extraction and startup</h3>
+<p>Right-click <code>KomaMimic-1.0.0-windows-x86_64.zip</code> and choose <strong>Extract All</strong>. Place the
+extracted <code>KomaMimic-1.0.0-windows-x86_64</code> folder in a writable location. For example,
+open <code>%LOCALAPPDATA%</code> in Explorer and place it inside <code>Programs</code> (create that folder
+if needed). The executable is then:</p>
+<pre><code class="language-text">%LOCALAPPDATA%\Programs\KomaMimic-1.0.0-windows-x86_64\komamimic.exe
+</code></pre>
+<p>Double-click <code>komamimic.exe</code>. Keep the whole folder: its worker, DLLs, and
+subfolders are required. Run from the extracted folder, not directly inside the
+ZIP. Any shortcut should target this <code>komamimic.exe</code>. See <a href="../basic/">basic controls</a>
+after startup.</p>
+<blockquote>
+<p><strong>First launch on Windows</strong></p>
+<p>On some systems, the first launch of the downloaded Windows build may take a few seconds before the window appears. Windows security checks and initial file loading may contribute to the delay. Subsequent launches are usually faster.</p>
+</blockquote>
+<h4 id="blank-document-view-or-gpu-related-rendering-errors">Blank document view or GPU-related rendering errors</h4>
+<p>On some Windows graphics drivers, Qt WebEngine can fail to render TXT,
+Markdown or EPUB documents (for example, a blank or black reading view).
+As a <strong>temporary troubleshooting workaround</strong>, open PowerShell in the extracted
+application folder and try:</p>
+<pre><code class="language-powershell">$env:QTWEBENGINE_CHROMIUM_FLAGS = &quot;--disable-gpu&quot;
+.\komamimic.exe
+Remove-Item Env:\QTWEBENGINE_CHROMIUM_FLAGS -ErrorAction SilentlyContinue
+</code></pre>
+<p>This disables Qt WebEngine GPU acceleration and can reduce rendering speed.
+It is not a permanent fix and may not help every configuration; also consider
+updating the graphics driver. Do not disable the WebEngine sandbox to work
+around graphics issues.</p>
+<h4 id="smartscreen-warning">SmartScreen warning</h4>
+<p>The current Windows build is not code-signed. On first launch of the downloaded
+app, Microsoft Defender SmartScreen may display <strong>Windows protected your PC</strong>.</p>
+<p>If you downloaded the package from the official Releases page, verified the
+checksum above, and choose to launch it, follow these steps. The screenshots show
+the Japanese Windows UI.</p>
+<ol>
+<li>
+<p>Select <strong>More info</strong> (<strong>詳細情報</strong>) in the warning dialog.</p>
+<p><img alt="SmartScreen warning: select More info" src="../../../assets/screenshots/windows-smartscreen-warning.png" /></p>
+</li>
+<li>
+<p>Check that the app is <code>komamimic.exe</code>, then select <strong>Run anyway</strong> (<strong>実行</strong>).
+   This version displays <strong>Unknown publisher</strong> (<strong>不明な発行元</strong>) as its publisher.</p>
+<p><img alt="Check the app name and publisher, then select Run anyway" src="../../../assets/screenshots/windows-smartscreen-run.png" /></p>
+</li>
+</ol>
+<p>See <a href="https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation">Microsoft's SmartScreen explanation</a>
+for how the warning works.</p>
+<h3 id="updating">Updating</h3>
+<ol>
+<li>Quit KomaMimic and <a href="../settings/">back up the settings folder</a>.</li>
+<li>Download the new distribution ZIP and verify its checksum.</li>
+<li>Extract the complete package into a new, separate folder and run its <code>komamimic.exe</code>.</li>
+<li>Update any shortcuts to point to the new executable.</li>
+<li>After checking the new version, remove the old extracted folder if no longer needed.</li>
+</ol>
+<p>Normal settings, bookshelves, and history are stored separately from the executable
+and carry over when run as the same user. If you used another settings file through
+<code>--config</code>, continue specifying that file after updating.</p>
+<h3 id="removal">Removal</h3>
+<p>Quit KomaMimic, delete its extracted folder, and remove shortcuts you created.
+Settings, bookshelves, history, and caches remain.</p>
+<p>To remove those too, check their <a href="../settings/">storage locations</a>, back up anything
+you need, and delete the relevant folders. Bookshelves, history, and reading
+positions will be lost. The default settings folder is
+<code>%LOCALAPPDATA%\KomaMimic\KomaMimic</code>. Your images, archives, and other book files
+are separate from application removal. Other applications may use the Visual C++
+runtime, so there is no need to uninstall it when removing KomaMimic.</p>
+<h2 id="macos-dmg">macOS (DMG)</h2>
+<p>The macOS version requires an Apple Silicon (arm64) Mac running macOS 15 or later.
+Major libraries, including Qt, are bundled; Homebrew and Qt SDK are not required.
+There is no Developer ID signature or Apple notarization, so the initial launch
+requires the permission steps below.</p>
+<h3 id="download-and-checksum_1">Download and checksum</h3>
+<p>Download <code>KomaMimic-1.0.0-macos-arm64.dmg</code> from
+<a href="https://github.com/asfdrwe/KomaMimic/releases">GitHub Releases</a>. These filenames use
+v1.0.0 as an example; substitute the downloaded name for other versions.</p>
+<p>To check the checksum, open Terminal in the folder containing the DMG and run:</p>
+<pre><code class="language-sh">shasum -a 256 KomaMimic-1.0.0-macos-arm64.dmg
+</code></pre>
+<p>Compare the first 64 characters with the line for the same DMG in the distributed
+<code>SHA256SUMS</code>.</p>
+<h3 id="placement-and-startup">Placement and startup</h3>
+<ol>
+<li>Double-click the downloaded DMG to open it.</li>
+<li>Drag <code>KomaMimic</code> to <code>Applications</code> in the same window to copy it.</li>
+<li>Once copying finishes, open Applications in Finder and double-click <code>KomaMimic</code>.
+   If Spotlight does not find it, launch it from Finder's Applications folder.</li>
+</ol>
+<p><img alt="Copy KomaMimic to Applications from the DMG" src="../../../assets/screenshots/macos-dmg.png" /></p>
+<p>Launch the copied <code>KomaMimic.app</code> rather than using the app inside the DMG. You can
+eject the DMG from the Finder sidebar after copying.</p>
+<h3 id="allowing-the-first-launch-through-gatekeeper">Allowing the first launch through Gatekeeper</h3>
+<p>macOS Gatekeeper blocks the initial launch of the app copied from the downloaded
+DMG. Allow this specific app with these steps. Wording can vary by macOS version;
+the screenshots show the Japanese interface.</p>
+<ol>
+<li>
+<p>When the warning says KomaMimic was not opened, choose <strong>Done</strong> to dismiss it.</p>
+<p><img alt="Dismiss the initial Gatekeeper warning with Done" src="../../../assets/screenshots/macos-gk1.png" /></p>
+</li>
+<li>
+<p>Open System Settings → Privacy &amp; Security and scroll down. Next to the notice
+   that KomaMimic was blocked, choose <strong>Open Anyway</strong>.</p>
+<p><img alt="Open Anyway in Privacy &amp; Security" src="../../../assets/screenshots/macos-gk2.png" /></p>
+</li>
+<li>
+<p>Choose <strong>Open Anyway</strong> again in the confirmation asking whether to open KomaMimic.</p>
+<p><img alt="Confirm opening the application" src="../../../assets/screenshots/macos-gk3.png" /></p>
+</li>
+<li>
+<p>If prompted, enter an administrator name and password and choose <strong>OK</strong>. KomaMimic starts.</p>
+<p><img alt="Authorize startup with administrator credentials" src="../../../assets/screenshots/macos-gk4.png" /></p>
+</li>
+</ol>
+<p>This permission applies to this app. See Apple's
+<a href="https://support.apple.com/en-ie/102445">Open apps safely on your Mac</a> for details.
+After startup, see <a href="../basic/">basic controls</a> and <a href="../macos/">macOS differences</a>.</p>
+<h3 id="updating_1">Updating</h3>
+<ol>
+<li>Quit KomaMimic from its application menu or with Command+Q.</li>
+<li><a href="../settings/">Back up the settings folder</a>, download the new DMG, and verify its checksum.</li>
+<li>Open the DMG and copy <code>KomaMimic.app</code> to Applications, replacing the existing app when prompted.</li>
+<li>Launch from Finder's Applications folder. If Gatekeeper asks again, use the same permission steps above.</li>
+<li>After checking the new version, eject the DMG. Delete downloaded DMGs you no longer need.</li>
+</ol>
+<p>Normal settings, bookshelves, and history are stored separately from the app and
+carry over for the same user. If you used another settings file through <code>--config</code>,
+continue specifying it after updating.</p>
+<h3 id="removal_1">Removal</h3>
+<p>Quit KomaMimic and move <code>KomaMimic.app</code> from Finder's Applications folder to the Trash.
+You can also remove Dock items you added and downloaded DMGs you no longer need.
+Settings, bookshelves, history, and caches remain.</p>
+<p>To remove those too, check their <a href="../settings/">storage locations</a>, back up anything
+you need, then delete the relevant folders. Bookshelves, history, and reading
+positions will be lost. The default settings folder is
+<code>~/Library/Preferences/KomaMimic/KomaMimic</code>; the thumbnail cache is
+<code>~/Library/Caches/KomaMimic/KomaMimic/thumbnails-v1</code>. In Finder, use Go → Go to Folder
+to enter these paths. Your images, archives, and other book files are separate
+from application removal.</p>
+<h2 id="linux-appimage">Linux (AppImage)</h2>
+<p>The Linux AppImage is for x86_64 (amd64). Major libraries, including Qt, are bundled,
+so development packages needed to build from source are unnecessary. Place the
+AppImage wherever you prefer and launch it.</p>
+<p>Automated checks use an Ubuntu 22.04-equivalent baseline (glibc 2.35) or later.
+Startup and basic operation have also been checked on Fedora 44.</p>
+<h3 id="download-and-extraction">Download and extraction</h3>
+<p>Download the Linux AppImage from <a href="https://github.com/asfdrwe/KomaMimic/releases">GitHub Releases</a>.
+Download <code>KomaMimic-1.0.0-linux-x86_64.zip</code> and extract it.</p>
+<p>The executable is <code>KomaMimic-1.0.0-linux-x86_64.AppImage</code>. The adjacent <code>sources/</code>
+contains source files; you do not need to extract or build them to run the app.
+<code>komamimic.desktop</code> and <code>komamimic.png</code> register the app in the application menu.
+The filenames below use v1.0.0 as an example; substitute the downloaded names for
+other versions.</p>
+<p>If <code>SHA256SUMS</code> is included, open a terminal in the extracted ZIP folder and verify
+integrity:</p>
+<pre><code class="language-sh">sha256sum --check SHA256SUMS
+</code></pre>
+<h3 id="placement-and-startup_1">Placement and startup</h3>
+<p>This example uses <code>.local/bin/</code> in your home folder. Open a terminal in the folder
+containing the AppImage and run:</p>
+<pre><code class="language-sh">mkdir -p &quot;$HOME/.local/bin&quot;
+mv KomaMimic-1.0.0-linux-x86_64.AppImage &quot;$HOME/.local/bin/&quot;
+chmod u+x &quot;$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage&quot;
+&quot;$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage&quot;
+</code></pre>
+<p>To launch from a file manager, first allow execution in the file's properties.
+Then double-click the AppImage or choose the file manager's Run action. Names and
+double-click behavior vary by desktop environment.</p>
+<p>See <a href="../basic/">basic controls</a> after startup.</p>
+<h3 id="application-menu-registration-optional">Application menu registration (optional)</h3>
+<p>If the AppImage is placed in <code>~/.local/bin/</code> as above, copy the bundled files with
+the following commands, run from the extracted ZIP folder:</p>
+<pre><code class="language-sh">mkdir -p &quot;$HOME/.local/share/applications&quot; &quot;$HOME/.local/share/icons/hicolor/256x256/apps&quot;
+cp komamimic.desktop &quot;$HOME/.local/share/applications/&quot;
+cp komamimic.png &quot;$HOME/.local/share/icons/hicolor/256x256/apps/&quot;
+</code></pre>
+<p>KomaMimic appears in the menu. If it does not, log out and back in. The bundled
+desktop entry starts that version's AppImage from <code>~/.local/bin/</code>. For another
+location, edit <code>Exec=</code> in <code>komamimic.desktop</code> to match. Home folder names and opened
+filenames may contain spaces or Japanese characters.</p>
+<h3 id="fuse-startup-errors">FUSE startup errors</h3>
+<p>Normal startup uses FUSE. For <code>Cannot mount AppImage</code>, <code>No suitable fusermount binary</code>,
+or similar errors, check your OS's FUSE setup or use extraction-based execution
+below. Launching from a terminal shows the error details.</p>
+<pre><code class="language-sh">&quot;$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage&quot; --appimage-extract-and-run
+</code></pre>
+<p>This extracts into a temporary folder and runs without FUSE. The temporary location
+needs sufficient free space; startup may take longer than normal.</p>
+<p>To keep an extracted copy for repeated use, create a new dedicated folder:</p>
+<pre><code class="language-sh">mkdir &quot;$HOME/.local/bin/KomaMimic-1.0.0-extracted&quot;
+cd &quot;$HOME/.local/bin/KomaMimic-1.0.0-extracted&quot;
+../KomaMimic-1.0.0-linux-x86_64.AppImage --appimage-extract
+./squashfs-root/AppRun
+</code></pre>
+<p>Afterward, launch <code>squashfs-root/AppRun</code> in that folder. Retain the complete extracted
+tree. See the <a href="https://docs.appimage.org/user-guide/troubleshooting/fuse.html">official AppImage FUSE explanation</a>.</p>
+<h3 id="updating_2">Updating</h3>
+<ol>
+<li>Quit KomaMimic.</li>
+<li>Download the new AppImage and verify its supplied checksum.</li>
+<li>Place it where you prefer, make it executable, and launch it.</li>
+<li>If registered in the application menu, also replace <code>komamimic.desktop</code> and <code>komamimic.png</code> with the new ZIP's copies.
+   Update any custom shortcuts to the new target.</li>
+</ol>
+<p>Settings, bookshelves, and history are separate from the AppImage and carry over
+for the same user. <a href="../settings/">Back up the settings folder</a> before updating if you
+want to preserve the old state. After checking the new version, delete old AppImages
+you no longer need. If using manual extraction, extract each new version into a
+separate folder and launch it there.</p>
+<h3 id="removal_2">Removal</h3>
+<p>Quit KomaMimic, delete the AppImage, and remove shortcuts you created. If manually
+extracted, also delete that version's dedicated extraction folder. If you used the
+bundled menu-registration files, remove them too:</p>
+<pre><code class="language-sh">rm -f &quot;$HOME/.local/share/applications/komamimic.desktop&quot;
+rm -f &quot;$HOME/.local/share/icons/hicolor/256x256/apps/komamimic.png&quot;
+</code></pre>
+<p>Deleting the AppImage leaves settings, bookshelves, history, and caches. To remove
+those too, check their <a href="../settings/">storage locations</a>, back up anything you need,
+then delete the relevant folders. Bookshelves, history, and reading positions will
+be lost. Keep the settings folder if you plan to use the app again. Your images,
+archives, and other book files are separate from application removal.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../../js/base.js"></script>
+        <script src="../../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

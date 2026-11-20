@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://asfdrwe.github.io/KomaMimic/v2/user/install/">
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>インストール - KomaMimic v2 Guide (development)</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../css/brands.min.css" rel="stylesheet">
+        <link href="../../css/solid.min.css" rel="stylesheet">
+        <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">KomaMimic v2 Guide (development)</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">日本語</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../.." class="dropdown-item">はじめに</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">インストール</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">利用ガイド</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../basic/" class="dropdown-item">基本操作</a>
+</li>
+            
+<li>
+    <a href="../views/" class="dropdown-item">表示と画像加工</a>
+</li>
+            
+<li>
+    <a href="../documents/" class="dropdown-item">文書を読む</a>
+</li>
+            
+<li>
+    <a href="../video/" class="dropdown-item">動画を再生する</a>
+</li>
+            
+<li>
+    <a href="../library/" class="dropdown-item">本棚と履歴</a>
+</li>
+            
+<li>
+    <a href="../settings/" class="dropdown-item">設定とキャッシュ</a>
+</li>
+            
+<li>
+    <a href="../formats/" class="dropdown-item">対応形式</a>
+</li>
+            
+<li>
+    <a href="../migration/" class="dropdown-item">設定の取り込み</a>
+</li>
+            
+<li>
+    <a href="../compatibility/" class="dropdown-item">MangaMeeyaとの違い</a>
+</li>
+            
+<li>
+    <a href="../macos/" class="dropdown-item">macOSの違い</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">スクリプト開発</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../scripts/" class="dropdown-item">導入と登録</a>
+</li>
+            
+<li>
+    <a href="../../scripts/api/" class="dropdown-item">API 1仕様</a>
+</li>
+            
+<li>
+    <a href="../../scripts/examples/" class="dropdown-item">最小例</a>
+</li>
+            
+<li>
+    <a href="../../scripts/bundled/" class="dropdown-item">同梱スクリプト</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../changelog/" class="dropdown-item">更新履歴</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">English</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../en/" class="dropdown-item">Introduction</a>
+</li>
+                                    
+<li>
+    <a href="../../en/user/install/" class="dropdown-item">Installation</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">User guide</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../en/user/basic/" class="dropdown-item">Basic controls</a>
+</li>
+            
+<li>
+    <a href="../../en/user/views/" class="dropdown-item">Display and image processing</a>
+</li>
+            
+<li>
+    <a href="../../en/user/documents/" class="dropdown-item">Reading documents</a>
+</li>
+            
+<li>
+    <a href="../../en/user/video/" class="dropdown-item">Playing videos</a>
+</li>
+            
+<li>
+    <a href="../../en/user/library/" class="dropdown-item">Bookshelves and history</a>
+</li>
+            
+<li>
+    <a href="../../en/user/settings/" class="dropdown-item">Settings and caches</a>
+</li>
+            
+<li>
+    <a href="../../en/user/formats/" class="dropdown-item">Supported formats</a>
+</li>
+            
+<li>
+    <a href="../../en/user/migration/" class="dropdown-item">Importing settings</a>
+</li>
+            
+<li>
+    <a href="../../en/user/compatibility/" class="dropdown-item">Differences from MangaMeeya</a>
+</li>
+            
+<li>
+    <a href="../../en/user/macos/" class="dropdown-item">macOS differences</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">Script development</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../en/scripts/" class="dropdown-item">Installation and registration</a>
+</li>
+            
+<li>
+    <a href="../../en/scripts/api/" class="dropdown-item">API 1 specification</a>
+</li>
+            
+<li>
+    <a href="../../en/scripts/examples/" class="dropdown-item">Minimal examples</a>
+</li>
+            
+<li>
+    <a href="../../en/scripts/bundled/" class="dropdown-item">Bundled scripts</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../en/changelog/" class="dropdown-item">Changelog</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Versions / バージョン</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="https://asfdrwe.github.io/KomaMimic/" class="dropdown-item">v1</a>
+</li>
+                                    
+<li>
+    <a href="https://asfdrwe.github.io/KomaMimic/v2/" class="dropdown-item">v2 (development / 開発中)</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../.." class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../basic/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/asfdrwe/KomaMimic/edit/master/docs/user/install.md" class="nav-link"><i class="fa-brands fa-github"></i> Edit on GitHub</a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#_1" class="nav-link">インストール</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#windowszip" class="nav-link">Windows（ZIP版）</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#macosdmg" class="nav-link">macOS（DMG版）</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#linuxappimage" class="nav-link">Linux（AppImage版）</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="_1">インストール</h1>
+<p>v2.0.0は開発中です。v2配布物の検証はまだ完了していません。以下の手順・名前例はv1で確認したもので、正式なv2インストール案内はCIと配布成果物の確認後に更新します。</p>
+<p>日本語 | <a href="../../en/user/install/">English</a></p>
+<h3 id="thumbnails-v2"><code>thumbnails-v2</code> への更新</h3>
+<p>旧版の <code>thumbnails-v1</code> キャッシュは新版に引き継がれません。ディスク領域を回収したい場合は、<strong>新版を入れる前に</strong>旧版の「環境設定 → キャッシュ」で削除してください。新版のキャッシュ削除は旧版の保存先を消しません。詳しくは<a href="../settings/">設定とキャッシュ</a>を参照してください。</p>
+<h2 id="windowszip">Windows（ZIP版）</h2>
+<p>Windows版はx86_64（64bit Intel/AMD）向けのZIP版です。
+同梱するQt 6.11の対応範囲はWindows 10（1809以降）・Windows 11です
+（<a href="https://doc.qt.io/qt-6.11/supported-platforms.html#windows">Qtの対応表</a>）。
+Qtなどの主要ライブラリを同梱しており、Qt SDK・Visual Studio・vcpkgの導入は不要です。</p>
+<h3 id="_2">必要なランタイム</h3>
+<p><strong>Microsoft Visual C++ v14 x64 再頒布可能パッケージ</strong>が必要です。
+未導入・古い場合は、Microsoftの<a href="https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist">公式ダウンロード案内</a>
+から最新のX64版を取得し、画面の案内に従ってインストールしてください。
+アプリのZIPにこのランタイムは含めていません。</p>
+<p><code>VCRUNTIME140.dll</code>や<code>MSVCP140.dll</code>が見つからないというエラーが出る場合も、
+このランタイムの導入・更新を確認してください。</p>
+<h3 id="_3">入手とチェックサム</h3>
+<p><a href="https://github.com/asfdrwe/KomaMimic/releases">GitHubのReleases</a>から
+<code>KomaMimic-1.0.0-windows-x86_64.zip</code>を取得します。以下はv1.0.0のファイル名の例です。
+別の版を使う場合は、取得した名前に置き換えてください。</p>
+<h4 id="_4">配布物の検査</h4>
+<p>配布物の検査をしたい場合は、配布用ZIPと<code>SHA256SUMS</code>があるフォルダーでPowerShellを開き、次を実行します。</p>
+<pre><code class="language-powershell">Get-FileHash -LiteralPath .\KomaMimic-1.0.0-windows-x86_64.zip -Algorithm SHA256
+</code></pre>
+<p>表示された<code>Hash</code>を、<code>SHA256SUMS</code>にある同じZIP名の行の先頭64文字と照合してください。
+英字の大文字・小文字の違いは無視できます。</p>
+<h3 id="_5">展開と起動</h3>
+<p>配布用の<code>KomaMimic-1.0.0-windows-x86_64.zip</code>を右クリックし、<strong>すべて展開</strong>を選びます。
+展開した<code>KomaMimic-1.0.0-windows-x86_64</code>フォルダーを、書込み可能な好きな場所へ置きます。
+例えば、エクスプローラーで<code>%LOCALAPPDATA%</code>を開き、<code>Programs</code>フォルダー（なければ作成）の
+中へ置けば、起動ファイルは次の場所になります。</p>
+<pre><code class="language-text">%LOCALAPPDATA%\Programs\KomaMimic-1.0.0-windows-x86_64\komamimic.exe
+</code></pre>
+<p><code>komamimic.exe</code>をダブルクリックして起動します。
+同じフォルダーのworker・DLL・サブフォルダーも必要なので、一式を保持してください。
+ZIP内から直接起動せず、展開したフォルダーから起動します。
+ショートカットを作る場合は、この<code>komamimic.exe</code>を参照先にします。
+起動後の操作は<a href="../basic/">基本操作</a>を参照してください。</p>
+<blockquote>
+<p><strong>Windows版の初回起動について</strong></p>
+<p>ダウンロードしたWindows版を初めて起動する際、環境によってはウィンドウが表示されるまで数秒程度かかる場合があります。Windowsのセキュリティ検査や初回のファイル読み込みなどが影響している可能性があります。通常、2回目以降の起動ではこの遅延は軽減されます。</p>
+</blockquote>
+<h4 id="gpu">文書表示が真っ白・真っ黒になる場合（GPU回避策）</h4>
+<p>WindowsのGPUドライバーやQt WebEngineとの組み合わせによっては、TXT・Markdown・EPUBの
+文書表示が真っ白・真っ黒になったり、描画に失敗したりする場合があります。
+その際は<strong>一時的な切り分け方法</strong>として、展開したアプリのフォルダーでPowerShellを開き、
+次のコマンドで起動を試してください。</p>
+<pre><code class="language-powershell">$env:QTWEBENGINE_CHROMIUM_FLAGS = &quot;--disable-gpu&quot;
+.\komamimic.exe
+Remove-Item Env:\QTWEBENGINE_CHROMIUM_FLAGS -ErrorAction SilentlyContinue
+</code></pre>
+<p>これはQt WebEngineのGPU使用を抑制するワークアラウンドで、表示が遅くなる場合があります。
+すべての環境で有効とは限りません。恒久的な修正ではないため、GPUドライバーの更新も
+検討してください。セキュリティ上の理由から、WebEngineのサンドボックスは無効化しないでください。</p>
+<h4 id="smartscreen">SmartScreenの警告が表示された場合</h4>
+<p>現在のWindows版はコード署名を行っていません。ダウンロードしたアプリを初めて起動すると、
+Microsoft Defender SmartScreenの「WindowsによってPCが保護されました」という警告が表示されることがあります。</p>
+<p>公式のReleasesから取得し、上記のチェックサムが一致することを確認したうえで起動する場合は、次のように操作します。</p>
+<ol>
+<li>
+<p>警告画面の<strong>詳細情報</strong>を選びます。</p>
+<p><img alt="SmartScreenの警告画面。「詳細情報」を選びます" src="../../assets/screenshots/windows-smartscreen-warning.png" /></p>
+</li>
+<li>
+<p>アプリが<code>komamimic.exe</code>であることを確認し、<strong>実行</strong>を選びます。
+   この版では、発行元は「不明な発行元」と表示されます。</p>
+<p><img alt="アプリ名と発行元を確認し、「実行」を選びます" src="../../assets/screenshots/windows-smartscreen-run.png" /></p>
+</li>
+</ol>
+<p>警告の仕組みについては、<a href="https://learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation">MicrosoftのSmartScreenの説明</a>を参照してください。</p>
+<h3 id="_6">更新</h3>
+<ol>
+<li>KomaMimicを終了し、<a href="../settings/">設定フォルダーをバックアップ</a>します。</li>
+<li>新しい版の配布用ZIPを取得し、チェックサムを確認します。</li>
+<li>新しい別フォルダーへ一式を展開し、その中の<code>komamimic.exe</code>で起動します。</li>
+<li>ショートカットを使っている場合は、新しい版のexeを参照するよう変更します。</li>
+<li>動作を確認した後、不要になった古い版の展開フォルダーを削除します。</li>
+</ol>
+<p>通常の設定・本棚・履歴は実行ファイルとは別の場所へ保存するため、同じユーザーで起動すれば引き継ぎます。
+<code>--config</code>で別の設定を指定して使っていた場合は、更新後も同じ設定ファイルを指定してください。</p>
+<h3 id="_7">削除</h3>
+<p>KomaMimicを終了し、展開したフォルダーと、自分で作成したショートカットを削除します。
+設定・本棚・履歴・キャッシュは残ります。</p>
+<p>これらも削除したい場合は、<a href="../settings/">保存場所</a>を確認し、必要なデータをバックアップしてから
+該当フォルダーを削除してください。本棚・履歴・読書状態も失われます。
+通常の設定フォルダーは<code>%LOCALAPPDATA%\KomaMimic\KomaMimic</code>です。
+読んでいた画像や書庫などの作品ファイルは、アプリの削除とは別です。
+Visual C++ランタイムは他のアプリも使うため、KomaMimicの削除に伴って削除する必要はありません。</p>
+<h2 id="macosdmg">macOS（DMG版）</h2>
+<p>macOS版はApple Silicon（arm64）のMac向けで、macOS 15以降が必要です。
+Qtなどの主要ライブラリを同梱しているため、HomebrewやQt SDKの導入は不要です。
+Developer ID署名とAppleによる公証は行っていないため、初回起動時は以下の許可操作が必要です。</p>
+<h3 id="_8">入手とチェックサム</h3>
+<p><a href="https://github.com/asfdrwe/KomaMimic/releases">GitHubのReleases</a>から
+<code>KomaMimic-1.0.0-macos-arm64.dmg</code>を取得します。以下はv1.0.0のファイル名の例です。
+別の版を使う場合は、取得した名前に置き換えてください。</p>
+<p>チェックサムを確認する場合は、DMGがあるフォルダーでターミナルを開き、次を実行します。</p>
+<pre><code class="language-sh">shasum -a 256 KomaMimic-1.0.0-macos-arm64.dmg
+</code></pre>
+<p>表示された先頭64文字を、配布する<code>SHA256SUMS</code>にある同じDMG名の行と照合してください。</p>
+<h3 id="_9">配置と起動</h3>
+<ol>
+<li>ダウンロードしたDMGをダブルクリックして開きます。</li>
+<li>中の<code>KomaMimic</code>を、同じウィンドウの<code>Applications</code>へドラッグしてコピーします。</li>
+<li>コピーが終わったら、Finderの「アプリケーション」を開き、<code>KomaMimic</code>をダブルクリックします。</li>
+</ol>
+<p><img alt="DMGを開いた画面。KomaMimicをApplicationsへコピーします" src="../../assets/screenshots/macos-dmg.png" /></p>
+<h3 id="gatekeeper">初回起動時のGatekeeperの許可</h3>
+<p>ダウンロードしたDMGからコピーしたアプリは、初回起動時にmacOSのGatekeeperでブロックされます。
+次の手順で、このアプリの起動を許可します。画面の文言はmacOSの版により異なる場合があります。</p>
+<ol>
+<li>
+<p>「“KomaMimic”は開いていません」と表示されたら、<strong>完了</strong>を押して一旦閉じます。</p>
+<p><img alt="最初のGatekeeper警告。完了を押して閉じます" src="../../assets/screenshots/macos-gk1.png" /></p>
+</li>
+<li>
+<p>「システム設定」→「プライバシーとセキュリティ」を開き、下へスクロールします。
+    KomaMimicがブロックされたという表示の横にある、<strong>このまま開く</strong>を押します。</p>
+<p><img alt="プライバシーとセキュリティのこのまま開くボタン" src="../../assets/screenshots/macos-gk2.png" /></p>
+</li>
+<li>
+<p>「“KomaMimic”を開きますか？」という確認でも、<strong>このまま開く</strong>を選びます。</p>
+<p><img alt="起動を再確認する画面。このまま開くを選びます" src="../../assets/screenshots/macos-gk3.png" /></p>
+</li>
+<li>
+<p>管理者の名前とパスワードを求められたら入力し、<strong>OK</strong>を押します。KomaMimicが起動します。</p>
+<p><img alt="管理者の名前とパスワードによる起動許可" src="../../assets/screenshots/macos-gk4.png" /></p>
+</li>
+</ol>
+<p>これはアプリ単位の許可です。詳しくはAppleの<a href="https://support.apple.com/ja-jp/102445">Macでアプリを安全に開く</a>を参照してください。
+起動後の操作は<a href="../basic/">基本操作</a>と<a href="../macos/">macOSで異なる操作</a>を参照してください。</p>
+<h3 id="_10">更新</h3>
+<ol>
+<li>メニューバーの「KomaMimic」→「終了」、またはCommand+QでKomaMimicを終了します。</li>
+<li><a href="../settings/">設定フォルダーをバックアップ</a>し、新しい版のDMGを取得してチェックサムを確認します。</li>
+<li>DMGを開き、<code>KomaMimic.app</code>をApplicationsへコピーします。同名のアプリがある場合は置き換えます。</li>
+<li>Finderの「アプリケーション」から起動します。Gatekeeperの確認が出た場合は、上記と同じ手順で許可します。</li>
+<li>動作を確認したらDMGを取り出します。不要になったダウンロード済みのDMGは削除できます。</li>
+</ol>
+<p>通常の設定・本棚・履歴はアプリ本体とは別に保存されるため、同じユーザーで起動すれば引き継ぎます。
+<code>--config</code>で別の設定を指定して使っていた場合は、更新後も同じ設定ファイルを指定してください。</p>
+<h3 id="_11">削除</h3>
+<p>KomaMimicを終了し、Finderの「アプリケーション」にある<code>KomaMimic.app</code>をゴミ箱へ移動します。
+Dockへ自分で登録した項目や、不要なダウンロード済みのDMGも削除できます。
+設定・本棚・履歴・キャッシュは残ります。</p>
+<p>これらも削除したい場合は、<a href="../settings/">保存場所</a>を確認し、必要なデータをバックアップしてから
+該当フォルダーを削除してください。本棚・履歴・読書状態も失われます。
+通常の設定フォルダーは<code>~/Library/Preferences/KomaMimic/KomaMimic</code>、
+サムネイルキャッシュは<code>~/Library/Caches/KomaMimic/KomaMimic/thumbnails-v1</code>です。
+Finderの「移動」→「フォルダへ移動」で、これらのパスを入力できます。
+読んでいた画像や書庫などの作品ファイルは、アプリの削除とは別です。</p>
+<h2 id="linuxappimage">Linux（AppImage版）</h2>
+<p>Linux版はx86_64（amd64）用のAppImageです。Qtなどの主要ライブラリを同梱しているため、
+ソースからビルドするための開発用パッケージを追加せずに使えます。AppImageを好きな場所に置いて起動できます。</p>
+<p>Ubuntu 22.04相当（glibc 2.35）以降の環境を基準に、自動検査を行っています。Fedora 44でも起動と基本動作を確認しています。</p>
+<h3 id="_12">入手と展開</h3>
+<p><a href="https://github.com/asfdrwe/KomaMimic/releases">GitHubのReleases</a>で配布するLinux用AppImageを取得します。
+<code>KomaMimic-1.0.0-linux-x86_64.zip</code>をダウンロードし、ZIPを展開してください。</p>
+<p>実行するファイルは <code>KomaMimic-1.0.0-linux-x86_64.AppImage</code> です。
+同じ場所の <code>sources/</code> は対応ソースであり、起動のために展開・ビルドする必要はありません。
+<code>komamimic.desktop</code>と<code>komamimic.png</code>は、アプリケーションメニューへ登録するためのファイルです。
+以下のファイル名はv1.0.0の例です。別の版を使う場合は取得した名前に置き換えてください。</p>
+<p><code>SHA256SUMS</code>が付属している場合は、ZIPを展開したフォルダーで端末を開き、整合性を確認できます。</p>
+<pre><code class="language-sh">sha256sum --check SHA256SUMS
+</code></pre>
+<h3 id="_13">配置と起動</h3>
+<p>AppImageを置く場所の例として、ホームフォルダー内の <code>.local/bin/</code> を使います。
+AppImageがあるフォルダーで端末を開き、次を実行します。</p>
+<pre><code class="language-sh">mkdir -p &quot;$HOME/.local/bin&quot;
+mv KomaMimic-1.0.0-linux-x86_64.AppImage &quot;$HOME/.local/bin/&quot;
+chmod u+x &quot;$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage&quot;
+&quot;$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage&quot;
+</code></pre>
+<p>ファイルマネージャーから起動する場合も、先にファイルのプロパティで実行権限を許可します。
+その後、AppImageをダブルクリックするか、ファイルマネージャーの「実行」を選びます。
+画面の名称やダブルクリック時の動作はデスクトップ環境によって異なります。</p>
+<p>起動後の操作は<a href="../basic/">基本操作</a>を参照してください。</p>
+<h3 id="_14">アプリケーションメニューへの登録（任意）</h3>
+<p>AppImageを上記の<code>~/.local/bin/</code>へ配置した場合は、ZIPに同梱したファイルを次のようにコピーします。
+ZIPを展開したフォルダーで実行してください。</p>
+<pre><code class="language-sh">mkdir -p &quot;$HOME/.local/share/applications&quot; &quot;$HOME/.local/share/icons/hicolor/256x256/apps&quot;
+cp komamimic.desktop &quot;$HOME/.local/share/applications/&quot;
+cp komamimic.png &quot;$HOME/.local/share/icons/hicolor/256x256/apps/&quot;
+</code></pre>
+<p>メニューにKomaMimicが表示されます。反映されない場合は、一度ログアウトして入り直してください。
+同梱のデスクトップエントリは、その版のAppImageを<code>~/.local/bin/</code>から起動します。
+別の場所へ置く場合は、<code>komamimic.desktop</code>の<code>Exec=</code>を実際の配置先に合わせて変更します。
+ホームフォルダー名や開くファイル名に空白・日本語があっても、そのまま利用できます。</p>
+<h3 id="fuse">FUSEのエラーで起動できない場合</h3>
+<p>通常起動ではFUSEを使います。<code>Cannot mount AppImage</code>、<code>No suitable fusermount binary</code>などが
+表示される場合は、OSのFUSE設定を確認するか、次の展開実行を使ってください。
+端末から起動するとエラー内容を確認できます。</p>
+<pre><code class="language-sh">&quot;$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage&quot; --appimage-extract-and-run
+</code></pre>
+<p>この方法はFUSEを使わず、一時フォルダーへ展開して起動します。展開先には十分な空き容量が必要です。
+通常起動に比べて起動までに時間がかかることがあります。</p>
+<p>展開したファイルを残して繰り返し使いたい場合は、新しい専用フォルダーを作って展開します。</p>
+<pre><code class="language-sh">mkdir &quot;$HOME/.local/bin/KomaMimic-1.0.0-extracted&quot;
+cd &quot;$HOME/.local/bin/KomaMimic-1.0.0-extracted&quot;
+../KomaMimic-1.0.0-linux-x86_64.AppImage --appimage-extract
+./squashfs-root/AppRun
+</code></pre>
+<p>以後はこのフォルダー内の <code>squashfs-root/AppRun</code> から起動します。
+展開した内容を一式保持してください。
+FUSEや展開実行については<a href="https://docs.appimage.org/user-guide/troubleshooting/fuse.html">AppImage公式の説明</a>も参照できます。</p>
+<h3 id="_15">更新</h3>
+<ol>
+<li>KomaMimicを終了します。</li>
+<li>新しい版のAppImageを取得し、付属するチェックサムを確認します。</li>
+<li>使いたい場所へ配置し、実行権限を付けて起動します。</li>
+<li>メニューへ登録している場合は、新しいZIPの<code>komamimic.desktop</code>と<code>komamimic.png</code>も同じ場所へコピーし直します。
+   自作のショートカットを使っている場合は、参照先を更新します。</li>
+</ol>
+<p>設定や本棚・履歴はAppImageとは別の場所に保存されるため、同じユーザーで起動すれば引き継ぎます。
+更新前に<a href="../settings/">設定フォルダーをバックアップ</a>しておくと、元の状態を残せます。
+新しい版の動作を確認してから、不要になった古いAppImageを削除してください。
+手動展開で使っている場合は、新しい版も別フォルダーへ展開して起動します。</p>
+<h3 id="_16">削除</h3>
+<p>KomaMimicを終了し、AppImageと、自分で作成したショートカットを削除します。
+手動展開した場合は、その版の専用展開フォルダーも削除します。
+同梱ファイルでメニューへ登録した場合は、次の2ファイルも削除します。</p>
+<pre><code class="language-sh">rm -f &quot;$HOME/.local/share/applications/komamimic.desktop&quot;
+rm -f &quot;$HOME/.local/share/icons/hicolor/256x256/apps/komamimic.png&quot;
+</code></pre>
+<p>AppImageを削除しても、設定・本棚・履歴・キャッシュは残ります。
+これらも削除したい場合は、<a href="../settings/">保存場所</a>を確認し、必要なデータをバックアップしてから
+該当フォルダーを削除してください。本棚・履歴・読書状態も失われるため、
+後から使い直す予定がある場合は設定フォルダーを残します。
+読んでいた画像や書庫などの作品ファイルは、アプリの削除とは別です。</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js"></script>
+        <script src="../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

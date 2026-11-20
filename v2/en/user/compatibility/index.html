@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://asfdrwe.github.io/KomaMimic/v2/en/user/compatibility/">
+        <link rel="shortcut icon" href="../../../img/favicon.ico">
+        <title>Differences from MangaMeeya - KomaMimic v2 Guide (development)</title>
+        <link href="../../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../../css/brands.min.css" rel="stylesheet">
+        <link href="../../../css/solid.min.css" rel="stylesheet">
+        <link href="../../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../../..">KomaMimic v2 Guide (development)</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">日本語</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../.." class="dropdown-item">はじめに</a>
+</li>
+                                    
+<li>
+    <a href="../../../user/install/" class="dropdown-item">インストール</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">利用ガイド</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../../user/basic/" class="dropdown-item">基本操作</a>
+</li>
+            
+<li>
+    <a href="../../../user/views/" class="dropdown-item">表示と画像加工</a>
+</li>
+            
+<li>
+    <a href="../../../user/documents/" class="dropdown-item">文書を読む</a>
+</li>
+            
+<li>
+    <a href="../../../user/video/" class="dropdown-item">動画を再生する</a>
+</li>
+            
+<li>
+    <a href="../../../user/library/" class="dropdown-item">本棚と履歴</a>
+</li>
+            
+<li>
+    <a href="../../../user/settings/" class="dropdown-item">設定とキャッシュ</a>
+</li>
+            
+<li>
+    <a href="../../../user/formats/" class="dropdown-item">対応形式</a>
+</li>
+            
+<li>
+    <a href="../../../user/migration/" class="dropdown-item">設定の取り込み</a>
+</li>
+            
+<li>
+    <a href="../../../user/compatibility/" class="dropdown-item">MangaMeeyaとの違い</a>
+</li>
+            
+<li>
+    <a href="../../../user/macos/" class="dropdown-item">macOSの違い</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">スクリプト開発</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../../scripts/" class="dropdown-item">導入と登録</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/api/" class="dropdown-item">API 1仕様</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/examples/" class="dropdown-item">最小例</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/bundled/" class="dropdown-item">同梱スクリプト</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../../changelog/" class="dropdown-item">更新履歴</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">English</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../" class="dropdown-item">Introduction</a>
+</li>
+                                    
+<li>
+    <a href="../install/" class="dropdown-item">Installation</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">User guide</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../basic/" class="dropdown-item">Basic controls</a>
+</li>
+            
+<li>
+    <a href="../views/" class="dropdown-item">Display and image processing</a>
+</li>
+            
+<li>
+    <a href="../documents/" class="dropdown-item">Reading documents</a>
+</li>
+            
+<li>
+    <a href="../video/" class="dropdown-item">Playing videos</a>
+</li>
+            
+<li>
+    <a href="../library/" class="dropdown-item">Bookshelves and history</a>
+</li>
+            
+<li>
+    <a href="../settings/" class="dropdown-item">Settings and caches</a>
+</li>
+            
+<li>
+    <a href="../formats/" class="dropdown-item">Supported formats</a>
+</li>
+            
+<li>
+    <a href="../migration/" class="dropdown-item">Importing settings</a>
+</li>
+            
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Differences from MangaMeeya</a>
+</li>
+            
+<li>
+    <a href="../macos/" class="dropdown-item">macOS differences</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">Script development</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../scripts/" class="dropdown-item">Installation and registration</a>
+</li>
+            
+<li>
+    <a href="../../scripts/api/" class="dropdown-item">API 1 specification</a>
+</li>
+            
+<li>
+    <a href="../../scripts/examples/" class="dropdown-item">Minimal examples</a>
+</li>
+            
+<li>
+    <a href="../../scripts/bundled/" class="dropdown-item">Bundled scripts</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../changelog/" class="dropdown-item">Changelog</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Versions / バージョン</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="https://asfdrwe.github.io/KomaMimic/" class="dropdown-item">v1</a>
+</li>
+                                    
+<li>
+    <a href="https://asfdrwe.github.io/KomaMimic/v2/" class="dropdown-item">v2 (development / 開発中)</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../migration/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../macos/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/asfdrwe/KomaMimic/edit/master/docs/en/user/compatibility.md" class="nav-link"><i class="fa-brands fa-github"></i> Edit on GitHub</a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#differences-from-mangameeya" class="nav-link">Differences from MangaMeeya</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#autoplay-settings-and-page-navigation" class="nav-link">Autoplay settings and page navigation</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#file-sorting-and-persistence" class="nav-link">File sorting and persistence</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="differences-from-mangameeya">Differences from MangaMeeya</h1>
+<p><a href="../../../user/compatibility/">日本語</a> | English</p>
+<p>KomaMimic is an independent implementation inspired by MangaMeeya, not a fully
+compatible replacement. These are known differences, not promises of future support.</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Support and differences</th>
+<th>Alternative or explanation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Plugins and scripts</td>
+<td>No compatible execution of Susie/AviSynth DLLs or original proprietary scripts</td>
+<td>Use <a href="../../scripts/api/">JavaScript API 1</a> for image readers and filters</td>
+</tr>
+<tr>
+<td>Unsupported formats</td>
+<td>No compatible reading of GCA or binary MMT</td>
+<td>See <a href="../formats/">formats and limitations</a></td>
+</tr>
+<tr>
+<td>Custom thumbnails</td>
+<td>Columns, dimensions, spacing, filename lines, starting corner and decorative frames are supported. Not all original resamplers, JPEG subsampling controls, cache formats, extensions or locations are reproduced; original caches are not imported</td>
+<td>See <a href="../views/">display settings</a>. Cache formats and pixels need not match the original</td>
+</tr>
+<tr>
+<td>Sorting menu</td>
+<td>Uses the existing natural, name, type, size, date, entry, Unicode and random modes, with a shared reverse toggle, rather than separate entries for every original path-order variant</td>
+<td>See persistence below</td>
+</tr>
+<tr>
+<td>Folder browser</td>
+<td>Two panes start at virtual Desktop on Windows or Places on macOS/Linux. This does not reproduce every Shell or Finder feature</td>
+<td>Optional single tree starts at PC on Windows or <code>/</code> on macOS/Linux. See <a href="../views/">controls</a></td>
+</tr>
+<tr>
+<td>Autoplay timing settings</td>
+<td>MangaMeeya uses a dedicated playback-settings dialog; KomaMimic uses Preferences → Display</td>
+<td>See the locations below and <a href="../library/">playback controls</a></td>
+</tr>
+<tr>
+<td>Settings migration</td>
+<td>Converts only recognized INI settings. Unknown values are not guessed. Original mouse/gamepad, plugin, external-program, path and history settings are not migrated by this operation</td>
+<td>Review the actual scope in the <a href="../migration/">import preview</a></td>
+</tr>
+</tbody>
+</table>
+<h3 id="thumbnail-size-units">Thumbnail size units</h3>
+<p>KomaMimic's custom width, height and spacing use <strong>logical pixels</strong>, not DPI. With Qt high-DPI scaling, the physical pixel count may differ from the configured number. MangaMeeya also offers numeric width and height controls, but equal values do not guarantee identical onscreen size or cached image dimensions. This guide does not assert the original program's internal DPI behavior. See <a href="../views/">display settings</a>.</p>
+<h2 id="autoplay-settings-and-page-navigation">Autoplay settings and page navigation</h2>
+<table>
+<thead>
+<tr>
+<th>Application</th>
+<th>Timing setting</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MangaMeeya</td>
+<td>Book list → Playlist playback settings… (「ブックリスト → プレイリスト再生設定…」), then Display time (「表示時間」) in the playback-settings dialog</td>
+</tr>
+<tr>
+<td>KomaMimic</td>
+<td>Preferences → Display → Automatic playback interval (ms)</td>
+</tr>
+</tbody>
+</table>
+<p>KomaMimic's Book list → Page and playlist playback provides forward/reverse playback,
+pause, and stop. Set the interval separately in Preferences as listed above.</p>
+<p>When ordinary autoplay advances or reverses pages, both MangaMeeya and KomaMimic
+use the same navigation behavior as their manual next/previous commands.
+KomaMimic follows the normal page-turning settings, including spreads and behavior
+at the end of a book. The different settings location does not change that navigation behavior.</p>
+<h2 id="file-sorting-and-persistence">File sorting and persistence</h2>
+<p>Tools → File sorting and Preferences → Display edit the same default for covers
+and image-reading pages. The mode and reverse flag survive restart, settings slots
+and KomaMimic settings export/import. Sorting does not modify source files or
+archives, and preserves the selected file or reading page by identity. Cancelling
+settings import does not change the current settings.</p>
+<p>Defaults are natural order and reverse off. Explicit existing cover-sort settings
+are retained. The default applies to subsequently opened image books and archives;
+it does not reorder the chapters or text pages of TXT, Markdown or EPUB documents.
+Automatic defaults preserve structurally edited books (inserted blanks, deleted or split pages); explicit sorting remains available.
+An imported list’s explicit per-book order takes precedence over the shared default when opening it. You can still change its order explicitly after opening.
+Undoing a reading-page reorder does not reset the saved default preference.</p>
+<p>Folders precede files in ordinary cover listings. Equal types, sizes or dates use
+natural order as a tie-breaker. Entry order means archive entry order inside an
+archive, but OS enumeration order in a normal folder; it need not match across OSes.
+Random mode saves the mode, not a fixed permutation or seed. Opening again or
+explicitly selecting random creates a new order; repainting alone does not reshuffle.
+Reverse flips the current random order while retaining folders first.</p>
+<p>Reading filenames and added thumbnail page numbers are now hidden by default and
+can be enabled. These implemented options are not listed as unsupported features.
+See <a href="../settings/">settings and caches</a> for storage and backup.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../../js/base.js"></script>
+        <script src="../../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

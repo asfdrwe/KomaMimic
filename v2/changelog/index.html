@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://asfdrwe.github.io/KomaMimic/v2/changelog/">
+        <link rel="shortcut icon" href="../img/favicon.ico">
+        <title>更新履歴 - KomaMimic v2 Guide (development)</title>
+        <link href="../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../css/brands.min.css" rel="stylesheet">
+        <link href="../css/solid.min.css" rel="stylesheet">
+        <link href="../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="..">KomaMimic v2 Guide (development)</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">日本語</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href=".." class="dropdown-item">はじめに</a>
+</li>
+                                    
+<li>
+    <a href="../user/install/" class="dropdown-item">インストール</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">利用ガイド</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../user/basic/" class="dropdown-item">基本操作</a>
+</li>
+            
+<li>
+    <a href="../user/views/" class="dropdown-item">表示と画像加工</a>
+</li>
+            
+<li>
+    <a href="../user/documents/" class="dropdown-item">文書を読む</a>
+</li>
+            
+<li>
+    <a href="../user/video/" class="dropdown-item">動画を再生する</a>
+</li>
+            
+<li>
+    <a href="../user/library/" class="dropdown-item">本棚と履歴</a>
+</li>
+            
+<li>
+    <a href="../user/settings/" class="dropdown-item">設定とキャッシュ</a>
+</li>
+            
+<li>
+    <a href="../user/formats/" class="dropdown-item">対応形式</a>
+</li>
+            
+<li>
+    <a href="../user/migration/" class="dropdown-item">設定の取り込み</a>
+</li>
+            
+<li>
+    <a href="../user/compatibility/" class="dropdown-item">MangaMeeyaとの違い</a>
+</li>
+            
+<li>
+    <a href="../user/macos/" class="dropdown-item">macOSの違い</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">スクリプト開発</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../scripts/" class="dropdown-item">導入と登録</a>
+</li>
+            
+<li>
+    <a href="../scripts/api/" class="dropdown-item">API 1仕様</a>
+</li>
+            
+<li>
+    <a href="../scripts/examples/" class="dropdown-item">最小例</a>
+</li>
+            
+<li>
+    <a href="../scripts/bundled/" class="dropdown-item">同梱スクリプト</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">更新履歴</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">English</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../en/" class="dropdown-item">Introduction</a>
+</li>
+                                    
+<li>
+    <a href="../en/user/install/" class="dropdown-item">Installation</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">User guide</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../en/user/basic/" class="dropdown-item">Basic controls</a>
+</li>
+            
+<li>
+    <a href="../en/user/views/" class="dropdown-item">Display and image processing</a>
+</li>
+            
+<li>
+    <a href="../en/user/documents/" class="dropdown-item">Reading documents</a>
+</li>
+            
+<li>
+    <a href="../en/user/video/" class="dropdown-item">Playing videos</a>
+</li>
+            
+<li>
+    <a href="../en/user/library/" class="dropdown-item">Bookshelves and history</a>
+</li>
+            
+<li>
+    <a href="../en/user/settings/" class="dropdown-item">Settings and caches</a>
+</li>
+            
+<li>
+    <a href="../en/user/formats/" class="dropdown-item">Supported formats</a>
+</li>
+            
+<li>
+    <a href="../en/user/migration/" class="dropdown-item">Importing settings</a>
+</li>
+            
+<li>
+    <a href="../en/user/compatibility/" class="dropdown-item">Differences from MangaMeeya</a>
+</li>
+            
+<li>
+    <a href="../en/user/macos/" class="dropdown-item">macOS differences</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">Script development</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../en/scripts/" class="dropdown-item">Installation and registration</a>
+</li>
+            
+<li>
+    <a href="../en/scripts/api/" class="dropdown-item">API 1 specification</a>
+</li>
+            
+<li>
+    <a href="../en/scripts/examples/" class="dropdown-item">Minimal examples</a>
+</li>
+            
+<li>
+    <a href="../en/scripts/bundled/" class="dropdown-item">Bundled scripts</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../en/changelog/" class="dropdown-item">Changelog</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Versions / バージョン</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="https://asfdrwe.github.io/KomaMimic/" class="dropdown-item">v1</a>
+</li>
+                                    
+<li>
+    <a href="https://asfdrwe.github.io/KomaMimic/v2/" class="dropdown-item">v2 (development / 開発中)</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../scripts/bundled/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../en/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/asfdrwe/KomaMimic/edit/master/docs/changelog.md" class="nav-link"><i class="fa-brands fa-github"></i> Edit on GitHub</a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#_1" class="nav-link">更新履歴</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#v200" class="nav-link">v2.0.0（開発中・未公開）</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v173" class="nav-link">v1.7.3</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v172" class="nav-link">v1.7.2</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v171" class="nav-link">v1.7.1</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v170" class="nav-link">v1.7.0</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v160" class="nav-link">v1.6.0</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v150" class="nav-link">v1.5.0</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v143" class="nav-link">v1.4.3</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v141" class="nav-link">v1.4.1</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v140" class="nav-link">v1.4.0</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v130" class="nav-link">v1.3.0</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v121" class="nav-link">v1.2.1</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v120" class="nav-link">v1.2.0</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v111" class="nav-link">v1.1.1</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v110" class="nav-link">v1.1.0</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v103" class="nav-link">v1.0.3</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#v100-initial-release" class="nav-link">v1.0.0 — Initial release</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="_1">更新履歴</h1>
+<p>日本語 | <a href="../en/changelog/">English</a></p>
+<h2 id="v200">v2.0.0（開発中・未公開）</h2>
+<p>動画モード、再生・表示設定、動画表紙、Multimediaの配布と自動テストを追加しています。v1文書を保持し、v2文書を別URLへ分離します。</p>
+<h2 id="v173">v1.7.3</h2>
+<ul>
+<li>Linux AppImageをメニューから起動し、入力方式の環境変数が未指定または空の場合にも、同梱IBusプラグインを候補として試すようにしました。明示された候補順や他の入力方式の指定は保持します。</li>
+</ul>
+<h2 id="v172">v1.7.2</h2>
+<ul>
+<li>Linux AppImageで、Fcitx用Qtプラグインがなく日本語などを入力できない問題を修正しました。Fcitx指定時は同梱のIBusプラグインも順に試します。明示された入力モジュールの候補順や、他の入力方式の指定は保持します。</li>
+</ul>
+<h2 id="v171">v1.7.1</h2>
+<ul>
+<li>EPUBの展開後合計128 MiBの読込制限を撤廃しました。1項目32 MiBの上限は維持します。</li>
+<li>自動テストの実行環境を通常の設定・キャッシュから分離し、macOSのテスト条件を修正しました。</li>
+</ul>
+<h2 id="v170">v1.7.0</h2>
+<ul>
+<li>表紙・ページ一覧で既存のメモリ／ディスクキャッシュを優先し、不要な再生成や表示待ちを減らしました。サムネイルは通常のキャッシュ先へ直接保存します。</li>
+<li>表示対象の表紙・ページサムネイル生成の同時実行数を1～4件で指定できます（既定1件、並列なし）。保存画像の表示と、読書中の現在ページを優先します。</li>
+<li>自動更新は、フォルダの一覧情報で対象画像／ZIPファイルの更新日時がキャッシュ作成日時より新しい場合に限定します。変更確認のための画像読込・ZIPの開き直しを行いません。</li>
+<li>シンボリックリンク経由の表示切替で不要に表紙を再生成する問題を修正し、Windowsでもリンク先のファイル属性を使うようにしました。</li>
+<li>ZIP/CBZは名前一覧から表紙画像を選び、その画像だけを取得します。無関係なTIFF等のページ数調査、名前解析の重複処理、ファイルサイズの繰り返し照会を減らしました。</li>
+</ul>
+<h2 id="v160">v1.6.0</h2>
+<ul>
+<li>保存PNGが一時的に読めない場合も、別の保存画像や元データからの生成へ進み、サムネイル表示が止まらないよう修正しました。</li>
+<li>コマンドラインのページ指定・画像ページ移動後、表示完了を待ってから後続コマンドを実行し、直後の終了で最終表示や履歴の保存が抜けることを防ぎます。</li>
+<li>文書表示の描画領域を分離し、WebEngine利用で表紙・ページ一覧の描画方式が切り替わることを防ぎます。ビルドに必要なQtを6.8以降へ変更しました。</li>
+<li>取得済みの表紙・ページサムネイルをメモリでも再利用し、フォルダや表示モードの往復で保存PNGの再読込を抑えます。</li>
+<li>表紙・ページサムネイルの全件先読み設定を追加しました（既定オフ）。表示を優先し、残りを順に読み込んで容量内でメモリ保持します。先読みの中断・取消とメモリ上限に対応します。</li>
+<li>文書の可変本文で組方向と見開き順序を連動させます。EPUBの表紙単ページ設定に対応し、表紙を中央表示します。現在章・必要リソースから文書ビューへ直接表示し、読込取消と直前1冊の表示復帰、読込中の前後移動を改善しました。</li>
+<li>EPUBで次ページ・前ページを繰り返すと表示できなくなる問題を修正しました。</li>
+<li>青空文庫のWindows形式の相対画像参照に対応しました。画像だけの区画とキャプションを分離し、横長挿絵を全幅表示します。元の本文位置を保持し、画像は必要時に読み込みます。</li>
+<li>読書開始時の非表示サムネイル準備・親フォルダ走査を停止し、モード移動後の旧一覧配送と初期化中の重複画像要求を修正しました。</li>
+<li>全ファイル一括ロードを保存される読込オプションへ変更しました。読書中だけファイルデータを容量内で保持し、現在表示・通常先読みを優先します。</li>
+<li>入れ子・フォルダ内書庫の画像を必要時に読み出し、未表示項目の局所エラーが正常ページの表示を妨げる経路とアニメーション取消を改善しました。</li>
+<li>Windowsビルドの依存キャッシュをアプリの版番号をまたいで再利用し、試験失敗後も完成した依存物を保存します。変更のないキャッシュの再アップロードを省きます。</li>
+</ul>
+<h2 id="v150">v1.5.0</h2>
+<ul>
+<li>保存済みサムネイルを元ファイルの検査なしで最優先表示します。定期検証を廃止し、具体的な変更の兆候がある対象だけ更新します。採用元とその情報が変わらない追加では再生成・PNG再保存を行わず、未変更画像を保持します。</li>
+<li>フォルダ表紙の追加探索階層数を0～8で設定できます。既定0でも表紙対象フォルダの直下を探し、それより下には進みません。探索を浅くしても保存済み画像を保持します。</li>
+<li>フォルダ・モード移動時に不要な処理を取り消し、現在表示を優先します。読書中は現在表示と先読みに集中し、サムネイル処理を行いません。</li>
+<li>完成画像の保存待ちはディスク退避・再試行・通常終了後の再開に対応します。容量超過時は保存日時が古い順（FIFO）に整理し、読込では日時を変えません。thumbnails-v2を引き続き利用します。</li>
+<li>キャッシュがない可視画像の生成を優先し、保存完了を待たず表示します。更新失敗では旧画像を維持し、完成したTXT・Markdown・書庫内テキストの表紙プレビューも保存します。</li>
+</ul>
+<h2 id="v143">v1.4.3</h2>
+<ul>
+<li>利用者向けの動作変更はありません。v1.4.2は欠番です。</li>
+</ul>
+<h2 id="v141">v1.4.1</h2>
+<ul>
+<li>環境設定でスクリプト登録先の追加・削除を保存した後、再起動が必要なことを案内します。言語変更も同時に保存した場合は一つの案内にまとめます。</li>
+<li>表示用キャッシュの整理では画面内のサムネイルを保護し、画面外の古い画像から解放します。</li>
+</ul>
+<h2 id="v140">v1.4.0</h2>
+<ul>
+<li>保存済みの表紙サムネイルを元ZIPのファイル情報取得より先に表示し、バックグラウンドの低優先度処理で更新を確認。変更があれば表紙を再生成して差し替えるよう改善。</li>
+<li>サムネイルキャッシュを <code>thumbnails-v2</code> に変更。<code>thumbnails-v1</code> のキャッシュは引き継ぎません。旧版のキャッシュ容量を回収する場合は、更新前に旧版の「環境設定 → キャッシュ」で削除してください。</li>
+<li>F6で表紙を再取得でき、環境設定で保存キャッシュを削除できます。サムネイルの寸法はQtの論理ピクセル単位です。</li>
+</ul>
+<h2 id="v130">v1.3.0</h2>
+<ul>
+<li>サムネイルのディスクキャッシュから20,000件の件数制限を撤廃し、設定した容量のみで保持件数を制御。書き込みに失敗しても既存のPNGを保持するよう改善。</li>
+<li>アプリ・Qt・スクリプトのバージョン、および無関係なスクリプト設定によるキャッシュの無駄な再生成を削減。キャッシュキー形式が変わったため旧キャッシュは再利用しません。ディスク領域を回収したい場合は「環境設定 → キャッシュ」から消去してください（元画像や読書履歴には影響しません）。</li>
+<li>WindowsでMangaMeeya設定インポート後のINI保存が失敗する問題を修正。</li>
+</ul>
+<h2 id="v121">v1.2.1</h2>
+<ul>
+<li>単一起動設定で再度起動した際、既存ウィンドウの最小化を解除してから前面化を要求するよう修正。最大化・全画面状態と読書位置を保持。</li>
+</ul>
+<h2 id="v120">v1.2.0</h2>
+<ul>
+<li>現在表示する表紙・ページのサムネイルを優先し、保存済みキャッシュの確認を重い画像生成から分離。別の生成処理を待たずにキャッシュを表示。</li>
+<li>生成した画像は先に表示し、キャッシュの保存・整理と読書の先読みは後続処理として実行。表示対象の変更時には不要になった処理を取り消すよう改善。</li>
+<li>サムネイルモードで非表示の読書画面の画像生成・先読みを停止。選択ページの画像コピーは明示的な操作時に実行。</li>
+<li>フォルダ一覧の読み込み・ソートを非同期化し、一覧更新時の選択とスクロール位置を保持。</li>
+</ul>
+<h2 id="v111">v1.1.1</h2>
+<ul>
+<li>全画面状態を保存し、全画面で終了した場合は次回も全画面で起動するよう修正。通常表示に戻して終了した場合は通常表示で起動。</li>
+<li>「環境設定 → 表示 → 全画面表示」で現在の表示を変更できる項目を追加。</li>
+<li>全画面状態を設定スロットと設定ファイルのエクスポート／インポートにも反映。全画面解除時の通常ウィンドウの配置を保持。</li>
+</ul>
+<h2 id="v110">v1.1.0</h2>
+<ul>
+<li>読書画面下部のファイル名とページサムネイルの連番を設定可能にし、既定で非表示に変更。ファイル名の専用領域も画像表示に使用。</li>
+<li>独立した上下2ペインのフォルダブラウザーを追加して既定に変更。従来の1ペインも選択可能。</li>
+<li>カスタムサムネイルに幅・高さ、列数、間隔、ファイル名行数、配置起点、装飾枠を追加。初期値は64×64・自動列数・間隔0・名前1行・左上・枠なし。</li>
+<li>ツールバーの表示切替を「表示」メニューの直下へ移動。</li>
+<li>表紙一覧と画像読書ページでファイルソートの既定方式・逆順を共有し、設定スロットと設定ファイルでも保存・復元。取り込んだリスト固有の並び順は開く際に維持。</li>
+<li>フォルダツリーの名前列の幅と、隠し属性の親フォルダを含むパスの選択を修正。</li>
+<li>青空文庫TXTの画像・キャプション注記と、挿絵付きTXTの限定的なimg参照に対応。文書の単ページ設定が画像用履歴で上書きされる問題を修正。</li>
+<li>サムネイルの保存済みPNGを、保存・整理のロックや全件一覧の走査を待たずに再利用。ロック競合による不要な元画像の再生成を修正。</li>
+<li>「MangaMeeyaとの違い」を追加し、対応範囲・代替操作と設定の保存仕様を整理。</li>
+<li>Windowsで設定ファイルのエクスポートに失敗する問題を修正。</li>
+</ul>
+<h2 id="v103">v1.0.3</h2>
+<ul>
+<li>Linux AppImageで、同梱ライブラリと実機のMesaドライバーの競合により文書表示開始時に異常終了する問題を修正。</li>
+<li>Windowsで、日本語などを含むパスのEPUBを開く処理を修正。</li>
+</ul>
+<h2 id="v100-initial-release">v1.0.0 — Initial release</h2></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../js/base.js"></script>
+        <script src="../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>
