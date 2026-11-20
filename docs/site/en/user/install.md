@@ -1,11 +1,15 @@
 # Installation
 
-v2.0.0 is under development and its packages have not yet completed validation. The procedures and filename examples below were verified for v1; v2 installation instructions will be updated after CI and packaged artifacts are checked.
+This page describes installation, updates, and removal for v2.0.0, which adds local video playback to image and document viewing.
 
 [日本語](../../user/install.md) | English
 
 Screenshots on this page show the Japanese UI.
 
+
+### Updating from v1.7.x
+
+Existing settings and `thumbnails-v2` caches remain usable. Adding video playback does not require clearing or migrating the image and document caches.
 
 ### Upgrading to `thumbnails-v2`
 
@@ -31,9 +35,9 @@ this runtime is installed and up to date.
 
 ### Download and checksum
 
-Download `KomaMimic-1.0.0-windows-x86_64.zip` from
+Download `KomaMimic-2.0.0-windows-x86_64.zip` from
 [GitHub Releases](https://github.com/asfdrwe/KomaMimic/releases). These filenames use
-v1.0.0 as an example; substitute the downloaded name for other versions.
+v2.0.0 as an example; substitute the downloaded name for other versions.
 
 #### Verifying the package
 
@@ -41,7 +45,7 @@ To check the package, open PowerShell in the folder containing the distribution
 ZIP and `SHA256SUMS`, then run:
 
 ```powershell
-Get-FileHash -LiteralPath .\KomaMimic-1.0.0-windows-x86_64.zip -Algorithm SHA256
+Get-FileHash -LiteralPath .\KomaMimic-2.0.0-windows-x86_64.zip -Algorithm SHA256
 ```
 
 Compare the displayed `Hash` with the first 64 characters on the line for that ZIP
@@ -49,13 +53,13 @@ in `SHA256SUMS`. Letter case does not matter.
 
 ### Extraction and startup
 
-Right-click `KomaMimic-1.0.0-windows-x86_64.zip` and choose **Extract All**. Place the
-extracted `KomaMimic-1.0.0-windows-x86_64` folder in a writable location. For example,
+Right-click `KomaMimic-2.0.0-windows-x86_64.zip` and choose **Extract All**. Place the
+extracted `KomaMimic-2.0.0-windows-x86_64` folder in a writable location. For example,
 open `%LOCALAPPDATA%` in Explorer and place it inside `Programs` (create that folder
 if needed). The executable is then:
 
 ```text
-%LOCALAPPDATA%\Programs\KomaMimic-1.0.0-windows-x86_64\komamimic.exe
+%LOCALAPPDATA%\Programs\KomaMimic-2.0.0-windows-x86_64\komamimic.exe
 ```
 
 Double-click `komamimic.exe`. Keep the whole folder: its worker, DLLs, and
@@ -139,14 +143,14 @@ requires the permission steps below.
 
 ### Download and checksum
 
-Download `KomaMimic-1.0.0-macos-arm64.dmg` from
+Download `KomaMimic-2.0.0-macos-arm64.dmg` from
 [GitHub Releases](https://github.com/asfdrwe/KomaMimic/releases). These filenames use
-v1.0.0 as an example; substitute the downloaded name for other versions.
+v2.0.0 as an example; substitute the downloaded name for other versions.
 
 To check the checksum, open Terminal in the folder containing the DMG and run:
 
 ```sh
-shasum -a 256 KomaMimic-1.0.0-macos-arm64.dmg
+shasum -a 256 KomaMimic-2.0.0-macos-arm64.dmg
 ```
 
 Compare the first 64 characters with the line for the same DMG in the distributed
@@ -229,12 +233,12 @@ Startup and basic operation have also been checked on Fedora 44.
 ### Download and extraction
 
 Download the Linux AppImage from [GitHub Releases](https://github.com/asfdrwe/KomaMimic/releases).
-Download `KomaMimic-1.0.0-linux-x86_64.zip` and extract it.
+Download `KomaMimic-2.0.0-linux-x86_64.zip` and extract it.
 
-The executable is `KomaMimic-1.0.0-linux-x86_64.AppImage`. The adjacent `sources/`
+The executable is `KomaMimic-2.0.0-linux-x86_64.AppImage`. The adjacent `sources/`
 contains source files; you do not need to extract or build them to run the app.
 `komamimic.desktop` and `komamimic.png` register the app in the application menu.
-The filenames below use v1.0.0 as an example; substitute the downloaded names for
+The filenames below use v2.0.0 as an example; substitute the downloaded names for
 other versions.
 
 If `SHA256SUMS` is included, open a terminal in the extracted ZIP folder and verify
@@ -251,9 +255,9 @@ containing the AppImage and run:
 
 ```sh
 mkdir -p "$HOME/.local/bin"
-mv KomaMimic-1.0.0-linux-x86_64.AppImage "$HOME/.local/bin/"
-chmod u+x "$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage"
-"$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage"
+mv KomaMimic-2.0.0-linux-x86_64.AppImage "$HOME/.local/bin/"
+chmod u+x "$HOME/.local/bin/KomaMimic-2.0.0-linux-x86_64.AppImage"
+"$HOME/.local/bin/KomaMimic-2.0.0-linux-x86_64.AppImage"
 ```
 
 To launch from a file manager, first allow execution in the file's properties.
@@ -285,7 +289,7 @@ or similar errors, check your OS's FUSE setup or use extraction-based execution
 below. Launching from a terminal shows the error details.
 
 ```sh
-"$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage" --appimage-extract-and-run
+"$HOME/.local/bin/KomaMimic-2.0.0-linux-x86_64.AppImage" --appimage-extract-and-run
 ```
 
 This extracts into a temporary folder and runs without FUSE. The temporary location
@@ -294,9 +298,9 @@ needs sufficient free space; startup may take longer than normal.
 To keep an extracted copy for repeated use, create a new dedicated folder:
 
 ```sh
-mkdir "$HOME/.local/bin/KomaMimic-1.0.0-extracted"
-cd "$HOME/.local/bin/KomaMimic-1.0.0-extracted"
-../KomaMimic-1.0.0-linux-x86_64.AppImage --appimage-extract
+mkdir "$HOME/.local/bin/KomaMimic-2.0.0-extracted"
+cd "$HOME/.local/bin/KomaMimic-2.0.0-extracted"
+../KomaMimic-2.0.0-linux-x86_64.AppImage --appimage-extract
 ./squashfs-root/AppRun
 ```
 

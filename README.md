@@ -12,15 +12,15 @@ affiliated with the original project and does not include its code, artwork, or 
 
 ## Versions
 
-- **v2 is the latest development series**, extending the MangaMeeya-inspired
+- **v2 is the latest series**, extending the MangaMeeya-inspired
   image and document viewer with local video playback, video controls, saved
-  cover selection, and video preferences through Qt Multimedia. This branch is
-  preparing v2.0.0; the version number does not identify a published release.
+  cover selection, and video preferences through Qt Multimedia. The version
+  documented here is **v2.0.0**.
 - **v1 is the maintained image and document viewer series**, inspired by
   MangaMeeya, without video playback. Its published documentation remains at
   the existing site URLs.
 
-The v2 development guide is built under `/v2/`. The v1 guide stays at the site
+The v2 guide is published under `/v2/`. The v1 guide stays at the site
 root, with an additional copy under `/v1/`. See the version-specific links below.
 
 ## ZIP covers and cache reuse in v1.7.0
@@ -72,8 +72,8 @@ The English guide reuses Japanese UI screenshots and labels them on each page.
 
 ## Documentation
 
-- [v2 user and script developer guide (English, development)](https://asfdrwe.github.io/KomaMimic/v2/en/)
-- [v2 日本語ユーザ＆スクリプト開発者ガイド（開発中）](https://asfdrwe.github.io/KomaMimic/v2/)
+- [v2 user and script developer guide (English)](https://asfdrwe.github.io/KomaMimic/v2/en/)
+- [v2 日本語ユーザ＆スクリプト開発者ガイド](https://asfdrwe.github.io/KomaMimic/v2/)
 - [Installation, updates, and removal](docs/site/en/user/install.md)
 - [Core developer documentation (English)](docs/developer/index.md)
 - [Contributing](#contributing)
@@ -84,8 +84,7 @@ links between matching pages. Core developer documentation is maintained in Engl
 For the v1 image and document viewer, use the
 [v1 English guide](https://asfdrwe.github.io/KomaMimic/en/) or
 [v1 日本語ガイド](https://asfdrwe.github.io/KomaMimic/).
-The v2 site is prepared for publication. Until deployment, read the
-[v2 guide in this repository](docs/site/en/index.md).
+The [v2 guide is also available in this repository](docs/site/en/index.md).
 
 ## Build from source
 
@@ -339,6 +338,7 @@ THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH RE
 
 ## Changelog
 
+- **v2.0.0**: Add local video playback, track and subtitle controls, A-B repeat, deinterlacing, video covers, and automatic/software decoding preferences. Extend previous/next file navigation to individual images and remove the fixed disk cache capacity limit. Preserve v1 documentation and publish the v2 guide under `/v2/`.
 - **v1.7.3**: Fix Linux AppImage menu-launch text input when input-method environment variables are unset or empty. Preserve explicit preference lists and other input-method selections.
 - **v1.7.2**: Fix Linux AppImage text input in Fcitx environments by falling back to the bundled IBus bridge. Preserve explicit input-module preference lists and other input-method selections.
 - **v1.7.1**: Remove the 128 MiB total uncompressed size limit for EPUBs and isolate automated tests from normal settings and caches.

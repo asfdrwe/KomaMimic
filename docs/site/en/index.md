@@ -1,6 +1,6 @@
-# KomaMimic v2 Guide (development)
+# KomaMimic v2 Guide
 
-v2 is the latest development series, preparing for the v2.0.0 release. This guide is built for `/v2/`.
+This guide covers v2.0.0 of the latest v2 series, which adds video playback.
 
 [日本語](../index.md) | English
 

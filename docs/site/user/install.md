@@ -1,9 +1,13 @@
 # インストール
 
-v2.0.0は開発中です。v2配布物の検証はまだ完了していません。以下の手順・名前例はv1で確認したもので、正式なv2インストール案内はCIと配布成果物の確認後に更新します。
+このページは、画像・文書の閲覧に動画再生を加えたv2.0.0のインストール・更新・アンインストール手順です。
 
 日本語 | [English](../en/user/install.md)
 
+
+### v1.7.xからの更新
+
+既存の設定と`thumbnails-v2`キャッシュを引き続き利用できます。動画機能の追加に伴う画像・文書キャッシュの削除や移行は不要です。
 
 ### `thumbnails-v2` への更新
 
@@ -29,14 +33,14 @@ Qtなどの主要ライブラリを同梱しており、Qt SDK・Visual Studio�
 ### 入手とチェックサム
 
 [GitHubのReleases](https://github.com/asfdrwe/KomaMimic/releases)から
-`KomaMimic-1.0.0-windows-x86_64.zip`を取得します。以下はv1.0.0のファイル名の例です。
+`KomaMimic-2.0.0-windows-x86_64.zip`を取得します。以下はv2.0.0のファイル名の例です。
 別の版を使う場合は、取得した名前に置き換えてください。
 
 #### 配布物の検査
 配布物の検査をしたい場合は、配布用ZIPと`SHA256SUMS`があるフォルダーでPowerShellを開き、次を実行します。
 
 ```powershell
-Get-FileHash -LiteralPath .\KomaMimic-1.0.0-windows-x86_64.zip -Algorithm SHA256
+Get-FileHash -LiteralPath .\KomaMimic-2.0.0-windows-x86_64.zip -Algorithm SHA256
 ```
 
 表示された`Hash`を、`SHA256SUMS`にある同じZIP名の行の先頭64文字と照合してください。
@@ -44,13 +48,13 @@ Get-FileHash -LiteralPath .\KomaMimic-1.0.0-windows-x86_64.zip -Algorithm SHA256
 
 ### 展開と起動
 
-配布用の`KomaMimic-1.0.0-windows-x86_64.zip`を右クリックし、**すべて展開**を選びます。
-展開した`KomaMimic-1.0.0-windows-x86_64`フォルダーを、書込み可能な好きな場所へ置きます。
+配布用の`KomaMimic-2.0.0-windows-x86_64.zip`を右クリックし、**すべて展開**を選びます。
+展開した`KomaMimic-2.0.0-windows-x86_64`フォルダーを、書込み可能な好きな場所へ置きます。
 例えば、エクスプローラーで`%LOCALAPPDATA%`を開き、`Programs`フォルダー（なければ作成）の
 中へ置けば、起動ファイルは次の場所になります。
 
 ```text
-%LOCALAPPDATA%\Programs\KomaMimic-1.0.0-windows-x86_64\komamimic.exe
+%LOCALAPPDATA%\Programs\KomaMimic-2.0.0-windows-x86_64\komamimic.exe
 ```
 
 `komamimic.exe`をダブルクリックして起動します。
@@ -129,13 +133,13 @@ Developer ID署名とAppleによる公証は行っていないため、初回起
 ### 入手とチェックサム
 
 [GitHubのReleases](https://github.com/asfdrwe/KomaMimic/releases)から
-`KomaMimic-1.0.0-macos-arm64.dmg`を取得します。以下はv1.0.0のファイル名の例です。
+`KomaMimic-2.0.0-macos-arm64.dmg`を取得します。以下はv2.0.0のファイル名の例です。
 別の版を使う場合は、取得した名前に置き換えてください。
 
 チェックサムを確認する場合は、DMGがあるフォルダーでターミナルを開き、次を実行します。
 
 ```sh
-shasum -a 256 KomaMimic-1.0.0-macos-arm64.dmg
+shasum -a 256 KomaMimic-2.0.0-macos-arm64.dmg
 ```
 
 表示された先頭64文字を、配布する`SHA256SUMS`にある同じDMG名の行と照合してください。
@@ -208,12 +212,12 @@ Ubuntu 22.04相当（glibc 2.35）以降の環境を基準に、自動検査を�
 ### 入手と展開
 
 [GitHubのReleases](https://github.com/asfdrwe/KomaMimic/releases)で配布するLinux用AppImageを取得します。
-`KomaMimic-1.0.0-linux-x86_64.zip`をダウンロードし、ZIPを展開してください。
+`KomaMimic-2.0.0-linux-x86_64.zip`をダウンロードし、ZIPを展開してください。
 
-実行するファイルは `KomaMimic-1.0.0-linux-x86_64.AppImage` です。
+実行するファイルは `KomaMimic-2.0.0-linux-x86_64.AppImage` です。
 同じ場所の `sources/` は対応ソースであり、起動のために展開・ビルドする必要はありません。
 `komamimic.desktop`と`komamimic.png`は、アプリケーションメニューへ登録するためのファイルです。
-以下のファイル名はv1.0.0の例です。別の版を使う場合は取得した名前に置き換えてください。
+以下のファイル名はv2.0.0の例です。別の版を使う場合は取得した名前に置き換えてください。
 
 `SHA256SUMS`が付属している場合は、ZIPを展開したフォルダーで端末を開き、整合性を確認できます。
 
@@ -228,9 +232,9 @@ AppImageがあるフォルダーで端末を開き、次を実行します。
 
 ```sh
 mkdir -p "$HOME/.local/bin"
-mv KomaMimic-1.0.0-linux-x86_64.AppImage "$HOME/.local/bin/"
-chmod u+x "$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage"
-"$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage"
+mv KomaMimic-2.0.0-linux-x86_64.AppImage "$HOME/.local/bin/"
+chmod u+x "$HOME/.local/bin/KomaMimic-2.0.0-linux-x86_64.AppImage"
+"$HOME/.local/bin/KomaMimic-2.0.0-linux-x86_64.AppImage"
 ```
 
 ファイルマネージャーから起動する場合も、先にファイルのプロパティで実行権限を許可します。
@@ -262,7 +266,7 @@ cp komamimic.png "$HOME/.local/share/icons/hicolor/256x256/apps/"
 端末から起動するとエラー内容を確認できます。
 
 ```sh
-"$HOME/.local/bin/KomaMimic-1.0.0-linux-x86_64.AppImage" --appimage-extract-and-run
+"$HOME/.local/bin/KomaMimic-2.0.0-linux-x86_64.AppImage" --appimage-extract-and-run
 ```
 
 この方法はFUSEを使わず、一時フォルダーへ展開して起動します。展開先には十分な空き容量が必要です。
@@ -271,9 +275,9 @@ cp komamimic.png "$HOME/.local/share/icons/hicolor/256x256/apps/"
 展開したファイルを残して繰り返し使いたい場合は、新しい専用フォルダーを作って展開します。
 
 ```sh
-mkdir "$HOME/.local/bin/KomaMimic-1.0.0-extracted"
-cd "$HOME/.local/bin/KomaMimic-1.0.0-extracted"
-../KomaMimic-1.0.0-linux-x86_64.AppImage --appimage-extract
+mkdir "$HOME/.local/bin/KomaMimic-2.0.0-extracted"
+cd "$HOME/.local/bin/KomaMimic-2.0.0-extracted"
+../KomaMimic-2.0.0-linux-x86_64.AppImage --appimage-extract
 ./squashfs-root/AppRun
 ```
 

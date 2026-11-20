@@ -80,7 +80,8 @@ class WorkflowIsolationTests(unittest.TestCase):
         triggers = text.split('permissions:', 1)[0]
         self.assertRegex(triggers, r'push:\s*tags:')
         self.assertNotIn('branches:', triggers)
-        self.assertIn('tools/build_docs.py', job(text, 'validate'))
+        self.assertIn('from build_docs import build_guide', job(text, 'validate'))
+        self.assertNotIn('python tools/build_docs.py --output', job(text, 'validate'))
         self.assertIn('git merge-base --is-ancestor "$RELEASE_COMMIT" refs/remotes/origin/main',
                       job(text, 'validate'))
 

@@ -5,17 +5,18 @@ the existing Build and Rocky/Ubuntu AppImage workflows, assembles their verified
 outputs, uploads them to a draft, checks the uploaded assets, and publishes the
 complete Release. It never creates or moves Git tags.
 
-## v2.0.0の開発中
+## v2.0.0の公開準備
 
-現在の`2.0.0`は暫定の開発版番号です。CMake・両vcpkg manifest・READMEを揃えています。
-番号変更だけではtag・Release・サイトを公開しません。v1タグは変更しません。
+公開対象の版番号は`2.0.0`です。CMake・両vcpkg manifest・README・日英の更新履歴を揃えます。
+ローカル編集だけではtag・Releaseを公開しません。既存のv1タグは変更しません。
 公開文書はmain-v1がv1、mainがv2を各branchの原稿から生成します。
 共通のgh-pagesにv1をルートと`/v1/`、v2を`/v2/`へ保存し、他版を保持してPagesへ公開します。
-Pages workflowは固定v1原稿を取得しません。Release内に残る固定原稿の文書検査は公開元ではありません。
+PagesとReleaseの文書検査はv2の原稿だけを同じbuild_guide関数で生成し、固定v1原稿を取得しません。
+Release workflowはgh-pagesやPagesを更新しません。
 公開条件と初回移行は[CIの文書公開設定](ci.md#documentation-and-github-pages)を参照してください。
 READMEの主リンクは`/v2/`と`/v2/en/`へ向け、v1の従来URLも併記します。
 v2のReleaseノートのインストール案内も`/v2/`以下を使います。
-v2を正式公開するまでは、READMEとガイドの開発中表記を維持します。
+README・ガイド・版切替メニューはv2.0.0向けの表記に揃えます。
 `main-v1`はv1.x、`main`はv2.xの保守先とし、文書URLは維持します。
 
 通常の手動Release実行は検査と成果物組立のみです。公開前に管理者が3 OSの検査・
@@ -25,6 +26,23 @@ v2を正式公開するまでは、READMEとガイドの開発中表記を維持
 v2の手動検査はRun workflowでブランチを`main`に指定する。3 OS Buildと
 Rocky/Ubuntu AppImageの検査を新しいrunで実行し、`komamimic-release-bundle`を保存する。
 既存Release・Gitタグ・Pagesは更新しない。
+
+1. 変更をmainへcommit/pushし、BuildとDocumentation and Pagesの結果を確認します。
+2. **Release → Run workflow → main**を実行します。手動実行では公開jobがスキップされ、
+   3 OSの配布物を含む`komamimic-release-bundle`が保存されます。
+3. bundleの版番号・commit・SHA256SUMS、対応ソース・依存通知を確認し、配布物を起動して
+   画像・EPUB・動画を確認します。過去の成功報告を、変更後の最終commitの検査結果として流用しません。
+4. 成功した最終commitへ管理者が注釈付きタグを付けてpushします。
+
+   ```sh
+   git tag -a v2.0.0 <confirmed-commit> -m "KomaMimic v2.0.0"
+   git push origin v2.0.0
+   ```
+
+5. タグで起動したReleaseの完了と公開assetを確認します。v2日英ガイドへのリンクも確認します。
+   公開後、main-v1のトップに残るv2.0.0の公開準備中表記はmain-v1で更新します。
+
+既存タグ・Releaseの上書きはしません。手動実行の成功だけで正式公開済みとは扱いません。
 
 ## Version and tag checks
 
@@ -77,12 +95,12 @@ The regular source-change Build trigger and the Pages workflow remain separate.
 
 ## Release assets
 
-For version 1.0.0, the binary assets are:
+For version 2.0.0, the binary assets are:
 
-- `KomaMimic-1.0.0-windows-x86_64.zip`
-- `KomaMimic-1.0.0-macos-arm64.dmg`
-- `KomaMimic-1.0.0-macos-arm64.app.zip`
-- `KomaMimic-1.0.0-linux-x86_64.zip`
+- `KomaMimic-2.0.0-windows-x86_64.zip`
+- `KomaMimic-2.0.0-macos-arm64.dmg`
+- `KomaMimic-2.0.0-macos-arm64.app.zip`
+- `KomaMimic-2.0.0-linux-x86_64.zip`
 
 The Linux ZIP contains the AppImage, `komamimic.desktop`, `komamimic.png`, its build
 manifest/checksums, and `sources/`. The launcher targets `~/.local/bin/`. AppImage

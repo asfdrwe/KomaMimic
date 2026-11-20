@@ -36,10 +36,10 @@ def build_guide(source, destination, config_file, major, base_url):
     import yaml  # Installed by requirements-docs.txt in the documentation job.
     config = yaml.safe_load((source / 'mkdocs.yml').read_text(encoding='utf-8'))
     config['docs_dir'] = str((source / config.get('docs_dir', 'docs')).resolve())
-    config['site_name'] = 'KomaMimic v' + str(major) + (' Guide (development)' if major == 2 else ' Guide')
+    config['site_name'] = 'KomaMimic v' + str(major) + ' Guide'
     config['site_url'] = base_url + ('v2/' if major == 2 else '')
     config['nav'].append({'Versions / バージョン': [
-        {'v1': base_url}, {'v2 (development / 開発中)': base_url + 'v2/'}]})
+        {'v1': base_url}, {'v2': base_url + 'v2/'}]})
     config_file.write_text(yaml.safe_dump(config, allow_unicode=True, sort_keys=False), encoding='utf-8')
     subprocess.run([sys.executable, '-m', 'mkdocs', 'build', '--strict',
                     '--config-file', str(config_file), '--site-dir', str(destination)], check=True)
@@ -63,7 +63,7 @@ def build(root, output):
     output.parent.mkdir(parents=True, exist_ok=True)
     version = re.search(r'project\(KomaMimic VERSION ([0-9.]+)', (root / 'CMakeLists.txt').read_text(encoding='utf-8')).group(1)
     if not version.startswith('2.'):
-        raise ValueError('The development documentation source must be v2')
+        raise ValueError('The documentation source must be v2')
     base_url = yaml.safe_load((root / 'mkdocs.yml').read_text(encoding='utf-8'))['site_url'].rstrip('/') + '/'
     with tempfile.TemporaryDirectory(prefix='docs-build-', dir=output.parent) as temporary:
         work = Path(temporary)
@@ -73,7 +73,7 @@ def build(root, output):
         combine(work / 'v1-site', work / 'v2-site', output)
         (output / 'DOCUMENTATION-VERSIONS.json').write_text(json.dumps(dict(
             v1=dict(tag=V1_TAG, commit=V1_COMMIT, archive_sha256=digest, paths=['/', '/v1/']),
-            v2=dict(path='/v2/', version=version, development=True)), indent=2) + '\n', encoding='utf-8')
+            v2=dict(path='/v2/', version=version, development=False)), indent=2) + '\n', encoding='utf-8')
 
 
 if __name__ == '__main__':

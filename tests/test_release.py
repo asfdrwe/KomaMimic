@@ -7,6 +7,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tarfile
@@ -209,6 +210,17 @@ class ReleaseTests(unittest.TestCase):
         self.assertNotIn('/v2/', v1)
         self.assertIn('https://asfdrwe.github.io/KomaMimic/v2/user/install/', v2)
         self.assertIn('https://asfdrwe.github.io/KomaMimic/v2/en/user/install/', v2)
+
+    def test_current_release_notes_include_the_actual_changelog(self):
+        tag, version = release.version_for_tag(ROOT)
+        notes = release.release_notes_with_changelog(tag, version, ROOT)
+        changelog = (ROOT / 'docs/site/en/changelog.md').read_text(encoding='utf-8')
+        section = changelog.split('## ' + tag + '\n', 1)[1].split('\n## ', 1)[0].strip()
+        self.assertIn('## Changes\n', notes)
+        self.assertIn(section, notes)
+        self.assertIn('## Packages\n', notes)
+        for target in re.findall(r'\]\(([^)]+)\)', notes):
+            self.assertTrue(target.startswith(('https://', 'http://', '#')), target)
 
     def test_release_notes_changelog_section(self):
         path = self.root / 'docs/site/en/changelog.md'

@@ -2,9 +2,16 @@
 
 [日本語](../changelog.md) | English
 
-## v2.0.0 (development, unreleased)
+## v2.0.0
 
-Adds video mode, playback and display preferences, video covers, Multimedia deployment, and automated checks. The v1 guide is preserved and v2 documentation uses a separate URL.
+- Add video playback with play, pause, stop, seeking, speed and volume controls, audio and embedded subtitle selection, and A-B repeat.
+- Add video aspect ratio, rotation, mirroring, Blend/Bob/Linear deinterlacing with manual TFF/BFF selection, idle inhibition, and minimize behavior settings.
+- Register the current video frame as a cover and save its selected track and timestamp, retaining the existing cache priorities used by images and documents.
+- Add automatic/software video decoding preferences and a restart notice after saving a change. GIF and similar images still use reading mode by default and can be switched to video mode.
+- Include individual images in previous/next archive navigation, following the existing order through images, archives, documents, and videos in the same folder. Ordinary image page navigation is unchanged.
+- Remove the fixed upper limit on the disk cache capacity setting while retaining its default, unit, and existing cached images.
+- Deploy Qt Multimedia and check actual video and audio decoding in Windows, macOS, and Linux packages. See the [video guide](https://asfdrwe.github.io/KomaMimic/v2/en/user/video/) for format and subtitle limitations.
+- Keep v1 documentation at its existing URLs and publish v2 documentation under `/v2/`. Maintain v1.x as the image and document viewer series.
 
 ## v1.7.3
 

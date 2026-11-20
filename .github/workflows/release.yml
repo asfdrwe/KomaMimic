@@ -82,7 +82,19 @@ jobs:
         run: |
           python -m pip install -r requirements-docs.txt
           python -m unittest discover -s tests -p test_docs.py
-          python tools/build_docs.py --output tmp/release-site
+          python - <<'PY'
+          from pathlib import Path
+          import sys
+          import yaml
+          sys.path.insert(0, 'tools')
+          from build_docs import build_guide
+
+          root = Path.cwd()
+          work = root / 'tmp'
+          work.mkdir(exist_ok=True)
+          base_url = yaml.safe_load((root / 'mkdocs.yml').read_text())['site_url'].rstrip('/') + '/'
+          build_guide(root, work / 'release-site', work / 'release-docs.yml', 2, base_url)
+          PY
 
   build:
     name: Reuse Windows and macOS Build and native package checks

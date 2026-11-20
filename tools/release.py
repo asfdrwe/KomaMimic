@@ -246,6 +246,7 @@ def release_notes(tag, version):
     heading = 'Initial release' if version == '1.0.0' else 'Release ' + tag
     guide = 'https://asfdrwe.github.io/KomaMimic' + ('/v2' if version.split('.')[0] == '2' else '')
     return (f'# KomaMimic {tag} — {heading}\n\n'
+            '## Packages\n\n'
             '- Windows x86_64: extract the ZIP; Microsoft Visual C++ v14 x64 Redistributable is required.\n'
             '- macOS arm64: copy the app from the DMG to Applications. macOS 15+; no Developer ID signature or Apple notarization.\n'
             '- Linux x86_64: the ZIP contains the AppImage, desktop entry, icon, and source files.\n\n'
