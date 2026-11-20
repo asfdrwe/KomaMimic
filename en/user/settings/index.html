@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://asfdrwe.github.io/KomaMimic/en/user/settings/">
+        <link rel="shortcut icon" href="../../../img/favicon.ico">
+        <title>Settings and caches - KomaMimic Guide</title>
+        <link href="../../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../../css/brands.min.css" rel="stylesheet">
+        <link href="../../../css/solid.min.css" rel="stylesheet">
+        <link href="../../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../../..">KomaMimic Guide</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">日本語</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../.." class="dropdown-item">はじめに</a>
+</li>
+                                    
+<li>
+    <a href="../../../user/install/" class="dropdown-item">インストール</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">利用ガイド</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../../user/basic/" class="dropdown-item">基本操作</a>
+</li>
+            
+<li>
+    <a href="../../../user/views/" class="dropdown-item">表示と画像加工</a>
+</li>
+            
+<li>
+    <a href="../../../user/documents/" class="dropdown-item">文書を読む</a>
+</li>
+            
+<li>
+    <a href="../../../user/library/" class="dropdown-item">本棚と履歴</a>
+</li>
+            
+<li>
+    <a href="../../../user/settings/" class="dropdown-item">設定とキャッシュ</a>
+</li>
+            
+<li>
+    <a href="../../../user/formats/" class="dropdown-item">対応形式</a>
+</li>
+            
+<li>
+    <a href="../../../user/migration/" class="dropdown-item">設定の取り込み</a>
+</li>
+            
+<li>
+    <a href="../../../user/compatibility/" class="dropdown-item">MangaMeeyaとの違い</a>
+</li>
+            
+<li>
+    <a href="../../../user/macos/" class="dropdown-item">macOSの違い</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">スクリプト開発</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../../scripts/" class="dropdown-item">導入と登録</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/api/" class="dropdown-item">API 1仕様</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/examples/" class="dropdown-item">最小例</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/bundled/" class="dropdown-item">同梱スクリプト</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../../changelog/" class="dropdown-item">更新履歴</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">English</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../" class="dropdown-item">Introduction</a>
+</li>
+                                    
+<li>
+    <a href="../install/" class="dropdown-item">Installation</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">User guide</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../basic/" class="dropdown-item">Basic controls</a>
+</li>
+            
+<li>
+    <a href="../views/" class="dropdown-item">Display and image processing</a>
+</li>
+            
+<li>
+    <a href="../documents/" class="dropdown-item">Reading documents</a>
+</li>
+            
+<li>
+    <a href="../library/" class="dropdown-item">Bookshelves and history</a>
+</li>
+            
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Settings and caches</a>
+</li>
+            
+<li>
+    <a href="../formats/" class="dropdown-item">Supported formats</a>
+</li>
+            
+<li>
+    <a href="../migration/" class="dropdown-item">Importing settings</a>
+</li>
+            
+<li>
+    <a href="../compatibility/" class="dropdown-item">Differences from MangaMeeya</a>
+</li>
+            
+<li>
+    <a href="../macos/" class="dropdown-item">macOS differences</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">Script development</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../scripts/" class="dropdown-item">Installation and registration</a>
+</li>
+            
+<li>
+    <a href="../../scripts/api/" class="dropdown-item">API 1 specification</a>
+</li>
+            
+<li>
+    <a href="../../scripts/examples/" class="dropdown-item">Minimal examples</a>
+</li>
+            
+<li>
+    <a href="../../scripts/bundled/" class="dropdown-item">Bundled scripts</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../changelog/" class="dropdown-item">Changelog</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../library/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../formats/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/asfdrwe/KomaMimic/edit/master/docs/en/user/settings.md" class="nav-link"><i class="fa-brands fa-github"></i> Edit on GitHub</a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#settings-reading-data-and-caches" class="nav-link">Settings, reading data, and caches</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#settings-and-reading-data" class="nav-link">Settings and reading data</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#autoplay-interval" class="nav-link">Autoplay interval</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#fullscreen" class="nav-link">Fullscreen</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#caches" class="nav-link">Caches</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#colors-and-language" class="nav-link">Colors and language</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#reuse-and-regeneration" class="nav-link">Reuse and regeneration</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="settings-reading-data-and-caches">Settings, reading data, and caches</h1>
+<p><a href="../../../user/settings/">日本語</a> | English</p>
+<p>Screenshots on this page show the Japanese UI.</p>
+<h2 id="settings-and-reading-data">Settings and reading data</h2>
+<p>Normal startup stores <code>settings.ini</code> in the OS-standard settings location.
+<code>library.sqlite3</code> in the same folder stores bookshelves, history, reading positions,
+and related data.</p>
+<table>
+<thead>
+<tr>
+<th>OS</th>
+<th>Default settings file</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Windows</td>
+<td><code>%LOCALAPPDATA%\KomaMimic\KomaMimic\settings.ini</code></td>
+</tr>
+<tr>
+<td>macOS</td>
+<td><code>~/Library/Preferences/KomaMimic/KomaMimic/settings.ini</code></td>
+</tr>
+<tr>
+<td>Linux</td>
+<td><code>~/.config/KomaMimic/KomaMimic/settings.ini</code></td>
+</tr>
+</tbody>
+</table>
+<p>On Linux, <code>XDG_CONFIG_HOME</code> overrides the <code>~/.config</code> portion.
+Use <code>--config /path/to/settings.ini</code> to specify another settings file.
+Older layouts may be migrated to a different location at startup.</p>
+<p>To back up, quit the app and copy the entire settings folder.</p>
+<p><img alt="General settings" src="../../../assets/screenshots/settings-settings-ja.png" /></p>
+<h2 id="autoplay-interval">Autoplay interval</h2>
+<p>Set Preferences → Display → Automatic playback interval (ms); 1000 ms is one second.
+Start forward/reverse playback, pause, or stop from Book list → Page and playlist playback.
+This differs from MangaMeeya's dedicated Playlist playback settings dialog.
+See <a href="../compatibility/">compatibility notes</a> and <a href="../library/">playback controls</a>.</p>
+<h2 id="fullscreen">Fullscreen</h2>
+<p>Use Preferences → Display → Fullscreen and press OK to change the current window.
+Cancel leaves it unchanged. Changes made through menus, shortcuts, or OS window controls are also remembered.
+Quitting in fullscreen restores fullscreen on the next startup; leaving fullscreen before quitting restores a normal window instead.
+Leaving fullscreen restores the normal window's position, size, and maximized state.</p>
+<p>New settings and older settings without a saved fullscreen state start in a normal window.
+<code>--fullscreen</code> (<code>-f</code>) starts in fullscreen regardless of the saved state.
+Settings slots and KomaMimic settings export/import include the fullscreen state.
+Importing an older file without this setting keeps the current fullscreen state.</p>
+<h2 id="caches">Caches</h2>
+<p>Preferences → Cache controls in-memory preloading and thumbnail disk storage.
+Thumbnail disk storage is enabled by default with a 512 MiB limit and can be cleared
+from this dialog. Thumbnails can be regenerated; they do not replace settings or
+reading-history backups.</p>
+<table>
+<thead>
+<tr>
+<th>OS</th>
+<th>Default thumbnail cache</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Windows</td>
+<td><code>%LOCALAPPDATA%\KomaMimic\KomaMimic\cache\thumbnails-v2</code></td>
+</tr>
+<tr>
+<td>macOS</td>
+<td><code>~/Library/Caches/KomaMimic/KomaMimic/thumbnails-v2</code></td>
+</tr>
+<tr>
+<td>Linux</td>
+<td><code>~/.cache/KomaMimic/KomaMimic/thumbnails-v2</code></td>
+</tr>
+</tbody>
+</table>
+<p>On Linux, <code>XDG_CACHE_HOME</code> overrides <code>~/.cache</code>. These paths use
+<a href="https://doc.qt.io/qt-6/qstandardpaths.html#StandardLocation-enum">Qt's OS-specific storage locations</a>.
+A different <code>--config</code> does not change the independent OS-standard cache location.
+The memory-cache setting is not a limit on total application memory use.</p>
+<p><img alt="Cache settings" src="../../../assets/screenshots/settings-cache-ja.png" /></p>
+<h2 id="colors-and-language">Colors and language</h2>
+<p>Preferences → General lets you choose system/light/dark colors and Japanese,
+English, or the system language. Save and restart to apply the UI language.
+The color mode does not replace configured document or image colors.</p>
+<p>See <a href="../compatibility/">Differences from MangaMeeya</a> for compatibility and sorting persistence.</p>
+<h2 id="reuse-and-regeneration">Reuse and regeneration</h2>
+<p>Use memory first, then saved PNGs. Read the source and generate a thumbnail only when both are missing. Saved thumbnails are trusted by default. They are not checked against their sources on every use or periodically. Redisplay, scrolling, revisiting a folder, or restarting alone does not reopen source images or ZIPs.</p>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Priority</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A visible cover or page has cached pixels</td>
+<td>Display them before source checks</td>
+</tr>
+<tr>
+<td>A visible thumbnail has no cache</td>
+<td>Generate and display it; save afterward</td>
+</tr>
+<tr>
+<td>A folder change notification arrives</td>
+<td>Refresh listing metadata; regenerate only images or ZIPs newer than their cache</td>
+</tr>
+<tr>
+<td>Folder, book, or view changes</td>
+<td>Cancel unfinished old requests and prioritize the destination</td>
+</tr>
+<tr>
+<td>Reading</td>
+<td>Current display, then prefetch, then saving previously completed thumbnails</td>
+</tr>
+</tbody>
+</table>
+<p>Visible PNG reads run separately from heavy generation, without waiting for writer/maintenance locks or a full cache inventory. Page-thumbnail mode does not render or prefetch the hidden reading image. Reading does not generate or validate thumbnails or scan hidden browser lists.</p>
+<h3 id="thumbnail-generation-concurrency">Thumbnail generation concurrency</h3>
+<p>Preferences → Thumbnails → <strong>Thumbnail generation concurrency</strong> accepts 1–4 jobs. The default is 1 (no parallel generation). Keep 1 to limit disk load; increase it when you want parallel generation.
+This controls generation of visible cover and page thumbnails. It does not change cache reading, reading-mode images or prefetch, or explicit bulk operations.
+Saving applies the limit to newly started jobs and keeps it across restarts. Changing this setting does not delete, regenerate, or rewrite existing thumbnails.</p>
+<h3 id="preload-all-thumbnails">Preload all thumbnails</h3>
+<p>Preferences → Thumbnails → <strong>Preload all thumbnails</strong> is off by default.
+When off, only visible items are requested, with a limited number of completed images retained in memory.
+When on, the current cover list or current book's page list is loaded progressively after visible cache reads
+and missing-thumbnail generation have finished. Missing cached images are generated as needed.
+This does not crawl all folders or create document-body page thumbnails.</p>
+<p>Scrolling interrupts preloading and gives the new visible range priority. Remaining work resumes after input settles.
+Completed display images remain in memory within the limit, avoiding file reads and image decoding on return.
+Changing folders, books or display modes cancels remaining work. Preloading does not run in Reader.</p>
+<p><strong>Offscreen thumbnail memory limit (MiB)</strong> defaults to 128 MiB, adjustable from 16 to 2048 MiB.
+It bounds offscreen thumbnail images and display icons in the current list, evicting older images when necessary.
+Visible images, other existing caches and Qt overhead are separate; this is not a whole-application memory limit.
+A list larger than the limit cannot remain entirely in memory at once.
+Turning the option off restores normal retention without deleting saved disk thumbnails.
+If disk saving is enabled, preloaded offscreen images are also saved for later reuse.</p>
+<h3 id="load-all-files">Load all files</h3>
+<p>Tools → Load all files is a saved on/off loading option. You can select it in
+cover and page thumbnail views, but whole-file loading runs only in Reader.
+The current image and configured nearby preloading come first. The option then
+retains JPEG, PNG, and other file data in memory; it does not generate thumbnails
+or decode every page into pixels.</p>
+<p>Navigation cancels in-flight work. Once reading is idle, remaining files can be
+loaded while completed data stays reusable for the same book. Turning the option
+off releases its retained data. Preferences → Cache → Whole-file loading limit
+(MiB) defaults to 128 MiB, separate from the regular encoded-file and pixel caches.
+Loading stops at that limit or the final file. Importing MangaMeeya settings maps
+<code>Config/BundleLoad</code> to this option.</p>
+<p>Reader does not prepare hidden page-thumbnail items or their dedicated metadata.
+Those are prepared when entering the thumbnail view; obsolete listing work is
+cancelled when returning to reading.</p>
+<h3 id="checking-changes">Checking changes</h3>
+<p>Folder change notifications refresh directory-listing information. Regenerate only when the listed image or ZIP file has a modification time newer than the cached PNG’s save time. Do not open source images or ZIP contents to check for changes. If an update is not identified this way, use <code>F6</code> for manual regeneration.</p>
+<h3 id="folder-cover-search-depth">Folder-cover search depth</h3>
+<p>Preferences → Thumbnails → additional folder-cover search levels accepts <strong>0–8 and defaults to 0</strong>. When viewing A containing B:</p>
+<table>
+<thead>
+<tr>
+<th>Value</th>
+<th>Search range</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>Search B's direct images and archives without entering B/C</td>
+</tr>
+<tr>
+<td>1</td>
+<td>Also search C's direct files</td>
+</tr>
+<tr>
+<td>2 or more</td>
+<td>Search up to the configured additional depth, then stop</td>
+</tr>
+</tbody>
+</table>
+<p>Candidates use natural order with files before folders. Sorting the displayed list does not change this selection rule. Show a folder icon if no candidate is found within the limit, without repeatedly searching the same unchanged visible item. Reducing depth or reaching a cutoff does not delete an existing cover.</p>
+<h3 id="saving-retention-and-capacity">Saving, retention, and capacity</h3>
+<p>Generated pixels are available in memory before saving finishes. Visible thumbnail generation follows the configured concurrency (1–4 jobs, default 1). Each worker saves its completed image directly to the regular cache. Atomic PNG replacement keeps the previous image until its replacement succeeds.</p>
+<p>Unchanged images are retained regardless of last use, age, file count, scrolling, restart, or display thumbnail size. Only capacity overflow, including a reduced configured limit, triggers <strong>oldest-save-time-first eviction (FIFO)</strong>. Reads never change PNG save times. A changed image receives a new save time after its replacement is saved successfully.</p>
+<p>Explicit cache deletion, F6 refresh, and capacity eviction are exceptions. If a cached PNG cannot be read, try another saved copy before generating from the source.</p>
+<h3 id="compatibility-and-text-covers">Compatibility and text covers</h3>
+<p>v1.5.0 retains the <code>thumbnails-v2</code> location and format. Updating does not require clearing existing v2 images or regenerating the entire cache. Completed <strong>cover previews for TXT, Markdown, and archives containing text are also saved</strong>. Their bodies use document reading, separate from image-page thumbnails.</p>
+<p>Decoded thumbnails also share a 32 MiB memory cache. While an image remains there,
+revisiting folders or switching views avoids reading and decoding its saved PNG.
+Evicted images and images after a restart are loaded from saved PNGs.
+This cache is separate from the retention limit for full-list thumbnail preloading.</p>
+<p><code>thumbnails-v1</code> is not read, migrated, or automatically deleted. To reclaim its space, use Preferences → Cache in an older version that uses that format. Current cache clearing normally affects only v2 and does not remove source images, archives, bookshelves, or reading history.</p>
+<p>Incomplete temporary files left by an abnormal exit are not read as committed PNGs. Qt checks lock ownership and other stale-lock conditions before reclaiming a leftover lock.</p>
+<h3 id="workaround-for-incorrect-thumbnails">Workaround for incorrect thumbnails</h3>
+<ol>
+<li>In the cover or page-thumbnail view, press <code>F6</code> (<strong>Refresh thumbnails</strong> / <strong>サムネイルを再取得</strong>) to regenerate images from their sources. Try this first for stale, incorrect or missing thumbnails.</li>
+<li>If the problem persists, clear the current thumbnail cache from Preferences → Cache, then reopen the affected folder or archive to regenerate it.</li>
+<li>If the problem remains, check that the original image or ZIP can be read, disk space and file permissions. Regenerating thumbnails cannot repair a damaged original file.</li>
+</ol>
+<p>Clearing the cache does not erase original files, bookshelves or reading history. Regeneration requires time to read the sources.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../../js/base.js"></script>
+        <script src="../../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

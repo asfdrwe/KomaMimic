@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://asfdrwe.github.io/KomaMimic/scripts/api/">
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>API 1仕様 - KomaMimic Guide</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../css/brands.min.css" rel="stylesheet">
+        <link href="../../css/solid.min.css" rel="stylesheet">
+        <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">KomaMimic Guide</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">日本語</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../.." class="dropdown-item">はじめに</a>
+</li>
+                                    
+<li>
+    <a href="../../user/install/" class="dropdown-item">インストール</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">利用ガイド</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../user/basic/" class="dropdown-item">基本操作</a>
+</li>
+            
+<li>
+    <a href="../../user/views/" class="dropdown-item">表示と画像加工</a>
+</li>
+            
+<li>
+    <a href="../../user/documents/" class="dropdown-item">文書を読む</a>
+</li>
+            
+<li>
+    <a href="../../user/library/" class="dropdown-item">本棚と履歴</a>
+</li>
+            
+<li>
+    <a href="../../user/settings/" class="dropdown-item">設定とキャッシュ</a>
+</li>
+            
+<li>
+    <a href="../../user/formats/" class="dropdown-item">対応形式</a>
+</li>
+            
+<li>
+    <a href="../../user/migration/" class="dropdown-item">設定の取り込み</a>
+</li>
+            
+<li>
+    <a href="../../user/compatibility/" class="dropdown-item">MangaMeeyaとの違い</a>
+</li>
+            
+<li>
+    <a href="../../user/macos/" class="dropdown-item">macOSの違い</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">スクリプト開発</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../" class="dropdown-item">導入と登録</a>
+</li>
+            
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">API 1仕様</a>
+</li>
+            
+<li>
+    <a href="../examples/" class="dropdown-item">最小例</a>
+</li>
+            
+<li>
+    <a href="../bundled/" class="dropdown-item">同梱スクリプト</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../changelog/" class="dropdown-item">更新履歴</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">English</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../en/" class="dropdown-item">Introduction</a>
+</li>
+                                    
+<li>
+    <a href="../../en/user/install/" class="dropdown-item">Installation</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">User guide</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../en/user/basic/" class="dropdown-item">Basic controls</a>
+</li>
+            
+<li>
+    <a href="../../en/user/views/" class="dropdown-item">Display and image processing</a>
+</li>
+            
+<li>
+    <a href="../../en/user/documents/" class="dropdown-item">Reading documents</a>
+</li>
+            
+<li>
+    <a href="../../en/user/library/" class="dropdown-item">Bookshelves and history</a>
+</li>
+            
+<li>
+    <a href="../../en/user/settings/" class="dropdown-item">Settings and caches</a>
+</li>
+            
+<li>
+    <a href="../../en/user/formats/" class="dropdown-item">Supported formats</a>
+</li>
+            
+<li>
+    <a href="../../en/user/migration/" class="dropdown-item">Importing settings</a>
+</li>
+            
+<li>
+    <a href="../../en/user/compatibility/" class="dropdown-item">Differences from MangaMeeya</a>
+</li>
+            
+<li>
+    <a href="../../en/user/macos/" class="dropdown-item">macOS differences</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">Script development</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../en/scripts/" class="dropdown-item">Installation and registration</a>
+</li>
+            
+<li>
+    <a href="../../en/scripts/api/" class="dropdown-item">API 1 specification</a>
+</li>
+            
+<li>
+    <a href="../../en/scripts/examples/" class="dropdown-item">Minimal examples</a>
+</li>
+            
+<li>
+    <a href="../../en/scripts/bundled/" class="dropdown-item">Bundled scripts</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../en/changelog/" class="dropdown-item">Changelog</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../examples/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/asfdrwe/KomaMimic/edit/master/docs/scripts/api.md" class="nav-link"><i class="fa-brands fa-github"></i> Edit on GitHub</a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#javascript-api-1" class="nav-link">JavaScript API 1</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#manifest" class="nav-link">manifest</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#reader" class="nav-link">単画像reader</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#reader_1" class="nav-link">複数ページreader</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#context" class="nav-link">context</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#filter" class="nav-link">filter</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#schema" class="nav-link">設定schema</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#_1" class="nav-link">実行制限と診断</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="javascript-api-1">JavaScript API 1</h1>
+<p>日本語 | <a href="../../en/scripts/api/">English</a></p>
+<p>アプリの版とは独立したAPI番号で、manifestの <code>apiVersion</code> は <code>1</code> です。
+ES module、Node.jsのrequire、Promiseを返す非同期関数は使いません。
+通常の関数として <code>decode</code>、必要な場合は <code>inspect</code> または <code>filter</code> を定義します。</p>
+<h2 id="manifest">manifest</h2>
+<pre><code class="language-json">{
+  &quot;apiVersion&quot;: 1,
+  &quot;id&quot;: &quot;org.example.reader.toy&quot;,
+  &quot;name&quot;: &quot;Toy image&quot;,
+  &quot;extensions&quot;: [&quot;toy&quot;],
+  &quot;magic&quot;: &quot;544f59&quot;,
+  &quot;script&quot;: &quot;decode.js&quot;,
+  &quot;license&quot;: &quot;GPL-3.0-only&quot;
+}
+</code></pre>
+<p>readerはextensionsとmagicを持ち、filterは <code>kind: "filter"</code> を指定します。
+magicは先頭1〜32 byteの16進表現で、一致は拡張子より優先します。
+一覧の列挙は拡張子を使うため、未知拡張子の自動発見を保証しません。
+extensionsは小文字英数字1〜12文字、scriptはpackage直下の通常の.jsファイル名です。
+外への相対パスやsymlinkは拒否します。異なるID間の形式重複は登録時にエラーにします。
+IDは英数字・下線・ピリオド・ハイフンの1〜64文字、script名は英数字・下線・ハイフンと
+末尾の <code>.js</code> です。magicの先頭部分だけが他のreaderと重なる定義も避けてください。
+nameとlicenseは説明用で、権利・ライセンスの適合性を自動判定しません。</p>
+<h2 id="reader">単画像reader</h2>
+<p><code>decode(input, context)</code> は <code>{width, height, pixels}</code> を返します。
+inputは符号化されたファイル全体のArrayBufferです。書庫の展開やファイル取得は本体が担当します。
+width/heightは正の整数、pixelsは <code>width * height * 4</code> byteちょうどのArrayBufferです。
+RGBA8、上から下・左から右、非premultiplied、行paddingなしで返します。
+Uint8Arrayそのものではなく <code>.buffer</code> を返してください。subarrayは元配列全体を参照するため、
+必要なら <code>slice().buffer</code> を使います。サムネイルでも全画像を復号して本体で縮小します。</p>
+<h2 id="reader_1">複数ページreader</h2>
+<p>manifestに <code>multipage: true</code> を追加します。
+<code>inspect(input, context)</code> は <code>{pages: ページ数}</code>（1〜10000）を返します。
+decodeは <code>context.pageIndex</code> の0始まりページを返します。同じ入力と設定に対して
+inspectとdecodeの結果を一貫させます。アニメーションのframe APIではありません。</p>
+<h2 id="context">context</h2>
+<table>
+<thead>
+<tr>
+<th>項目</th>
+<th>意味</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>apiVersion</td>
+<td>1</td>
+</tr>
+<tr>
+<td>maxBytes</td>
+<td>符号化入力上限、64 MiB</td>
+</tr>
+<tr>
+<td>maxPixels</td>
+<td>出力画素上限、48 × 1024 × 1024</td>
+</tr>
+<tr>
+<td>maxPages</td>
+<td>ページ数上限、10000</td>
+</tr>
+<tr>
+<td>pageIndex</td>
+<td>0始まりの対象ページ</td>
+</tr>
+<tr>
+<td>settings</td>
+<td>schemaの既定値・型・範囲を適用した設定</td>
+</tr>
+</tbody>
+</table>
+<h2 id="filter">filter</h2>
+<p><code>filter(image, context)</code> は最大32個の操作を配列で返します。
+imageはwidth/heightだけの記述子です。JSへ全画素を渡さず、本体が検証してnative加工を実行します。</p>
+<table>
+<thead>
+<tr>
+<th>op</th>
+<th>パラメータ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>grayscale / invert / flipH / flipV</td>
+<td>なし</td>
+</tr>
+<tr>
+<td>gamma</td>
+<td>value: 0.1〜10</td>
+</tr>
+<tr>
+<td>brightness / contrast</td>
+<td>value: -100〜100（整数として使用）</td>
+</tr>
+<tr>
+<td>rotate</td>
+<td>value: -270〜270の90度単位</td>
+</tr>
+<tr>
+<td>resize</td>
+<td>width/height: 1〜16384、積はmaxPixels以内</td>
+</tr>
+</tbody>
+</table>
+<p>filterは通常のnative加工の後、表示と加工保存へ適用します。原本byte保存、文書ビュー、
+表紙プレビューには適用しません。アニメーションはframeごとに適用してdelayを保持します。
+失敗を黙って無加工へ置き換えません。filterを使用するには画像加工を有効にします。</p>
+<h2 id="schema">設定schema</h2>
+<pre><code class="language-json">&quot;settings&quot;: {
+  &quot;grayscale&quot;: {&quot;type&quot;: &quot;boolean&quot;, &quot;default&quot;: true},
+  &quot;gamma&quot;: {&quot;type&quot;: &quot;number&quot;, &quot;minimum&quot;: 0.1, &quot;maximum&quot;: 5, &quot;default&quot;: 1},
+  &quot;contrast&quot;: {&quot;type&quot;: &quot;integer&quot;, &quot;minimum&quot;: -100, &quot;maximum&quot;: 100, &quot;default&quot;: 10}
+}
+</code></pre>
+<p>キーは英字で始まる英数字・下線32文字以内、最大32項目です。
+boolean/integer/numberを扱い、環境設定に入力欄を生成します。readerも同じschemaを使えます。
+数値のminimum/maximumは-1000000〜1000000で、minimum ≤ default ≤ maximumとします。
+integerは範囲と既定値も整数です。数値の範囲を省略すると±1000000、defaultを省略するとminimumです。
+<code>scripts/&lt;id&gt;/&lt;key&gt;</code> に保存し、schemaにない値は渡しません。設定snapshotは本を開くときに取得します。
+文字列・パス権限・本別script設定は提供しません。
+filterはIDを <code>scripts/filter</code> に保存します。ID <code>0</code> と <code>1</code> は予約されているので使用しません。</p>
+<h2 id="_1">実行制限と診断</h2>
+<table>
+<thead>
+<tr>
+<th>対象</th>
+<th>上限</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>manifest / JS source</td>
+<td>16 KiB / 256 KiB</td>
+</tr>
+<tr>
+<td>入力 / 出力</td>
+<td>64 MiB / 48 Mi画素</td>
+</tr>
+<tr>
+<td>request header / filter操作列JSON</td>
+<td>1 MiB / 16 KiB</td>
+</tr>
+<tr>
+<td>通常の1要求</td>
+<td>親の起動・転送を含め10秒</td>
+</tr>
+</tbody>
+</table>
+<p>要求ごとに新しいworkerのQJSEngineを使用します。例外、不正寸法、byte数、期限超過は診断になります。
+取消・期限でworkerを停止し、古い世代の結果をGUIへ反映しません。
+Linuxの仮想アドレス空間とWindowsのJob Objectでは2 GiB上限を設定します。
+macOSに同等の信頼できる上限はなく、入力・出力・時間制限を使います。
+これはアプリ全体のRSS制限やOS全体を保護する汎用sandboxではありません。</p>
+<p>filesystem/network/process/QObject/QML importのnative能力は公開しません。
+JavaScript標準の日時・乱数等を完全に禁止しているわけではありません。
+CLIの <code>--formats</code> / <code>--commands</code> で保存登録に問題があればstderrへ出し終了コード2を返します。</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js"></script>
+        <script src="../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

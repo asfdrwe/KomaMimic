@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://asfdrwe.github.io/KomaMimic/user/settings/">
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>設定とキャッシュ - KomaMimic Guide</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../css/brands.min.css" rel="stylesheet">
+        <link href="../../css/solid.min.css" rel="stylesheet">
+        <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">KomaMimic Guide</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">日本語</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../.." class="dropdown-item">はじめに</a>
+</li>
+                                    
+<li>
+    <a href="../install/" class="dropdown-item">インストール</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">利用ガイド</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../basic/" class="dropdown-item">基本操作</a>
+</li>
+            
+<li>
+    <a href="../views/" class="dropdown-item">表示と画像加工</a>
+</li>
+            
+<li>
+    <a href="../documents/" class="dropdown-item">文書を読む</a>
+</li>
+            
+<li>
+    <a href="../library/" class="dropdown-item">本棚と履歴</a>
+</li>
+            
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">設定とキャッシュ</a>
+</li>
+            
+<li>
+    <a href="../formats/" class="dropdown-item">対応形式</a>
+</li>
+            
+<li>
+    <a href="../migration/" class="dropdown-item">設定の取り込み</a>
+</li>
+            
+<li>
+    <a href="../compatibility/" class="dropdown-item">MangaMeeyaとの違い</a>
+</li>
+            
+<li>
+    <a href="../macos/" class="dropdown-item">macOSの違い</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">スクリプト開発</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../scripts/" class="dropdown-item">導入と登録</a>
+</li>
+            
+<li>
+    <a href="../../scripts/api/" class="dropdown-item">API 1仕様</a>
+</li>
+            
+<li>
+    <a href="../../scripts/examples/" class="dropdown-item">最小例</a>
+</li>
+            
+<li>
+    <a href="../../scripts/bundled/" class="dropdown-item">同梱スクリプト</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../changelog/" class="dropdown-item">更新履歴</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">English</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../en/" class="dropdown-item">Introduction</a>
+</li>
+                                    
+<li>
+    <a href="../../en/user/install/" class="dropdown-item">Installation</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">User guide</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../en/user/basic/" class="dropdown-item">Basic controls</a>
+</li>
+            
+<li>
+    <a href="../../en/user/views/" class="dropdown-item">Display and image processing</a>
+</li>
+            
+<li>
+    <a href="../../en/user/documents/" class="dropdown-item">Reading documents</a>
+</li>
+            
+<li>
+    <a href="../../en/user/library/" class="dropdown-item">Bookshelves and history</a>
+</li>
+            
+<li>
+    <a href="../../en/user/settings/" class="dropdown-item">Settings and caches</a>
+</li>
+            
+<li>
+    <a href="../../en/user/formats/" class="dropdown-item">Supported formats</a>
+</li>
+            
+<li>
+    <a href="../../en/user/migration/" class="dropdown-item">Importing settings</a>
+</li>
+            
+<li>
+    <a href="../../en/user/compatibility/" class="dropdown-item">Differences from MangaMeeya</a>
+</li>
+            
+<li>
+    <a href="../../en/user/macos/" class="dropdown-item">macOS differences</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">Script development</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../en/scripts/" class="dropdown-item">Installation and registration</a>
+</li>
+            
+<li>
+    <a href="../../en/scripts/api/" class="dropdown-item">API 1 specification</a>
+</li>
+            
+<li>
+    <a href="../../en/scripts/examples/" class="dropdown-item">Minimal examples</a>
+</li>
+            
+<li>
+    <a href="../../en/scripts/bundled/" class="dropdown-item">Bundled scripts</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../en/changelog/" class="dropdown-item">Changelog</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../library/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../formats/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/asfdrwe/KomaMimic/edit/master/docs/user/settings.md" class="nav-link"><i class="fa-brands fa-github"></i> Edit on GitHub</a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#_1" class="nav-link">設定・読書データ・キャッシュ</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#_2" class="nav-link">設定と読書データ</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#_3" class="nav-link">自動再生の間隔</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#_4" class="nav-link">全画面表示</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#_5" class="nav-link">キャッシュ</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#_15" class="nav-link">配色と言語</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="_1">設定・読書データ・キャッシュ</h1>
+<p>日本語 | <a href="../../en/user/settings/">English</a></p>
+<h2 id="_2">設定と読書データ</h2>
+<p>通常起動ではOS標準の設定場所に <code>settings.ini</code> を保存します。
+同じフォルダの <code>library.sqlite3</code> に本棚・履歴・読書状態などを保存します。</p>
+<table>
+<thead>
+<tr>
+<th>OS</th>
+<th>通常の設定ファイル</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Windows</td>
+<td><code>%LOCALAPPDATA%\KomaMimic\KomaMimic\settings.ini</code></td>
+</tr>
+<tr>
+<td>macOS</td>
+<td><code>~/Library/Preferences/KomaMimic/KomaMimic/settings.ini</code></td>
+</tr>
+<tr>
+<td>Linux</td>
+<td><code>~/.config/KomaMimic/KomaMimic/settings.ini</code></td>
+</tr>
+</tbody>
+</table>
+<p>Linuxの <code>XDG_CONFIG_HOME</code> を指定している場合は <code>~/.config</code> の部分が変わります。
+コマンドラインの <code>--config /path/to/settings.ini</code> で別の設定を指定できます。
+旧配置を使っていた場合は、起動時の移行によって場所が変わる場合があります。</p>
+<p>バックアップはアプリを終了して設定フォルダごとコピーします。</p>
+<p><img alt="settings-settings-ja.png" src="../../assets/screenshots/settings-settings-ja.png" /></p>
+<h2 id="_3">自動再生の間隔</h2>
+<p>「環境設定 → 表示」の「自動再生の間隔（ミリ秒）」で指定します。1000ミリ秒が1秒です。
+開始・逆再生・一時停止・停止は「ブックリスト → ページ・プレイリストの再生」で操作します。
+MangaMeeyaの「プレイリスト再生設定…」ダイアログとは設定の入口が異なります。
+<a href="../compatibility/">互換性の説明</a>と<a href="../library/">再生操作</a>を参照してください。</p>
+<h2 id="_4">全画面表示</h2>
+<p>「環境設定 → 表示 → 全画面表示」で切り替え、OKを押すと現在のウィンドウに反映します。
+キャンセルした場合は変更しません。メニューやショートカット、OSの操作による切り替えも記憶します。
+全画面で終了すると次回も全画面で起動し、通常表示に戻して終了すると次回は通常表示になります。
+全画面を解除した際は通常ウィンドウの位置・サイズや最大化状態に戻ります。</p>
+<p>新規設定や全画面状態を保存していない旧設定では、通常表示で起動します。
+<code>--fullscreen</code>（<code>-f</code>）を指定した場合は保存状態にかかわらず全画面になります。
+全画面状態は設定スロットとKomaMimic設定のエクスポート／インポートにも含まれます。
+全画面状態の項目がない旧設定を取り込む場合は、現在の表示状態を保ちます。</p>
+<h2 id="_5">キャッシュ</h2>
+<p>「環境設定 → キャッシュ」でメモリの先読みとサムネイルのディスク保存を設定します。
+サムネイルのディスク保存は既定で有効、上限512 MiBです。設定画面から削除できます。
+サムネイルは再生成できますが、設定や読書履歴の代わりにはなりません。</p>
+<table>
+<thead>
+<tr>
+<th>OS</th>
+<th>通常のサムネイルキャッシュ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Windows</td>
+<td><code>%LOCALAPPDATA%\KomaMimic\KomaMimic\cache\thumbnails-v2</code></td>
+</tr>
+<tr>
+<td>macOS</td>
+<td><code>~/Library/Caches/KomaMimic/KomaMimic/thumbnails-v2</code></td>
+</tr>
+<tr>
+<td>Linux</td>
+<td><code>~/.cache/KomaMimic/KomaMimic/thumbnails-v2</code></td>
+</tr>
+</tbody>
+</table>
+<p>Linuxの <code>XDG_CACHE_HOME</code> を指定した場合は <code>~/.cache</code> の部分が変わります。
+これらはQtの<a href="https://doc.qt.io/qt-6/qstandardpaths.html#StandardLocation-enum">OS別保存場所</a>を使います。
+別の <code>--config</code> を指定しても、OS標準のキャッシュ場所は独立しています。
+メモリキャッシュの値はアプリ全体の使用メモリ上限ではありません。</p>
+<p><img alt="settings-cache-ja.png" src="../../assets/screenshots/settings-cache-ja.png" /></p>
+<h3 id="_6">サムネイル生成の同時実行数</h3>
+<p>「環境設定 → サムネイル → サムネイル生成の同時実行数」で1～4件を指定できます。既定は1件（並列なし）です。ディスク負荷を抑えたい場合は1件のまま使い、並列生成したい場合だけ増やしてください。
+表紙・ページ一覧の表示対象の生成に適用します。キャッシュ読込、読書中の画像と先読み、明示的な一括処理の並列数は変更しません。
+保存すると次に開始する生成から適用され、再起動後も保持します。設定変更だけで既存キャッシュを削除・再生成・再保存することはありません。</p>
+<h3 id="_7">サムネイルの全件先読み</h3>
+<p>「環境設定 → サムネイル → サムネイルを全件先読みする」は既定でオフです。
+オフでは表示範囲を読み込み、表示済み画像を一定量だけメモリに保持します。
+オンでは現在の表紙一覧、または現在の本のページ一覧を対象に、表示範囲のキャッシュ読込・
+不足画像の生成が終わってから、残りも順に読み込みます。キャッシュがなければ生成します。
+全フォルダを巡回する機能ではなく、文書本文のページサムネイルは対象外です。</p>
+<p>スクロール時は先読みを中断して新しい表示範囲を優先し、操作が落ち着いたら残りを再開します。
+読込済みの表示用画像を画面外でも保持し、戻ったときのファイル読込・画像復号を省きます。
+フォルダ・本・表示モードの移動では残りの処理を取り消します。読書中は先読みしません。</p>
+<p>「非表示サムネイルのメモリ上限（MiB）」は既定128 MiB、16～2048 MiBです。
+現在の一覧の非表示画像と表示用アイコンを容量内で保持し、超えた分は古い画像から解放します。
+表示中の画像、既存の別用途キャッシュ、Qtの管理領域を含むアプリ全体のメモリ上限ではありません。
+容量内に収まらない一覧では、全件を同時にメモリ保持できません。
+オフに戻すと通常の保持量へ戻ります。保存済みのディスクキャッシュは削除しません。
+ディスク保存も有効なら、先読みした非表示分も保存され、次回以降に再利用します。</p>
+<h3 id="_8">全ファイル一括ロード</h3>
+<p>「ツール → 全ファイル一括ロード」はオン／オフを保存する読込オプションです。
+表紙・ページサムネイルの表示中でも選択できますが、実際の一括読込は読書中だけ行います。
+現在ページの表示と設定した前後の先読みを優先し、その後にJPEG・PNG等のファイルデータを順に保持します。
+サムネイルや全ページの画素画像を事前生成する操作ではありません。</p>
+<p>モード・本・ページの移動では進行中の処理を取り消し、読書が落ち着いた後に必要な残りだけ再開します。
+読込済みデータは同じ本の読書に再利用します。オフにすると一括読込用の保持データを解放します。
+「環境設定 → キャッシュ → 一括ロードの上限（MiB）」は既定128 MiBです。
+上限または最終ファイルで停止します。通常のファイルキャッシュ・表示用画像キャッシュとは別の容量です。
+MangaMeeya設定の取り込みでは<code>Config/BundleLoad</code>を引き継ぎます。</p>
+<p>読書開始時は、サムネイル一覧の項目作成や専用情報の準備を行いません。
+それらはサムネイルモードへ切り替えた時点に準備し、読書へ戻ると不要な一覧処理を取り消します。</p>
+<h3 id="_9">再利用と再生成</h3>
+<p>対応するメモリキャッシュがあればそれを使い、なければディスクキャッシュを使います。両方ない場合だけ、表示に必要な元画像を読み込んで生成します。保存済みキャッシュはそのまま有効として使います。表示のたびに元ファイルを確認せず、定期検証もしません。再表示・スクロール・フォルダへの再訪・再起動だけを理由に、元画像やZIPを読み直しません。</p>
+<table>
+<thead>
+<tr>
+<th>状況</th>
+<th>優先する動作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>現在表示する表紙・ページのキャッシュがある</td>
+<td>元データの検査より先に保存画像を表示</td>
+</tr>
+<tr>
+<td>現在表示する画像のキャッシュがない</td>
+<td>必要なサムネイルを生成して表示し、保存は後で実行</td>
+</tr>
+<tr>
+<td>所属フォルダの変更通知がある</td>
+<td>一覧情報を更新し、対象画像／ZIPの日時がキャッシュより新しい場合だけ再生成</td>
+</tr>
+<tr>
+<td>フォルダ・Book・表示モードを切り替えた</td>
+<td>旧対象の未完了要求を取り消し、移動先を優先</td>
+</tr>
+<tr>
+<td>読書中</td>
+<td>現在表示、次に先読み、最後に移行前の完成画像の保存</td>
+</tr>
+</tbody>
+</table>
+<p>現在表示する対象のPNG読込は重い生成処理と分離し、保存・整理のロックやキャッシュ全件の走査を待たずに進めます。ページサムネイル表示中は非表示の読書画像の生成・先読みを行わず、読書中はサムネイル生成・更新検査・隠れた一覧の走査を行いません。</p>
+<h3 id="_10">変更の確認</h3>
+<p>所属フォルダの変更通知でディレクトリ情報を更新し、そこにある対象画像ファイル／ZIPファイルの更新日時がキャッシュ作成日時（PNGの保存完了日時）より新しい場合だけ再生成します。フォルダ自身の更新日時は使いません。画像やZIPの中身を変更確認のために読むこともしません。この方法で把握できない変更や不正な表示は、<code>F6</code>で手動再作成してください。</p>
+<h3 id="_11">フォルダ表紙の探索範囲</h3>
+<p>「環境設定 → サムネイル」の「フォルダ表紙の追加探索階層数」は<strong>0～8、既定0</strong>です。Aフォルダを開き、その中のBフォルダの表紙を表示する場合：</p>
+<table>
+<thead>
+<tr>
+<th>設定</th>
+<th>探索範囲</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0</td>
+<td>B直下の画像・ZIP等を探す。B/Cには進まない</td>
+</tr>
+<tr>
+<td>1</td>
+<td>B直下に加え、C直下まで探す</td>
+</tr>
+<tr>
+<td>2以上</td>
+<td>指定した追加階層まで探し、そこで打ち切る</td>
+</tr>
+</tbody>
+</table>
+<p>候補はファイル優先の自然順で決めます。画面上の並び替えだけでは採用規則を変えません。設定範囲で対象がなければフォルダアイコンを表示し、同じ表示中に条件が変わらなければ探索を繰り返しません。探索を浅くしたり深度で打ち切ったりしても、保存済みの表紙を削除しません。</p>
+<h3 id="_12">保存・保持・容量超過</h3>
+<p>生成結果は保存完了を待たず表示します。完成済みの未保存画像はフォルダやモードの切替でも保持し、現在表示・読書先読みより低い優先度で保存します。保存のために元ファイルを再検査しません。新しいPNGの保存が成功するまで既存PNGを保持し、生成・保存の一時的な失敗で旧画像を先に消しません。</p>
+<p>表示対象のサムネイルは設定した同時実行数（既定1件、1～4件）で生成します。生成済み画像は保存前からメモリで表示でき、各workerが通常のキャッシュ先へ直接保存します。新PNGが確定するまで旧PNGを保持します。</p>
+<p>未変更の画像は、未使用期間・経過日数・件数・スクロール・再起動・表示寸法の変更だけでは破棄しません。容量を超えた場合、または設定で上限を下げた場合だけ、<strong>画像の保存日時が古い順（FIFO）</strong>に容量内へ整理します。最終利用日時は使わず、キャッシュを読み出してもPNGの保存日時を変更しません。画像の更新が必要な場合は、新画像の保存成功後に旧画像を置き換え、新しい保存日時にします。</p>
+<p>明示的なキャッシュ削除・F6による更新と容量整理は例外です。通常読込でキャッシュ自体を読めなかった場合だけ、別の保存画像や元画像からの生成へ進みます。</p>
+<h3 id="_13">互換性とテキスト表紙</h3>
+<p>v1.5.0でも保存先・形式は<code>thumbnails-v2</code>を維持します。更新のために既存v2キャッシュを削除したり、全件再生成したりする必要はありません。完成したTXT・Markdownやテキスト入り書庫の<strong>表紙プレビューも保存対象</strong>です。本文は文書表示で読み、画像のページサムネイルとは区別します。</p>
+<p>取得済みの画像は共通の32 MiBのメモリキャッシュでも再利用します。容量内に残っていれば、
+フォルダや表示モードを往復しても保存PNGの読込・復号を省きます。
+メモリから解放された分や再起動後の画像は、保存PNGから読み込みます。
+これはサムネイル全件先読みの保持容量とは別のキャッシュです。</p>
+<p><code>thumbnails-v1</code>の読込・移行・自動削除は行いません。古いv1の領域を回収する場合は、その形式を使う旧版の「環境設定 → キャッシュ」で削除してください。現在のキャッシュ削除は通常v2のみが対象です。削除しても元画像・書庫・本棚・読書履歴は消えません。</p>
+<p>異常終了時の未完成一時ファイルは完成済みPNGとして読みません。残ったロックはQtによる所有プロセス等の判定で回収します。</p>
+<h3 id="_14">サムネイルが正しく表示されない場合（回避策）</h3>
+<ol>
+<li>表紙・ページサムネイル一覧を表示し、<code>F6</code>（「サムネイルを再取得」）で元ファイルから再生成してください。古い表紙、取り違え、表示されない画像などは、まずこの操作で確認します。</li>
+<li>改善しない場合は「環境設定 → キャッシュ」から現在のサムネイルキャッシュを削除し、対象のフォルダや書庫を開き直して再生成してください。</li>
+<li>それでも改善しなければ、元画像・ZIP等が読み込めること、ディスクの空き容量、ファイルアクセス権限を確認してください。元ファイルの破損はキャッシュ再生成では修復できません。</li>
+</ol>
+<p>キャッシュ削除で元画像・書庫・本棚・読書履歴は消えません。再生成には元ファイルの読み込み時間が必要です。</p>
+<h2 id="_15">配色と言語</h2>
+<p>環境設定の一般でシステム追従・ライト・ダークと、日本語・English・システム設定を選べます。
+UI言語は保存後の再起動で反映します。配色モードは本文や画像の設定色を置き換えません。</p>
+<p>詳細は<a href="../compatibility/">MangaMeeyaとの違い</a>を参照してください。</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js"></script>
+        <script src="../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

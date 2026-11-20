@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://asfdrwe.github.io/KomaMimic/en/user/views/">
+        <link rel="shortcut icon" href="../../../img/favicon.ico">
+        <title>Display and image processing - KomaMimic Guide</title>
+        <link href="../../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../../css/brands.min.css" rel="stylesheet">
+        <link href="../../../css/solid.min.css" rel="stylesheet">
+        <link href="../../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../../..">KomaMimic Guide</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">日本語</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../.." class="dropdown-item">はじめに</a>
+</li>
+                                    
+<li>
+    <a href="../../../user/install/" class="dropdown-item">インストール</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">利用ガイド</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../../user/basic/" class="dropdown-item">基本操作</a>
+</li>
+            
+<li>
+    <a href="../../../user/views/" class="dropdown-item">表示と画像加工</a>
+</li>
+            
+<li>
+    <a href="../../../user/documents/" class="dropdown-item">文書を読む</a>
+</li>
+            
+<li>
+    <a href="../../../user/library/" class="dropdown-item">本棚と履歴</a>
+</li>
+            
+<li>
+    <a href="../../../user/settings/" class="dropdown-item">設定とキャッシュ</a>
+</li>
+            
+<li>
+    <a href="../../../user/formats/" class="dropdown-item">対応形式</a>
+</li>
+            
+<li>
+    <a href="../../../user/migration/" class="dropdown-item">設定の取り込み</a>
+</li>
+            
+<li>
+    <a href="../../../user/compatibility/" class="dropdown-item">MangaMeeyaとの違い</a>
+</li>
+            
+<li>
+    <a href="../../../user/macos/" class="dropdown-item">macOSの違い</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">スクリプト開発</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../../scripts/" class="dropdown-item">導入と登録</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/api/" class="dropdown-item">API 1仕様</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/examples/" class="dropdown-item">最小例</a>
+</li>
+            
+<li>
+    <a href="../../../scripts/bundled/" class="dropdown-item">同梱スクリプト</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../../changelog/" class="dropdown-item">更新履歴</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">English</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../" class="dropdown-item">Introduction</a>
+</li>
+                                    
+<li>
+    <a href="../install/" class="dropdown-item">Installation</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">User guide</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../basic/" class="dropdown-item">Basic controls</a>
+</li>
+            
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Display and image processing</a>
+</li>
+            
+<li>
+    <a href="../documents/" class="dropdown-item">Reading documents</a>
+</li>
+            
+<li>
+    <a href="../library/" class="dropdown-item">Bookshelves and history</a>
+</li>
+            
+<li>
+    <a href="../settings/" class="dropdown-item">Settings and caches</a>
+</li>
+            
+<li>
+    <a href="../formats/" class="dropdown-item">Supported formats</a>
+</li>
+            
+<li>
+    <a href="../migration/" class="dropdown-item">Importing settings</a>
+</li>
+            
+<li>
+    <a href="../compatibility/" class="dropdown-item">Differences from MangaMeeya</a>
+</li>
+            
+<li>
+    <a href="../macos/" class="dropdown-item">macOS differences</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">Script development</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../scripts/" class="dropdown-item">Installation and registration</a>
+</li>
+            
+<li>
+    <a href="../../scripts/api/" class="dropdown-item">API 1 specification</a>
+</li>
+            
+<li>
+    <a href="../../scripts/examples/" class="dropdown-item">Minimal examples</a>
+</li>
+            
+<li>
+    <a href="../../scripts/bundled/" class="dropdown-item">Bundled scripts</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../changelog/" class="dropdown-item">Changelog</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../basic/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../documents/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/asfdrwe/KomaMimic/edit/master/docs/en/user/views.md" class="nav-link"><i class="fa-brands fa-github"></i> Edit on GitHub</a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#display-and-image-processing" class="nav-link">Display and image processing</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#spreads-and-zoom" class="nav-link">Spreads and zoom</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#filenames-and-thumbnails" class="nav-link">Filenames and thumbnails</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#folder-browser" class="nav-link">Folder browser</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#menus-and-the-reading-toolbar" class="nav-link">Menus and the reading toolbar</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#processing-and-saving" class="nav-link">Processing and saving</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="display-and-image-processing">Display and image processing</h1>
+<p><a href="../../../user/views/">日本語</a> | English</p>
+<p>Screenshots on this page show the Japanese UI.</p>
+<h2 id="spreads-and-zoom">Spreads and zoom</h2>
+<p>Choose single-page or spread display from the View menu. New settings enable
+right-to-left opening, spreads, and a separate cover page. <code>Space</code> toggles automatic
+spreads for images; this is separate from explicitly selecting single-page/spread
+mode. Toggle opening direction with backslash (the ¥ key on a JIS keyboard).</p>
+<p><code>X</code> fits to the window, <code>C</code> shows original size, and numeric keypad +/- zooms in/out.
+Scale mode selects the fitting rule and interpolation method.</p>
+<p><img alt="Spread display" src="../../../assets/screenshots/views-spread-ja.png" /></p>
+<h2 id="filenames-and-thumbnails">Filenames and thumbnails</h2>
+<p>Filenames below reading images are hidden by default. Enable them in Preferences → Display.
+When hidden, the filename band is available for fitting, panning and scan scrolling.</p>
+<p>Added page numbers are hidden on page thumbnails by default; digits in actual filenames remain.
+View → Thumbnail settings opens page-number and custom-layout preferences.
+Custom defaults are 64×64, 0 columns (automatic), zero horizontal/vertical spacing,
+one filename line, upper-left origin and no decorative frame. Set fixed columns,
+dimensions, spacing, 0/1/2 filename lines, upper-right origin and optional frames.</p>
+<p>Width, height and spacing use Qt <strong>logical pixels</strong>, not DPI (dots per inch).
+For example, width 64 represents 64 logical pixels; a 200% high-DPI display may use roughly 128 physical pixels to render it.</p>
+<p>Zero lines also removes the caption area. Images retain their aspect ratio;
+tooltips show full filenames. Custom layout settings are shared by covers and pages.
+Fit-to-screen and eight-column modes remain available.</p>
+<p>Preferences → Thumbnails also offers <a href="../settings/#preload-all-thumbnails">full-list preloading and memory retention</a>.
+Preloading is off by default, with visible items taking priority.</p>
+<h2 id="folder-browser">Folder browser</h2>
+<p>The default browser has two vertically arranged panes. Double-click a folder in
+the upper list, or press Enter, to use it as the lower tree's root without changing
+the right-hand view. Double-click a folder in the lower tree, or press Enter,
+to open its covers on the right. Selection alone does not navigate. Browsing
+folders on the right never moves the left tree's root or selection.</p>
+<p>The two-pane top level is the virtual Desktop on Windows and virtual Places on
+macOS/Linux. Places provides shortcuts to Home, Downloads and other standard
+folders, the file system (<code>/</code>) and available volumes. Windows virtual items come
+from the OS Shell and vary with the OS and its configuration.</p>
+<p>Disable the two-pane browser in Preferences → Display to use a single tree:
+PC containing drives on Windows, or <code>/</code> on macOS/Linux. The chosen mode is saved.
+F3 toggles the entire left browser. Drag the divider to resize the panes; its
+position is saved too.</p>
+<h2 id="menus-and-the-reading-toolbar">Menus and the reading toolbar</h2>
+<p>The bottom reading toolbar is hidden by default. Enable it with View → Show toolbar
+or Preferences → Display. In full screen, reveal the menu from the top edge and an
+enabled reading toolbar from the bottom edge. Preferences offers fixed, automatic,
+and hidden modes. Edit the left/right action groups and central page bar under
+Control settings → Toolbar.</p>
+<h2 id="processing-and-saving">Processing and saving</h2>
+<p>Use Tools → Image processing for rotation, cropping, grayscale, color adjustments,
+and other operations. Processing is initially off; enable it with <code>F</code> or by
+selecting a processing profile. Script filters run after native processing.</p>
+<p>Normal display processing and logical page edits do not directly change original
+images or archives. Use saving/export to retain the result. Renaming real files
+and moving them to the trash are separate actions. Export books created from the
+clipboard before quitting if you need to keep them. PDF output consists of raster
+images and does not retain text-search information or links from the original PDF.
+Image processing, page editing, image export, and printing do not apply to the
+document view.</p>
+<p>See <a href="../compatibility/">Differences from MangaMeeya</a> for compatibility and sorting persistence.</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../../js/base.js"></script>
+        <script src="../../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>

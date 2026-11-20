@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        <link rel="canonical" href="https://asfdrwe.github.io/KomaMimic/user/documents/">
+        <link rel="shortcut icon" href="../../img/favicon.ico">
+        <title>文書を読む - KomaMimic Guide</title>
+        <link href="../../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../../css/brands.min.css" rel="stylesheet">
+        <link href="../../css/solid.min.css" rel="stylesheet">
+        <link href="../../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="../..">KomaMimic Guide</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">日本語</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../.." class="dropdown-item">はじめに</a>
+</li>
+                                    
+<li>
+    <a href="../install/" class="dropdown-item">インストール</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">利用ガイド</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../basic/" class="dropdown-item">基本操作</a>
+</li>
+            
+<li>
+    <a href="../views/" class="dropdown-item">表示と画像加工</a>
+</li>
+            
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">文書を読む</a>
+</li>
+            
+<li>
+    <a href="../library/" class="dropdown-item">本棚と履歴</a>
+</li>
+            
+<li>
+    <a href="../settings/" class="dropdown-item">設定とキャッシュ</a>
+</li>
+            
+<li>
+    <a href="../formats/" class="dropdown-item">対応形式</a>
+</li>
+            
+<li>
+    <a href="../migration/" class="dropdown-item">設定の取り込み</a>
+</li>
+            
+<li>
+    <a href="../compatibility/" class="dropdown-item">MangaMeeyaとの違い</a>
+</li>
+            
+<li>
+    <a href="../macos/" class="dropdown-item">macOSの違い</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">スクリプト開発</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../scripts/" class="dropdown-item">導入と登録</a>
+</li>
+            
+<li>
+    <a href="../../scripts/api/" class="dropdown-item">API 1仕様</a>
+</li>
+            
+<li>
+    <a href="../../scripts/examples/" class="dropdown-item">最小例</a>
+</li>
+            
+<li>
+    <a href="../../scripts/bundled/" class="dropdown-item">同梱スクリプト</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../changelog/" class="dropdown-item">更新履歴</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">English</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../../en/" class="dropdown-item">Introduction</a>
+</li>
+                                    
+<li>
+    <a href="../../en/user/install/" class="dropdown-item">Installation</a>
+</li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">User guide</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../en/user/basic/" class="dropdown-item">Basic controls</a>
+</li>
+            
+<li>
+    <a href="../../en/user/views/" class="dropdown-item">Display and image processing</a>
+</li>
+            
+<li>
+    <a href="../../en/user/documents/" class="dropdown-item">Reading documents</a>
+</li>
+            
+<li>
+    <a href="../../en/user/library/" class="dropdown-item">Bookshelves and history</a>
+</li>
+            
+<li>
+    <a href="../../en/user/settings/" class="dropdown-item">Settings and caches</a>
+</li>
+            
+<li>
+    <a href="../../en/user/formats/" class="dropdown-item">Supported formats</a>
+</li>
+            
+<li>
+    <a href="../../en/user/migration/" class="dropdown-item">Importing settings</a>
+</li>
+            
+<li>
+    <a href="../../en/user/compatibility/" class="dropdown-item">Differences from MangaMeeya</a>
+</li>
+            
+<li>
+    <a href="../../en/user/macos/" class="dropdown-item">macOS differences</a>
+</li>
+    </ul>
+  </li>
+                                    
+  <li class="dropdown-submenu">
+    <a href="#" class="dropdown-item">Script development</a>
+    <ul class="dropdown-menu">
+            
+<li>
+    <a href="../../en/scripts/" class="dropdown-item">Installation and registration</a>
+</li>
+            
+<li>
+    <a href="../../en/scripts/api/" class="dropdown-item">API 1 specification</a>
+</li>
+            
+<li>
+    <a href="../../en/scripts/examples/" class="dropdown-item">Minimal examples</a>
+</li>
+            
+<li>
+    <a href="../../en/scripts/bundled/" class="dropdown-item">Bundled scripts</a>
+</li>
+    </ul>
+  </li>
+                                    
+<li>
+    <a href="../../en/changelog/" class="dropdown-item">Changelog</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href="../views/" class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../library/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a href="https://github.com/asfdrwe/KomaMimic/edit/master/docs/user/documents.md" class="nav-link"><i class="fa-brands fa-github"></i> Edit on GitHub</a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="1"><a href="#txtmarkdownepub" class="nav-link">TXT・Markdown・EPUBを読む</a>
+              <ul class="nav flex-column">
+            <li class="nav-item" data-bs-level="2"><a href="#_1" class="nav-link">表示設定</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#_2" class="nav-link">キーの上書き</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#_3" class="nav-link">制限</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<h1 id="txtmarkdownepub">TXT・Markdown・EPUBを読む</h1>
+<p>日本語 | <a href="../../en/user/documents/">English</a></p>
+<p>これらの形式は共通の文書ビューで読みます。TXTの青空文庫ルビにも対応します。
+書庫にTXT/Markdownが入っている場合は、書庫内の一覧から文書を選んで開きます。
+画像だけの書庫は直接画像の読書画面になります。</p>
+<p><img alt="document-vertical-ja.png" src="../../assets/screenshots/document-vertical-ja.png" /></p>
+<h2 id="_1">表示設定</h2>
+<p>「表示 → 文書 → 文書の表示設定…」でフォント、文字サイズ、行間、配色、縦書き／横書き、
+ページ配置を選びます。設定の保存先は本別・形式別・全体です。本別を優先し、指定がない項目は
+形式別、全体へ順に引き継ぎます。フォント名の空欄は文書・OSの既定に従います。</p>
+<p><img alt="document-settings-ja.png" src="../../assets/screenshots/document-settings-ja.png" /></p>
+<p>単ページ／見開きは設定画面のページ配置、または <code>Space</code> で切り替えます。
+Spaceによる変更はその本に記憶し、画像側の見開き既定値は変えません。
+横長の画像だけのページは、既定で分割せず全幅に収めます。
+EPUBでは「EPUBの表紙を単ページにする」が既定で有効です。本文の読書順にある表紙を
+中央に1ページで表示し、本文の見開き設定を保ちます。表紙が本文にない場合は追加しません。
+TXT・青空文庫・Markdownの先頭を表紙とはみなしません。</p>
+<p>可変レイアウトの本文で縦書き・横書きを指定すると、見開きの読む順序もそれぞれ
+右から左・左から右へ切り替わります。「文書に従う」ではEPUBの明示された順序を使い、
+指定がない場合は本文の組方向から決めます。固定レイアウトの組方向は変更しません。</p>
+<p>EPUBは現在の章から表示し、未読の章は移動時に準備します。総ページ数が未確定の間は
+ページ総数を「…」で表示します。開くと直接文書ビューへ入り、表紙も同じビューで表示します。
+読込中も前後の本へ移動でき、直前の文書の表示状態を1冊だけ再利用します。
+元ファイルや文書設定が変わった場合は読み直します。</p>
+<p>読書位置は本文の位置として保存し、文字サイズやウィンドウ寸法を変えた後も近い位置を復元します。
+目次・検索・文字サイズ・組方向は「表示 → 文書」から操作できます。</p>
+<h2 id="_2">キーの上書き</h2>
+<p>ショートカット設定で「文書用のキー設定を表示」を有効にすると、共通キーを使う、
+別キーを使う、割当なしを選べます。画像側のキーは上書きしません。
+文字サイズ変更と画像の拡大縮小は別の操作です。</p>
+<h2 id="_3">制限</h2>
+<p>EPUB全体の展開後合計サイズによる読込制限はありません。内部の画像・本文などは
+1ファイルあたり展開後32 MiBまで、ファイル数は10,000件までです。</p>
+<p>固定レイアウト・画像内の文字ではフォントや文字サイズを変更できません。
+DRMで暗号化された本文・画像は読めません。書籍のJavaScriptは実行せず、
+外部サイトや文書の範囲外にある画像を自動取得しません。
+文書のページサムネイル、画像加工、ページ編集、ラスタ出力、印刷は対象外です。</p></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "../..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../../js/base.js"></script>
+        <script src="../../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>
