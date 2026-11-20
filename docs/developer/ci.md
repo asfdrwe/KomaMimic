@@ -5,17 +5,29 @@
 `main-v1`はv1.xの保守ブランチです。`.github/workflows/pages.yml`は、
 `main-v1`へのpushと同ブランチ宛てのPRで、文書・MkDocs設定・依存関係・
 文書workflow・公開ソース選択ツール・workflow回帰試験の変更を検査します。
-手動実行でも`main-v1`を選択します。権限はcontents readのみで、Pages artifactの
-アップロード・deploy job・公開用権限はありません。
+手動実行でも`main-v1`を選択します。PRは検査・生成のみ、main-v1へのpushと
+手動実行は検査成功後に公開へ進みます。buildはcontents read、deployだけに
+contents write・pages write・id-token writeを付与します。
 
 `docs/site/`の日本語ガイドと`en/`の英訳を一度のMkDocs strict buildで検査します。
 `docs/developer/`はサイトに含めません。言語切替と共有画像は従来どおりです。
 
-公開サイト全体はv2.xの`main`から生成・公開します。v1は
+文書原稿は各開発ブランチに置き、生成済みHTMLを共通の`gh-pages`ブランチへ保存します。v1は
 https://asfdrwe.github.io/KomaMimic/ と https://asfdrwe.github.io/KomaMimic/en/ 、
-v2は`/v2/`と`/v2/en/`です。main側の文書生成器はv1の公開済みタグとcommitを
-固定して取得するため、main-v1の変更だけでは公開文書は更新されません。
-v1の新しい文書を公開するときは、main側の参照タグ・commitを更新してPagesを実行します。
+v2は`/v2/`と`/v2/en/`です。main-v1は自身の原稿からv1を生成し、gh-pagesのルートと
+互換用`/v1/`コピーを更新します。`v2/`は保持し、担当領域の古いページだけを削除します。
+v1.7.3などの固定タグや別ブランチの原稿は取得しません。main側はv2だけを生成・更新する構成へ揃えます。
+
+gh-pagesが未作成なら初回に自動作成します。取得エラーは未作成とみなさず失敗します。
+両ブランチのdeploy jobは共通concurrency group `komamimic-pages-publish`を使い、
+gh-pages取得・更新・通常push・Pages公開を直列化します。実行中の公開は取り消しません。
+変更がなければ生成物のcommitを増やしません。force pushや別workflowの起動はしません。
+
+PagesのSourceはGitHub Actionsを維持し、更新後のgh-pages全体を同じdeploy jobで公開します。
+`github-pages`環境の許可ブランチにはmain-v1とmainを含めます。初回にv2の日英トップが
+まだgh-pagesにない場合はv1だけを保存し、公開を保留して現行サイトを保持します。
+main側の移行後、両版が揃えば公開します。両ブランチに単純な`mkdocs gh-deploy`を
+設定して、他方の生成物を上書きする構成にはしません。
 
 Actionsはcommit SHAで固定します。ローカル検査は公開リポジトリのルートから実行します。
 
@@ -62,8 +74,8 @@ runs Build. Manual runs are available regardless of changed paths. Update Build'
 | Change | Application build/tests | MkDocs/Pages |
 |---|---|---|
 | Only `docs/developer/**` | Skipped | Skipped |
-| Only `docs/site/**`, including images | Skipped | Runs; checks only |
-| Only `mkdocs.yml`, `requirements-docs.txt`, or `tools/public_source.json` | Skipped | Runs; checks only |
+| Only `docs/site/**`, including images | Skipped | Runs; main-v1 push publishes, PR checks only |
+| Only `mkdocs.yml`, `requirements-docs.txt`, or `tools/public_source.json` | Skipped | Runs; main-v1 push publishes, PR checks only |
 | Only `README.md` | Skipped | Skipped |
 | Build workflow itself | Runs | Skipped |
 | Only Rocky AppImage workflow | Skipped | Skipped; AppImage is manual |
@@ -72,7 +84,7 @@ runs Build. Manual runs are available regardless of changed paths. Update Build'
 
 The site workflow also watches its own definition, documentation dependencies,
 public-selection tools, and `tests/test_workflows.py`. Both workflows execute the
-maintenance-branch and documentation-publication regression checks.
+maintenance-branch, publication-gate and v2-preservation regression checks.
 Application Build runs for selection-tool code changes;
 documentation configuration alone follows the table above.
 

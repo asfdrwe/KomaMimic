@@ -25,10 +25,10 @@ GitHub Releaseは公開しません。成果物・依存ライセンス表示・
 既存の公開タグを再試行のために移動しません。
 
 タグpushでは、そのタグのcommitにあるRelease workflowが動きます。v1.xの公開のために
-v2のmainへマージする必要はありません。文書サイトはmainから一括公開するため、
-main-v1の文書workflowは検査のみです。新しいv1文書も公開するときは、main側の
-`tools/build_docs.py`の`V1_TAG`と`V1_COMMIT`をその公開タグ・commitへ更新し、
-mainからPagesを実行します。v1のURLはルートと`/en/`を維持し、v2は`/v2/`以下です。
+v2のmainへマージする必要はありません。文書はmain-v1へのpushまたは手動実行で検査・生成し、
+共通のgh-pagesブランチのv1領域へ反映してPagesへ公開します。v1のURLはルートと`/en/`を維持し、
+互換用`/v1/`コピーも更新します。`/v2/`以下は保持します。固定タグやmain側のv1参照の更新は不要です。
+初回の両版移行と公開条件は[CIの文書公開設定](ci.md#documentation-and-github-pages)を参照してください。
 
 ## Version and tag checks
 
