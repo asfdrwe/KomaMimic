@@ -13,12 +13,12 @@ MangaMeeyaを参考にした独立実装で、v2では画像・文書の閲覧�
 
 ## 使い方
 
-- [動画を再生する](user/video.md)：ローカル動画の操作・設定。
 
 - [インストール](user/install.md)：KomaMimic のインストール
 - [基本操作](user/basic.md)：開く、移動、一覧、全画面、キーとマウス。
 - [表示と画像加工](user/views.md)：見開き、倍率、下部バー、加工、保存。
 - [文書を読む](user/documents.md)：TXT・Markdown・EPUB、表示設定と読書位置。
+- [動画を再生する](user/video.md)：ローカル動画の操作・設定。
 - [本棚・履歴・しおり](user/library.md)：本の登録、再開、並び順と再生。
 - [設定・読書データ・キャッシュ](user/settings.md)：保存場所、バックアップ、容量。
 - [対応形式と制限](user/formats.md)

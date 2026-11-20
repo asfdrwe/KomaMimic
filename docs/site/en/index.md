@@ -16,12 +16,12 @@ its image and document viewing features with local video playback.
 
 ## Using KomaMimic
 
-- [Playing videos](user/video.md): local video controls and preferences.
 
 - [Installation](user/install.md): install KomaMimic.
 - [Basic controls](user/basic.md): opening, navigation, lists, full screen, keyboard, and mouse.
 - [Display and image processing](user/views.md): spreads, zoom, the bottom toolbar, processing, and saving.
 - [Reading documents](user/documents.md): TXT, Markdown, EPUB, display settings, and reading positions.
+- [Playing videos](user/video.md): local video controls and preferences.
 - [Bookshelves, history, and bookmarks](user/library.md): registering books, resuming, sorting, and playback.
 - [Settings, reading data, and caches](user/settings.md): storage locations, backups, and capacity.
 - [Supported formats and limitations](user/formats.md)
