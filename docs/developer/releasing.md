@@ -9,18 +9,20 @@ complete Release. It never creates or moves Git tags.
 
 現在の`2.0.0`は暫定の開発版番号です。CMake・両vcpkg manifest・READMEを揃えています。
 番号変更だけではtag・Release・サイトを公開しません。v1タグは変更しません。
-公開済みv1文書は固定したv1.7.3 commitから生成し、従来URLと`/v1/`に保持します。
-v2文書は`/v2/`へ生成します。PagesとReleaseの文書検査は同じ生成器を使います。
+公開文書はmain-v1がv1、mainがv2を各branchの原稿から生成します。
+共通のgh-pagesにv1をルートと`/v1/`、v2を`/v2/`へ保存し、他版を保持してPagesへ公開します。
+Pages workflowは固定v1原稿を取得しません。Release内に残る固定原稿の文書検査は公開元ではありません。
+公開条件と初回移行は[CIの文書公開設定](ci.md#documentation-and-github-pages)を参照してください。
 READMEの主リンクは`/v2/`と`/v2/en/`へ向け、v1の従来URLも併記します。
 v2のReleaseノートのインストール案内も`/v2/`以下を使います。
 v2を正式公開するまでは、READMEとガイドの開発中表記を維持します。
-今後`main-v1`をv1.x、`main`をv2.xの保守先に切り替えても、文書URLは変更しません。
+`main-v1`はv1.x、`main`はv2.xの保守先とし、文書URLは維持します。
 
 通常の手動Release実行は検査と成果物組立のみです。公開前に管理者が3 OSの検査・
 依存ライセンス表示・対応ソース・checksumを確認し、最終commitと一致する新しいtagを
 明示的に作成してpushします。既存tagや既存Releaseを再利用・移動しません。tagのcommitが`origin/main`へ反映済みであることもworkflowで検査します。
 キャッシュ形式`thumbnails-v2`は維持し、版番号変更だけで消去・再生成しません。
-dev2の手動検査はRun workflowでブランチを`dev2`に指定する。3 OS Buildと
+v2の手動検査はRun workflowでブランチを`main`に指定する。3 OS Buildと
 Rocky/Ubuntu AppImageの検査を新しいrunで実行し、`komamimic-release-bundle`を保存する。
 既存Release・Gitタグ・Pagesは更新しない。
 

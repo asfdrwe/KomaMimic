@@ -2,7 +2,7 @@ name: Documentation and Pages
 
 on:
   push:
-    branches: [main, dev2]
+    branches: [main]
     paths:
       - 'docs/site/**'
       - 'mkdocs.yml'
@@ -16,6 +16,7 @@ on:
       - 'tests/test_workflows.py'
       - 'CMakeLists.txt'
   pull_request:
+    branches: [main]
     paths:
       - 'docs/site/**'
       - 'mkdocs.yml'
@@ -59,13 +60,30 @@ jobs:
         run: |
           python -m unittest discover -s tests -p test_docs.py
           python -m unittest discover -s tests -p test_workflows.py
-      - name: Build preserved v1 and separate v2 documentation
-        run: python tools/build_docs.py --output "$RUNNER_TEMP/komamimic-site"
-      - name: Upload Pages artifact
+      - name: Build v2 documentation
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import sys
+          import yaml
+          sys.path.insert(0, 'tools')
+          from build_docs import build_guide
+
+          root = Path.cwd()
+          temporary = Path(os.environ['RUNNER_TEMP'])
+          base_url = yaml.safe_load((root / 'mkdocs.yml').read_text())['site_url'].rstrip('/') + '/'
+          build_guide(root, temporary / 'komamimic-site', temporary / 'komamimic-v2.yml', 2, base_url)
+          PY
+      - name: Save generated v2 documentation
         if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
+          name: komamimic-v2-site
           path: ${{ runner.temp }}/komamimic-site
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
 
   deploy:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
@@ -73,12 +91,64 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
+      contents: write
       pages: write
       id-token: write
+    # The main-v1 publisher uses the same group for the entire update/deploy.
+    concurrency:
+      group: komamimic-pages-publish
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Deploy GitHub Pages
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Download generated v2 documentation
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: komamimic-v2-site
+          path: ${{ runner.temp }}/komamimic-v2
+      - name: Update v2 files in gh-pages
+        id: site
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pages_dir="$RUNNER_TEMP/komamimic-pages"
+          if git ls-remote --exit-code --heads origin gh-pages > "$RUNNER_TEMP/pages-ref"; then
+            git fetch --no-tags origin refs/heads/gh-pages:refs/remotes/origin/gh-pages
+            git worktree add --detach "$pages_dir" refs/remotes/origin/gh-pages
+          else
+            status=$?
+            if [ "$status" -ne 2 ]; then
+              exit "$status"
+            fi
+            git worktree add --detach "$pages_dir" HEAD
+            git -C "$pages_dir" switch --orphan gh-pages
+          fi
+          mkdir -p "$pages_dir/v2"
+          rsync -a --delete "$RUNNER_TEMP/komamimic-v2/" "$pages_dir/v2/"
+          touch "$pages_dir/.nojekyll"
+          git -C "$pages_dir" add --all
+          if ! git -C "$pages_dir" diff --cached --quiet; then
+            git -C "$pages_dir" -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m "Update v2 documentation from $SOURCE_COMMIT"
+            git push origin "$(git -C "$pages_dir" rev-parse HEAD):refs/heads/gh-pages"
+          fi
+          if [ -f "$pages_dir/index.html" ] && [ -f "$pages_dir/en/index.html" ]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::v2 saved to gh-pages. Publish after the main-v1 workflow has added v1; the current site is retained.'
+          fi
+      - name: Upload complete Pages artifact
+        if: steps.site.outputs.ready == 'true'
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: ${{ runner.temp }}/komamimic-pages
+      - name: Deploy complete site
+        if: steps.site.outputs.ready == 'true'
         id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
