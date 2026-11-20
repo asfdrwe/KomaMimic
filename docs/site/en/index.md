@@ -12,10 +12,6 @@ It also supports PDF, TXT, Markdown, EPUB, and JavaScript image readers and filt
 KomaMimic is an independent implementation inspired by MangaMeeya; v2 extends
 its image and document viewing features with local video playback.
 
-v1 continues as the maintained image and document viewer series without video
-playback. The [v1 English guide](https://asfdrwe.github.io/KomaMimic/en/)
-remains at its existing URL.
-
 ![KomaMimic with the Japanese UI](../assets/screenshots/readme-ja.png)
 
 ## Using KomaMimic

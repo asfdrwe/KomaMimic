@@ -9,9 +9,6 @@ KomaMimicはWindows・macOS・Linuxで使える漫画・画像ビューアです
 PDF・TXT・Markdown・EPUBと、JavaScriptによる画像reader・filterにも対応します。
 MangaMeeyaを参考にした独立実装で、v2では画像・文書の閲覧に動画再生を加えています。
 
-動画再生を含まないv1は、画像・文書ビューアの系列としてメンテナンスします。
-[v1の日本語ガイド](https://asfdrwe.github.io/KomaMimic/)は従来のURLに維持します。
-
 ![readme-ja.png](assets/screenshots/readme-ja.png)
 
 ## 使い方
