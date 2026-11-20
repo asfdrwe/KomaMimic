@@ -21,17 +21,6 @@ Use Visual Studio 2022/MSVC x64 and the official Qt SDK. Normally, use the
 `tools/windows-fast.json` configures SDK acquisition; `tools/setup_windows.py`
 downloads and verifies it.
 
-CIの配布ビルドではlibarchiveのみ3.8.11へ更新する。`tools/setup_windows_libarchive.py`
-で固定vcpkgのportを作業領域へ複製し、SHA-256検証済みの公式sourceと
-[3.8.11用の依存パッチ](../../cmake/ports/libarchive/fix-deps.patch)を使う。
-パッチの[MITライセンス原文](../../cmake/ports/libarchive/LICENSE-vcpkg.txt)を保持する。
-取得・hash検証したtar.gzから3つのCMakeファイルだけを取り出し、同じpatchを順に
-適用してからoverlay準備完了とする。Web上の整形済みソース表示はこの検証に使わない。
-他の依存のbaselineは変更しない。生成したoverlayを`VCPKG_OVERLAY_PORTS`で指定し、
-`KOMAMIMIC_MIN_LIBARCHIVE_VERSION=3.8.11`でヘッダー選択を確認する。
-Windowsのバイナリキャッシュはlibarchiveのsource指定・生成器・パッチの変更を識別し、
-他のABIが一致する既存パッケージは引き続き再利用する。
-
 Use `VCPKG_BINARY_SOURCES` to select a dedicated binary cache. Before reusing a Qt
 SDK, vcpkg checkout, or build tree, check the baseline, triplet, compiler, and SDK.
 Release builds generate PDBs for the application's own code. Keep each PDB with the
