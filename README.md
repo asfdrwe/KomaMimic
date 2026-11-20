@@ -20,44 +20,6 @@ affiliated with the original project and does not include its code, artwork, or 
   MangaMeeya, without video playback. Its published documentation remains at
   the existing site URLs.
 
-## ZIP covers and cache reuse in v1.7.0
-
-Existing memory and disk thumbnails take priority. Visible thumbnail generation
-uses one job by default, with an optional concurrency setting of 1–4. Generated
-images are saved directly to the regular cache.
-Only directory-listing timestamps newer than the cache trigger automatic regeneration;
-source images and ZIP contents are not read just to check for changes. File symlinks
-reuse their saved thumbnails across view changes.
-
-ZIP/CBZ covers are selected from entry names before retrieving the chosen image.
-Unrelated TIFF page-count scans, repeated filename processing, and repeated file-size
-queries are reduced. Existing `thumbnails-v2` images remain reusable.
-
-## Reading and thumbnails
-
-Reading opens the current page or document section first and cancels obsolete
-work on navigation. EPUB covers, writing direction, spread order, and illustrated
-Aozora text have improved handling. Document rendering is isolated from the
-thumbnail galleries. Building requires Qt 6.11 or later.
-
-Optional full-list thumbnail preloading is off by default. It loads visible
-images first, then the remaining images, retaining them within a configurable
-offscreen memory limit. Decoded thumbnails are also reused when returning to
-folders and views.
-
-Cover and page thumbnails use memory first, then saved PNGs. Only a visible
-cache miss reads the source and generates a thumbnail. Folder change notifications
-refresh listing metadata; only a newer image or ZIP timestamp triggers regeneration.
-Use F6 for manual regeneration when needed. Leaving a view cancels unfinished work.
-Reading prioritizes the current page and configured prefetch.
-
-Folder-cover search defaults to the target folder's direct files. Existing
-`thumbnails-v2` images remain usable without clearing or migrating the cache.
-Unchanged images are retained; capacity overflow removes the oldest saved images
-first, and reading them never changes their save time. See the
-[cache guide](docs/site/en/user/settings.md#reuse-and-regeneration) for priorities,
-search depth, refresh behavior, and retention.
-
 ## Screenshots
 
 The first screenshot shows the English UI; the second shows the Japanese UI.
