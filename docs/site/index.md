@@ -1,6 +1,12 @@
-# KomaMimicガイド
+# KomaMimic v1ガイド
 
 日本語 | [English](en/index.md)
+
+このガイドはv1向けです。v1は画像・文書の閲覧に絞ったバージョンで、動画再生は含みません。
+
+**最新系列は、動画再生にも対応したv2です。**
+[v2の日本語ガイド](https://asfdrwe.github.io/KomaMimic/v2/)をご覧ください。
+v2.0.0は現在、正式公開を準備しています。
 
 KomaMimicはWindows・macOS・Linuxで使える漫画・画像ビューアです。
 フォルダや書庫を表紙一覧から選び、単ページ・見開き・全画面で読めます。

@@ -1,6 +1,12 @@
-# KomaMimic Guide
+# KomaMimic v1 Guide
 
 [日本語](../index.md) | English
+
+This guide covers v1, the version focused on image and document viewing, without video playback.
+
+**v2 is the latest series and adds video playback.**
+See the [v2 English guide](https://asfdrwe.github.io/KomaMimic/v2/en/).
+v2.0.0 is currently being prepared for release.
 
 Screenshots on this page show the Japanese UI.
 
